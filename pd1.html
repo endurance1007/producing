@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 각색 워크스테이션 v7</title>
+    <title>지혜의 용 | 각색 워크스테이션 v10</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 4px; }
@@ -16,11 +16,9 @@
         .memo-input { background: transparent; border-bottom: 1px solid #333; font-size: 11px; padding: 2px 0; color: #888; width: 120px; outline: none; transition: all 0.2s; }
         .memo-input:focus { border-bottom-color: #3b82f6; color: #fff; }
         .overlay-active { overflow: hidden; }
-        
-        /* 선택된 카드 스타일 */
         .card-selected { border-color: #3b82f6 !important; background-color: #111 !important; }
-        /* 드래그 중인 카드 스타일 */
         .dragging { opacity: 0.5; border: 2px dashed #555; }
+        .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 4px; }
     </style>
 </head>
 <body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
@@ -28,7 +26,7 @@
     <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0">
         <div class="flex items-center gap-3">
             <span class="text-2xl">🐲</span>
-            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v7.0 Pro</span></h1>
+            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v10.0 Ref-System</span></h1>
         </div>
         <div class="flex gap-4 items-center">
             <div class="text-[10px] text-gray-600 flex gap-2">
@@ -36,7 +34,7 @@
                 <span>Redo: Ctrl+Y</span>
             </div>
             <div class="flex gap-2">
-                <button onclick="saveToLocal()" class="px-4 py-1.5 rounded-full border border-gray-700 text-[11px] font-bold hover:bg-gray-800 transition">임시 저장</button>
+                <button onclick="saveToLocal(true)" class="px-4 py-1.5 rounded-full border border-gray-700 text-[11px] font-bold hover:bg-gray-800 transition">저장 (Save)</button>
                 <button onclick="exportToNotion()" class="px-4 py-1.5 rounded-full bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-500 transition">노션 내보내기</button>
             </div>
         </div>
@@ -45,17 +43,33 @@
     <main class="flex flex-1 overflow-hidden">
         
         <section class="w-1/4 flex flex-col border-r border-white/5 bg-[#080808]">
-            <div class="p-3 bg-white/5 text-[9px] uppercase tracking-widest text-gray-500 font-bold">Source Staging Area</div>
-            <textarea id="sourceInput" 
-                      class="flex-1 bg-transparent p-6 outline-none resize-none leading-relaxed text-gray-400 focus:text-gray-200 text-sm border-none placeholder-gray-700"
-                      placeholder="여기에 추가하거나 수정할 텍스트를 넣으세요..."></textarea>
             
-            <div class="p-4 grid grid-cols-1 gap-2 border-t border-white/5">
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="processSource('append')" class="py-2 bg-gray-800 hover:bg-blue-900 rounded text-[11px] font-bold transition text-blue-100">맨 뒤에 추가</button>
-                    <button onclick="processSource('insert')" class="py-2 bg-gray-800 hover:bg-yellow-900 rounded text-[11px] font-bold transition text-yellow-100">선택 컷 뒤 삽입</button>
+            <div class="h-1/2 flex flex-col border-b border-white/10">
+                <div class="p-2 bg-white/5 text-[9px] uppercase tracking-widest text-gray-500 font-bold flex justify-between">
+                    <span>Original Source (Read Only)</span>
+                    <span class="text-xs">🔒</span>
                 </div>
-                <button onclick="processSource('overwrite')" class="py-2 bg-red-900/20 hover:bg-red-900 text-red-500 hover:text-white rounded text-[11px] font-bold transition">⚠️ 전체 초기화</button>
+                <textarea id="originalView" 
+                          class="flex-1 bg-[#0a0a0a] p-4 outline-none resize-none leading-relaxed text-gray-500 text-xs border-none select-text"
+                          readonly
+                          placeholder="[전체 초기화] 시 원본 텍스트가 이곳에 보관됩니다."></textarea>
+            </div>
+
+            <div class="h-1/2 flex flex-col">
+                <div class="p-2 bg-blue-900/10 text-[9px] uppercase tracking-widest text-blue-400 font-bold">
+                    Active Input (Add & Edit)
+                </div>
+                <textarea id="sourceInput" 
+                          class="flex-1 bg-transparent p-4 outline-none resize-none leading-relaxed text-gray-300 focus:text-white text-sm border-none placeholder-gray-700"
+                          placeholder="추가하거나 끼워넣을 텍스트를 입력하세요..."></textarea>
+                
+                <div class="p-3 grid grid-cols-1 gap-2 border-t border-white/5 bg-[#0a0a0a]">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="processSource('append')" class="py-2 bg-gray-800 hover:bg-blue-900 rounded text-[11px] font-bold transition text-blue-100">맨 뒤에 추가</button>
+                        <button onclick="processSource('insert')" class="py-2 bg-gray-800 hover:bg-yellow-900 rounded text-[11px] font-bold transition text-yellow-100">선택 컷 뒤 삽입</button>
+                    </div>
+                    <button onclick="processSource('overwrite')" class="py-2 bg-red-900/20 hover:bg-red-900 text-red-500 hover:text-white rounded text-[11px] font-bold transition">⚠️ 전체 초기화 & 원본 등록</button>
+                </div>
             </div>
         </section>
 
@@ -68,7 +82,6 @@
             <div id="panelContainer" class="flex-1 overflow-y-auto p-10 space-y-6 max-w-4xl mx-auto w-full">
                 </div>
         </section>
-
     </main>
 
     <div id="imgOverlay" class="fixed inset-0 z-50 bg-black/95 hidden items-center justify-center p-4 cursor-zoom-out" onclick="closeImgFS()">
@@ -76,39 +89,66 @@
     </div>
 
     <script>
+        const originalView = document.getElementById('originalView');
         const sourceInput = document.getElementById('sourceInput');
         const panelContainer = document.getElementById('panelContainer');
         const panelCountDisplay = document.getElementById('panelCount');
         const selectionMsg = document.getElementById('selectionMsg');
         
+        const MAX_IMAGES = 10;
         let activeCard = null;
-
-        // --- History System (Undo/Redo) ---
         const historyStack = [];
         let historyIndex = -1;
 
-        function saveState() {
-            // 현재 인덱스 뒤에 있는 기록들은 날림 (새로운 분기 시작)
-            if (historyIndex < historyStack.length - 1) {
-                historyStack.splice(historyIndex + 1);
-            }
-            // 현재 DOM 상태 저장 (이미지, 텍스트, 체크박스 상태 등 모든 HTML 포함)
-            // 주의: input value는 innerHTML에 포함되지 않으므로 별도 처리가 필요하지만, 
-            // 간편함을 위해 innerHTML 저장 후 복원 시 value 재매핑 방식을 사용하거나, 
-            // Vibe Coding 특성상 innerHTML 스냅샷 방식을 우선 사용.
-            // 메모 input 값을 attribute로 구워주는 전처리 필요.
-            prepStateForSave();
-            historyStack.push(panelContainer.innerHTML);
-            historyIndex++;
-        }
+        // --- 1. 초기 로드 및 저장 ---
+        window.onload = () => {
+            const savedData = localStorage.getItem('dragonAdapter_v10_board');
+            const savedOriginal = localStorage.getItem('dragonAdapter_v10_original');
+            
+            if (savedOriginal) originalView.value = savedOriginal;
 
-        function prepStateForSave() {
-            // input의 현재 값을 value 속성에 명시적으로 박아넣어야 innerHTML에 저장됨
+            if (savedData) {
+                panelContainer.innerHTML = savedData;
+                reattachEvents();
+                updateStats();
+                // input 값 복원
+                const inputs = panelContainer.querySelectorAll('input.memo-input');
+                inputs.forEach(input => input.value = input.getAttribute('value'));
+                const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
+                checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
+                
+                saveState();
+                console.log("자동 저장된 데이터를 불러왔습니다.");
+            }
+        };
+
+        function saveToLocal(showAlert = false) {
+            // input 상태 굽기
             const inputs = panelContainer.querySelectorAll('input.memo-input');
             inputs.forEach(input => input.setAttribute('value', input.value));
-            
             const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
             checks.forEach(chk => chk.checked ? chk.setAttribute('checked', 'true') : chk.removeAttribute('checked'));
+
+            localStorage.setItem('dragonAdapter_v10_board', panelContainer.innerHTML);
+            localStorage.setItem('dragonAdapter_v10_original', originalView.value); // 원본 텍스트도 저장
+            
+            if (showAlert) alert('작업 내용과 원본 텍스트가 저장되었습니다.');
+        }
+
+        // --- 2. History & Events ---
+        function saveState() {
+            if (historyIndex < historyStack.length - 1) historyStack.splice(historyIndex + 1);
+            
+            const inputs = panelContainer.querySelectorAll('input.memo-input');
+            inputs.forEach(input => input.setAttribute('value', input.value));
+            const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
+            checks.forEach(chk => chk.checked ? chk.setAttribute('checked', 'true') : chk.removeAttribute('checked'));
+
+            historyStack.push(panelContainer.innerHTML);
+            historyIndex++;
+            
+            localStorage.setItem('dragonAdapter_v10_board', panelContainer.innerHTML);
+            localStorage.setItem('dragonAdapter_v10_original', originalView.value);
         }
 
         function restoreState(index) {
@@ -116,7 +156,11 @@
             panelContainer.innerHTML = historyStack[index];
             historyIndex = index;
             
-            // 복원 후 이벤트 리스너 재부착 필요 (innerHTML 교체로 인해 끊어짐)
+            const inputs = panelContainer.querySelectorAll('input.memo-input');
+            inputs.forEach(input => input.value = input.getAttribute('value') || '');
+            const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
+            checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
+
             reattachEvents();
             updateStats();
         }
@@ -124,44 +168,65 @@
         function reattachEvents() {
             const cards = panelContainer.querySelectorAll('.group');
             cards.forEach(card => {
-                // 카드 클릭 선택
                 card.onclick = (e) => selectCard(e, card);
-                // 드래그 이벤트 재부착
                 addDragEvents(card);
             });
         }
 
         document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-                e.preventDefault();
-                restoreState(historyIndex - 1);
-            }
-            if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
-                e.preventDefault();
-                restoreState(historyIndex + 1);
-            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); restoreState(historyIndex - 1); }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); restoreState(historyIndex + 1); }
         });
 
-        // --- Logic ---
+        // --- 3. 병합 로직 (엄격한 10장 제한) ---
+        function mergeUp(btn) {
+            const current = btn.closest('.group');
+            const prev = current.previousElementSibling;
+            
+            if (prev) {
+                // 이미지 개수 체크
+                const prevCount = prev.querySelector('.img-container').children.length;
+                const curCount = current.querySelector('.img-container').children.length;
+                const total = prevCount + curCount;
 
-        function highlightText(text) {
-            text = text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>');
-            text = text.replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
-            return text;
+                if (total > MAX_IMAGES) {
+                    alert(`병합 불가! \n두 컷의 이미지를 합치면 ${total}장이 됩니다.\n최대 ${MAX_IMAGES}장 이하가 되도록 이미지를 삭제 후 병합하세요.`);
+                    return; // 병합 중단
+                }
+
+                saveState(); // 검증 통과 후 상태 저장
+
+                // 텍스트 병합
+                const prevArea = prev.querySelector('.content-area');
+                prevArea.innerText += " " + current.querySelector('.content-area').innerText;
+                prevArea.innerHTML = highlightText(prevArea.innerText);
+                
+                // 이미지 병합
+                const curImages = current.querySelectorAll('.img-container img');
+                curImages.forEach(img => addImageToCard(prev, img.src));
+                
+                current.remove();
+                updateStats();
+            }
         }
 
+        // --- 4. 소스 처리 (Original & Active) ---
         function processSource(mode) {
-            saveState(); // 작업 전 저장
-            
             const text = sourceInput.value.trim();
             if (!text && mode !== 'overwrite') return;
 
+            saveState();
+
             if (mode === 'overwrite') {
-                if (panelContainer.children.length > 0 && !confirm("전체 초기화 하시겠습니까?")) return;
+                if (panelContainer.children.length > 0 && !confirm("⚠️ 경고: 현재 작업 중인 보드가 초기화됩니다.")) return;
+                
+                // 로직: 덮어쓰기 시 -> 입력 내용을 '원본 영역'으로 복사하고 보드 생성
+                originalView.value = text; 
                 panelContainer.innerHTML = '';
                 activeCard = null;
             }
 
+            // 보드 생성용 텍스트 (overwrite일 때는 원본뷰 값을 안 쓰더라도 소스인풋 값을 씀)
             const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
             
             if (mode === 'insert' && activeCard) {
@@ -177,20 +242,22 @@
                     panelContainer.appendChild(newCard);
                 });
             }
+            
             updateStats();
-            if (mode !== 'overwrite') sourceInput.value = '';
+            // 작업 후 입력창 비우기 (Active Input은 항상 비워서 새 입력 대기)
+            if (mode !== 'overwrite') sourceInput.value = ''; 
         }
 
         function createCardElement(text) {
             const card = document.createElement('div');
             card.className = 'card-anim bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all group relative cursor-move';
-            card.draggable = true; // 드래그 가능
+            card.draggable = true;
             card.onclick = (e) => selectCard(e, card);
-            
-            addDragEvents(card); // 드래그 이벤트 연결
+            addDragEvents(card);
 
             card.innerHTML = `
-                <div class="flex flex-col gap-3 pointer-events-none"> <div class="flex justify-between items-center pointer-events-auto">
+                <div class="flex flex-col gap-3 pointer-events-none">
+                    <div class="flex justify-between items-center pointer-events-auto">
                         <div class="flex items-center gap-2 cursor-grab active:cursor-grabbing">
                             <span class="text-gray-600">☰</span>
                             <span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span>
@@ -206,9 +273,9 @@
                     </div>
 
                     <div class="flex gap-5 pointer-events-auto">
-                        <div class="image-slot hidden w-28 shrink-0 relative aspect-[3/4] bg-black rounded border border-white/5 overflow-hidden">
-                            <img src="" class="w-full h-full object-cover cursor-zoom-in" onclick="event.stopPropagation(); openImgFS(this.src)">
-                            <button onclick="removeImage(this)" class="absolute top-1 right-1 bg-black/70 text-white text-[8px] w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-600">×</button>
+                        <div class="w-32 shrink-0 flex flex-col gap-2">
+                             <div class="img-container img-grid bg-black/50 rounded border border-white/5 min-h-[60px] p-1"></div>
+                             <button onclick="event.stopPropagation(); triggerImageUpload(this)" class="text-[9px] bg-gray-800 hover:bg-gray-700 w-full py-1 rounded text-gray-400 hover:text-white transition">+ Add Image</button>
                         </div>
 
                         <div class="flex-1 space-y-3">
@@ -221,12 +288,13 @@
                                  onclick="event.stopPropagation()">
                                 ${highlightText(text)}
                             </div>
+                            
                             <div class="flex justify-between items-center pt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <div class="flex gap-4">
-                                    <button onclick="event.stopPropagation(); mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase tracking-tighter transition-colors">Merge Up</button>
-                                    <button onclick="event.stopPropagation(); splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase tracking-tighter transition-colors">Split at Cursor</button>
+                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase tracking-tighter transition-colors">Merge Up</button>
+                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase tracking-tighter transition-colors">Split at Cursor</button>
                                 </div>
-                                <button onclick="event.stopPropagation(); deleteCard(this)" class="text-[9px] text-red-900 hover:text-red-500 font-bold transition-colors">Delete</button>
+                                <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); deleteCard(this)" class="text-[9px] text-red-900 hover:text-red-500 font-bold transition-colors">Delete</button>
                             </div>
                         </div>
                     </div>
@@ -235,120 +303,121 @@
             return card;
         }
 
-        // --- Drag & Drop Logic ---
-        let dragSrcEl = null;
+        // --- Common Logic (Split, Images, Highlighting) ---
 
-        function addDragEvents(card) {
-            card.addEventListener('dragstart', function(e) {
-                saveState(); // 드래그 시작 전 상태 저장
-                dragSrcEl = this;
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/html', this.innerHTML);
-                this.classList.add('dragging');
-            });
-
-            card.addEventListener('dragover', function(e) {
-                if (e.preventDefault) e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                return false;
-            });
-
-            card.addEventListener('dragenter', function(e) {
-                this.classList.add('border-blue-500');
-            });
-
-            card.addEventListener('dragleave', function(e) {
-                this.classList.remove('border-blue-500');
-            });
-
-            card.addEventListener('drop', function(e) {
-                if (e.stopPropagation) e.stopPropagation();
-                if (dragSrcEl !== this) {
-                    // 순서 교체 (Swap DOM)
-                    // 단순 innerHTML 교체가 아니라 DOM 노드 이동이 더 안전
-                    const allCards = [...panelContainer.children];
-                    const srcIndex = allCards.indexOf(dragSrcEl);
-                    const targetIndex = allCards.indexOf(this);
-
-                    if (srcIndex < targetIndex) {
-                        this.after(dragSrcEl);
-                    } else {
-                        this.before(dragSrcEl);
-                    }
-                    updateStats();
-                }
-                return false;
-            });
-
-            card.addEventListener('dragend', function(e) {
-                this.classList.remove('dragging');
-                const cards = panelContainer.querySelectorAll('.group');
-                cards.forEach(c => c.classList.remove('border-blue-500'));
-            });
+        function highlightText(text) {
+            text = text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>');
+            text = text.replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
+            return text;
         }
 
-
-        // --- New Split Logic (Marker Method) ---
         function splitAtCursor(btn) {
-            saveState(); // 작업 전 저장
-            
+            saveState();
             const card = btn.closest('.group');
             const contentArea = card.querySelector('.content-area');
             const selection = window.getSelection();
             
-            if (selection.rangeCount > 0) {
+            if (selection.rangeCount > 0 && contentArea.contains(selection.getRangeAt(0).commonAncestorContainer)) {
                 const range = selection.getRangeAt(0);
-                
-                // 커서가 엉뚱한 곳에 있으면 취소
-                if (!contentArea.contains(range.commonAncestorContainer)) return;
-
-                // 1. 마커 삽입
-                const marker = document.createElement('span');
-                marker.id = "split-marker";
-                range.insertNode(marker);
-
-                // 2. 텍스트 추출 및 분할
-                const fullText = contentArea.innerText; // 마커가 포함된 상태면 텍스트가 깨질 수 있음
-                // innerHTML을 가져와서 마커 ID로 자르는게 가장 확실함 (HTML 태그 보존 위해)
-                // 하지만 작가님은 텍스트 중심이므로 innerText로 깔끔하게 자르고 다시 하이라이팅 입히는게 나음.
-                
-                // 마커 기준으로 앞뒤 텍스트 노드 탐색 로직 대신, 
-                // contenteditable의 특성을 이용해 마커 전후 텍스트를 강제 분리.
-                
-                // 간단하고 확실한 방법: 마커 이전까지의 텍스트와 이후의 텍스트를 Range로 긁어오기
                 const preRange = document.createRange();
-                preRange.setStart(contentArea, 0);
-                preRange.setEndBefore(marker);
+                preRange.selectNodeContents(contentArea);
+                preRange.setEnd(range.endContainer, range.endOffset);
                 
-                const postRange = document.createRange();
-                postRange.setStartAfter(marker);
-                postRange.setEnd(contentArea, contentArea.childNodes.length);
-
                 const preText = preRange.toString();
-                const postText = postRange.toString();
+                const totalText = contentArea.innerText;
+                const postText = totalText.substring(preText.length);
 
-                // 3. 마커 제거
-                marker.remove();
-
-                // 4. 적용
                 contentArea.innerText = preText;
                 contentArea.innerHTML = highlightText(preText);
-
+                
                 const newCard = createCardElement(postText);
                 panelContainer.insertBefore(newCard, card.nextSibling);
-                
                 updateStats();
+            } else {
+                alert("쪼개고 싶은 위치를 클릭하세요.");
             }
         }
 
-        // --- Other Functions ---
-
-        function deleteCard(btn) {
-            saveState();
-            btn.closest('.group').remove();
-            updateStats();
+        function addImageToCard(card, src) {
+            const container = card.querySelector('.img-container');
+            if (container.children.length >= MAX_IMAGES) return false;
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = "relative aspect-square bg-gray-900 rounded overflow-hidden group/img cursor-pointer";
+            wrapper.onclick = (e) => { e.stopPropagation(); openImgFS(src); };
+            wrapper.innerHTML = `
+                <img src="${src}" class="w-full h-full object-cover hover:opacity-80 transition">
+                <button onclick="removeImage(event, this)" class="absolute top-0 right-0 bg-red-600 text-white w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover/img:opacity-100 transition">×</button>
+            `;
+            container.appendChild(wrapper);
+            return true;
         }
 
+        function triggerImageUpload(btn) {
+            const container = btn.closest('.group').querySelector('.img-container');
+            if (container.children.length >= MAX_IMAGES) {
+                alert(`이미지는 최대 ${MAX_IMAGES}장까지만 가능합니다.`);
+                return;
+            }
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (file) {
+                    saveState();
+                    const reader = new FileReader();
+                    reader.onload = ev => addImageToCard(btn.closest('.group'), ev.target.result);
+                    reader.readAsDataURL(file);
+                }
+            };
+            input.click();
+        }
+
+        function handlePaste(e, element) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let item of items) {
+                if (item.kind === 'file' && item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const container = element.closest('.group').querySelector('.img-container');
+                    if (container.children.length >= MAX_IMAGES) {
+                        alert(`이미지는 최대 ${MAX_IMAGES}장까지만 가능합니다.`);
+                        return;
+                    }
+                    saveState();
+                    const blob = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = ev => addImageToCard(element.closest('.group'), ev.target.result);
+                    reader.readAsDataURL(blob);
+                }
+            }
+        }
+
+        function removeImage(e, btn) { e.stopPropagation(); saveState(); btn.parentElement.remove(); }
+        
+        // --- Drag & Drop ---
+        let dragSrcEl = null;
+        function addDragEvents(card) {
+            card.addEventListener('dragstart', function(e) { saveState(); dragSrcEl = this; e.dataTransfer.effectAllowed = 'move'; this.classList.add('dragging'); });
+            card.addEventListener('dragover', function(e) { e.preventDefault(); return false; });
+            card.addEventListener('dragenter', function() { this.classList.add('border-blue-500'); });
+            card.addEventListener('dragleave', function() { this.classList.remove('border-blue-500'); });
+            card.addEventListener('drop', function(e) {
+                e.stopPropagation();
+                if (dragSrcEl !== this) {
+                    const allCards = [...panelContainer.children];
+                    if (allCards.indexOf(dragSrcEl) < allCards.indexOf(this)) this.after(dragSrcEl);
+                    else this.before(dragSrcEl);
+                    updateStats();
+                }
+                return false;
+            });
+            card.addEventListener('dragend', function() { this.classList.remove('dragging'); panelContainer.querySelectorAll('.group').forEach(c => c.classList.remove('border-blue-500')); });
+        }
+
+        // --- Utils ---
+        function deleteCard(btn) { saveState(); btn.closest('.group').remove(); updateStats(); }
+        
         function selectCard(e, card) {
             if (activeCard) activeCard.classList.remove('card-selected');
             activeCard = card;
@@ -356,7 +425,6 @@
             selectionMsg.classList.remove('hidden');
             selectionMsg.innerText = `${card.querySelector('.cut-num').innerText} 뒤에 삽입됩니다.`;
         }
-
         function clearSelection(e) {
             if (e.target.id === 'panelContainer' || e.target.tagName === 'SECTION') {
                 if (activeCard) activeCard.classList.remove('card-selected');
@@ -364,7 +432,6 @@
                 selectionMsg.classList.add('hidden');
             }
         }
-
         function toggleMemo(checkbox, label) {
             saveState();
             const memoArea = checkbox.closest('.group').querySelector('.memo-area');
@@ -374,7 +441,7 @@
                 input.placeholder = `${label}...`;
                 input.dataset.type = label;
                 input.onclick = (e) => e.stopPropagation(); 
-                input.onfocus = () => saveState(); // 입력 시작 전 상태 저장
+                input.onfocus = () => saveState();
                 memoArea.appendChild(input);
                 checkbox.parentElement.classList.add('text-blue-500', 'opacity-100');
                 input.focus();
@@ -384,74 +451,14 @@
                 checkbox.parentElement.classList.remove('text-blue-500');
             }
         }
-
-        function handlePaste(e, element) {
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            for (let item of items) {
-                if (item.kind === 'file') {
-                    e.preventDefault();
-                    saveState();
-                    const blob = item.getAsFile();
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        const slot = element.closest('.group').querySelector('.image-slot');
-                        slot.querySelector('img').src = event.target.result;
-                        slot.classList.remove('hidden');
-                    };
-                    reader.readAsDataURL(blob);
-                }
-            }
-        }
-
-        function openImgFS(src) {
-            document.getElementById('fsImg').src = src;
-            document.getElementById('imgOverlay').classList.replace('hidden', 'flex');
-            document.body.classList.add('overlay-active');
-        }
-
-        function closeImgFS() {
-            document.getElementById('imgOverlay').classList.replace('flex', 'hidden');
-            document.body.classList.remove('overlay-active');
-        }
-
-        function removeImage(btn) {
-            event.stopPropagation();
-            saveState();
-            const slot = btn.closest('.image-slot');
-            slot.querySelector('img').src = '';
-            slot.classList.add('hidden');
-        }
-
-        function mergeUp(btn) {
-            saveState();
-            const current = btn.closest('.group');
-            const prev = current.previousElementSibling;
-            if (prev) {
-                const prevArea = prev.querySelector('.content-area');
-                prevArea.innerText += " " + current.querySelector('.content-area').innerText;
-                prevArea.innerHTML = highlightText(prevArea.innerText);
-                current.remove();
-                updateStats();
-            }
-        }
-
         function updateStats() {
             const cards = panelContainer.querySelectorAll('.group');
             panelCountDisplay.innerText = `${cards.length} Cuts`;
-            cards.forEach((card, i) => {
-                card.querySelector('.cut-num').innerText = `Cut ${String(i + 1).padStart(2, '0')}`;
-            });
+            cards.forEach((card, i) => { card.querySelector('.cut-num').innerText = `Cut ${String(i + 1).padStart(2, '0')}`; });
         }
-
-        function saveToLocal() {
-            // (간소화: HTML 전체 저장 방식)
-            localStorage.setItem('dragonAdapter_v7', panelContainer.innerHTML);
-            alert('현재 상태가 저장되었습니다.');
-        }
+        function openImgFS(src) { document.getElementById('fsImg').src = src; document.getElementById('imgOverlay').classList.replace('hidden', 'flex'); document.body.classList.add('overlay-active'); }
+        function closeImgFS() { document.getElementById('imgOverlay').classList.replace('flex', 'hidden'); document.body.classList.remove('overlay-active'); }
         
-        // 페이지 로드 시 복원 (선택 사항)
-        // window.onload = () => { if(localStorage.getItem('dragonAdapter_v7')) panelContainer.innerHTML = localStorage.getItem('dragonAdapter_v7'); reattachEvents(); }
-
         function exportToNotion() {
             let markdown = `# 각색 원고 (${new Date().toLocaleDateString()})\n\n`;
             panelContainer.querySelectorAll('.group').forEach(card => {
