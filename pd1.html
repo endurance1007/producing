@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 각색 워크스테이션 v6</title>
+    <title>지혜의 용 | 각색 워크스테이션 v7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 4px; }
@@ -16,8 +16,11 @@
         .memo-input { background: transparent; border-bottom: 1px solid #333; font-size: 11px; padding: 2px 0; color: #888; width: 120px; outline: none; transition: all 0.2s; }
         .memo-input:focus { border-bottom-color: #3b82f6; color: #fff; }
         .overlay-active { overflow: hidden; }
-        /* 선택된 카드를 시각적으로 표시 */
+        
+        /* 선택된 카드 스타일 */
         .card-selected { border-color: #3b82f6 !important; background-color: #111 !important; }
+        /* 드래그 중인 카드 스타일 */
+        .dragging { opacity: 0.5; border: 2px dashed #555; }
     </style>
 </head>
 <body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
@@ -25,11 +28,17 @@
     <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0">
         <div class="flex items-center gap-3">
             <span class="text-2xl">🐲</span>
-            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v6.0 Safe</span></h1>
+            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v7.0 Pro</span></h1>
         </div>
-        <div class="flex gap-2">
-            <button onclick="saveToLocal()" class="px-4 py-1.5 rounded-full border border-gray-700 text-[11px] font-bold hover:bg-gray-800 transition">임시 저장</button>
-            <button onclick="exportToNotion()" class="px-4 py-1.5 rounded-full bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-500 transition">노션 내보내기</button>
+        <div class="flex gap-4 items-center">
+            <div class="text-[10px] text-gray-600 flex gap-2">
+                <span>Undo: Ctrl+Z</span>
+                <span>Redo: Ctrl+Y</span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="saveToLocal()" class="px-4 py-1.5 rounded-full border border-gray-700 text-[11px] font-bold hover:bg-gray-800 transition">임시 저장</button>
+                <button onclick="exportToNotion()" class="px-4 py-1.5 rounded-full bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-500 transition">노션 내보내기</button>
+            </div>
         </div>
     </header>
 
@@ -44,15 +53,15 @@
             <div class="p-4 grid grid-cols-1 gap-2 border-t border-white/5">
                 <div class="grid grid-cols-2 gap-2">
                     <button onclick="processSource('append')" class="py-2 bg-gray-800 hover:bg-blue-900 rounded text-[11px] font-bold transition text-blue-100">맨 뒤에 추가</button>
-                    <button onclick="processSource('insert')" class="py-2 bg-gray-800 hover:bg-yellow-900 rounded text-[11px] font-bold transition text-yellow-100" title="우측에서 선택한 컷 뒤에 삽입합니다">선택 컷 뒤 삽입</button>
+                    <button onclick="processSource('insert')" class="py-2 bg-gray-800 hover:bg-yellow-900 rounded text-[11px] font-bold transition text-yellow-100">선택 컷 뒤 삽입</button>
                 </div>
-                <button onclick="processSource('overwrite')" class="py-2 bg-red-900/20 hover:bg-red-900 text-red-500 hover:text-white rounded text-[11px] font-bold transition">⚠️ 전체 초기화 (덮어쓰기)</button>
+                <button onclick="processSource('overwrite')" class="py-2 bg-red-900/20 hover:bg-red-900 text-red-500 hover:text-white rounded text-[11px] font-bold transition">⚠️ 전체 초기화</button>
             </div>
         </section>
 
         <section class="flex-1 flex flex-col" onclick="clearSelection(event)">
             <div class="p-3 bg-black/40 text-[9px] uppercase tracking-widest text-blue-500 font-bold flex justify-between items-center">
-                <span>Adapter Board <span id="selectionMsg" class="ml-4 text-gray-600 normal-case font-normal hidden">선택된 컷 뒤에 텍스트가 삽입됩니다.</span></span>
+                <span>Adapter Board <span id="selectionMsg" class="ml-4 text-gray-500 normal-case font-normal hidden">선택된 컷 뒤에 삽입됩니다.</span></span>
                 <span id="panelCount">0 Cuts</span>
             </div>
             
@@ -72,7 +81,68 @@
         const panelCountDisplay = document.getElementById('panelCount');
         const selectionMsg = document.getElementById('selectionMsg');
         
-        let activeCard = null; // 현재 선택된 카드 추적
+        let activeCard = null;
+
+        // --- History System (Undo/Redo) ---
+        const historyStack = [];
+        let historyIndex = -1;
+
+        function saveState() {
+            // 현재 인덱스 뒤에 있는 기록들은 날림 (새로운 분기 시작)
+            if (historyIndex < historyStack.length - 1) {
+                historyStack.splice(historyIndex + 1);
+            }
+            // 현재 DOM 상태 저장 (이미지, 텍스트, 체크박스 상태 등 모든 HTML 포함)
+            // 주의: input value는 innerHTML에 포함되지 않으므로 별도 처리가 필요하지만, 
+            // 간편함을 위해 innerHTML 저장 후 복원 시 value 재매핑 방식을 사용하거나, 
+            // Vibe Coding 특성상 innerHTML 스냅샷 방식을 우선 사용.
+            // 메모 input 값을 attribute로 구워주는 전처리 필요.
+            prepStateForSave();
+            historyStack.push(panelContainer.innerHTML);
+            historyIndex++;
+        }
+
+        function prepStateForSave() {
+            // input의 현재 값을 value 속성에 명시적으로 박아넣어야 innerHTML에 저장됨
+            const inputs = panelContainer.querySelectorAll('input.memo-input');
+            inputs.forEach(input => input.setAttribute('value', input.value));
+            
+            const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
+            checks.forEach(chk => chk.checked ? chk.setAttribute('checked', 'true') : chk.removeAttribute('checked'));
+        }
+
+        function restoreState(index) {
+            if (index < 0 || index >= historyStack.length) return;
+            panelContainer.innerHTML = historyStack[index];
+            historyIndex = index;
+            
+            // 복원 후 이벤트 리스너 재부착 필요 (innerHTML 교체로 인해 끊어짐)
+            reattachEvents();
+            updateStats();
+        }
+
+        function reattachEvents() {
+            const cards = panelContainer.querySelectorAll('.group');
+            cards.forEach(card => {
+                // 카드 클릭 선택
+                card.onclick = (e) => selectCard(e, card);
+                // 드래그 이벤트 재부착
+                addDragEvents(card);
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                restoreState(historyIndex - 1);
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                e.preventDefault();
+                restoreState(historyIndex + 1);
+            }
+        });
+
+        // --- Logic ---
 
         function highlightText(text) {
             text = text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>');
@@ -80,19 +150,14 @@
             return text;
         }
 
-        // 통합 소스 처리 함수 (mode: overwrite, append, insert)
         function processSource(mode) {
+            saveState(); // 작업 전 저장
+            
             const text = sourceInput.value.trim();
-            if (!text) {
-                alert("텍스트를 입력해주세요.");
-                return;
-            }
+            if (!text && mode !== 'overwrite') return;
 
-            // 전체 덮어쓰기 경고
             if (mode === 'overwrite') {
-                if (panelContainer.children.length > 0) {
-                    if (!confirm("⚠️ 경고: 현재 작업 중인 모든 컷이 삭제되고 초기화됩니다.\n계속하시겠습니까?")) return;
-                }
+                if (panelContainer.children.length > 0 && !confirm("전체 초기화 하시겠습니까?")) return;
                 panelContainer.innerHTML = '';
                 activeCard = null;
             }
@@ -100,35 +165,36 @@
             const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
             
             if (mode === 'insert' && activeCard) {
-                // 선택된 카드 뒤에 삽입 (역순으로 넣어야 순서대로 들어감)
                 let refNode = activeCard;
                 sentences.forEach(s => {
                     const newCard = createCardElement(s);
                     panelContainer.insertBefore(newCard, refNode.nextSibling);
-                    refNode = newCard; // 다음 루프를 위해 기준점 이동
+                    refNode = newCard;
                 });
             } else {
-                // 맨 뒤에 추가 (append) 또는 덮어쓰기 후 추가
                 sentences.forEach(s => {
                     const newCard = createCardElement(s);
                     panelContainer.appendChild(newCard);
                 });
             }
-
             updateStats();
-            // 작업 후 입력창 비우기 (선택사항 - 연속 작업을 위해 남겨둘지 고민하다가 비우는게 안전하다 판단)
-            if (mode !== 'overwrite') sourceInput.value = ''; 
+            if (mode !== 'overwrite') sourceInput.value = '';
         }
 
         function createCardElement(text) {
             const card = document.createElement('div');
-            card.className = 'card-anim bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/20 transition-all group relative cursor-default';
-            card.onclick = (e) => selectCard(e, card); // 카드 선택 이벤트
+            card.className = 'card-anim bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all group relative cursor-move';
+            card.draggable = true; // 드래그 가능
+            card.onclick = (e) => selectCard(e, card);
+            
+            addDragEvents(card); // 드래그 이벤트 연결
 
             card.innerHTML = `
-                <div class="flex flex-col gap-3">
-                    <div class="flex justify-between items-center">
-                        <span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span>
+                <div class="flex flex-col gap-3 pointer-events-none"> <div class="flex justify-between items-center pointer-events-auto">
+                        <div class="flex items-center gap-2 cursor-grab active:cursor-grabbing">
+                            <span class="text-gray-600">☰</span>
+                            <span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span>
+                        </div>
                         <div class="flex gap-4 opacity-40 group-hover:opacity-100 transition-opacity">
                             <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400">
                                 <input type="checkbox" onchange="toggleMemo(this, '앵글/샷')" class="hidden"> 앵글/샷
@@ -139,7 +205,7 @@
                         </div>
                     </div>
 
-                    <div class="flex gap-5">
+                    <div class="flex gap-5 pointer-events-auto">
                         <div class="image-slot hidden w-28 shrink-0 relative aspect-[3/4] bg-black rounded border border-white/5 overflow-hidden">
                             <img src="" class="w-full h-full object-cover cursor-zoom-in" onclick="event.stopPropagation(); openImgFS(this.src)">
                             <button onclick="removeImage(this)" class="absolute top-1 right-1 bg-black/70 text-white text-[8px] w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-600">×</button>
@@ -151,14 +217,16 @@
                                  contenteditable="true" 
                                  onpaste="handlePaste(event, this)"
                                  onblur="this.innerHTML = highlightText(this.innerText)"
-                                 onclick="event.stopPropagation()"> ${highlightText(text)}
+                                 onfocus="saveState()" 
+                                 onclick="event.stopPropagation()">
+                                ${highlightText(text)}
                             </div>
                             <div class="flex justify-between items-center pt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <div class="flex gap-4">
                                     <button onclick="event.stopPropagation(); mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase tracking-tighter transition-colors">Merge Up</button>
                                     <button onclick="event.stopPropagation(); splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase tracking-tighter transition-colors">Split at Cursor</button>
                                 </div>
-                                <button onclick="event.stopPropagation(); this.closest('.group').remove(); updateStats();" class="text-[9px] text-red-900 hover:text-red-500 font-bold transition-colors">Delete</button>
+                                <button onclick="event.stopPropagation(); deleteCard(this)" class="text-[9px] text-red-900 hover:text-red-500 font-bold transition-colors">Delete</button>
                             </div>
                         </div>
                     </div>
@@ -167,18 +235,128 @@
             return card;
         }
 
-        // 카드 선택 로직
-        function selectCard(e, card) {
-            // 이미 선택된 카드 해제
-            if (activeCard) activeCard.classList.remove('card-selected');
+        // --- Drag & Drop Logic ---
+        let dragSrcEl = null;
+
+        function addDragEvents(card) {
+            card.addEventListener('dragstart', function(e) {
+                saveState(); // 드래그 시작 전 상태 저장
+                dragSrcEl = this;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', this.innerHTML);
+                this.classList.add('dragging');
+            });
+
+            card.addEventListener('dragover', function(e) {
+                if (e.preventDefault) e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                return false;
+            });
+
+            card.addEventListener('dragenter', function(e) {
+                this.classList.add('border-blue-500');
+            });
+
+            card.addEventListener('dragleave', function(e) {
+                this.classList.remove('border-blue-500');
+            });
+
+            card.addEventListener('drop', function(e) {
+                if (e.stopPropagation) e.stopPropagation();
+                if (dragSrcEl !== this) {
+                    // 순서 교체 (Swap DOM)
+                    // 단순 innerHTML 교체가 아니라 DOM 노드 이동이 더 안전
+                    const allCards = [...panelContainer.children];
+                    const srcIndex = allCards.indexOf(dragSrcEl);
+                    const targetIndex = allCards.indexOf(this);
+
+                    if (srcIndex < targetIndex) {
+                        this.after(dragSrcEl);
+                    } else {
+                        this.before(dragSrcEl);
+                    }
+                    updateStats();
+                }
+                return false;
+            });
+
+            card.addEventListener('dragend', function(e) {
+                this.classList.remove('dragging');
+                const cards = panelContainer.querySelectorAll('.group');
+                cards.forEach(c => c.classList.remove('border-blue-500'));
+            });
+        }
+
+
+        // --- New Split Logic (Marker Method) ---
+        function splitAtCursor(btn) {
+            saveState(); // 작업 전 저장
             
+            const card = btn.closest('.group');
+            const contentArea = card.querySelector('.content-area');
+            const selection = window.getSelection();
+            
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                
+                // 커서가 엉뚱한 곳에 있으면 취소
+                if (!contentArea.contains(range.commonAncestorContainer)) return;
+
+                // 1. 마커 삽입
+                const marker = document.createElement('span');
+                marker.id = "split-marker";
+                range.insertNode(marker);
+
+                // 2. 텍스트 추출 및 분할
+                const fullText = contentArea.innerText; // 마커가 포함된 상태면 텍스트가 깨질 수 있음
+                // innerHTML을 가져와서 마커 ID로 자르는게 가장 확실함 (HTML 태그 보존 위해)
+                // 하지만 작가님은 텍스트 중심이므로 innerText로 깔끔하게 자르고 다시 하이라이팅 입히는게 나음.
+                
+                // 마커 기준으로 앞뒤 텍스트 노드 탐색 로직 대신, 
+                // contenteditable의 특성을 이용해 마커 전후 텍스트를 강제 분리.
+                
+                // 간단하고 확실한 방법: 마커 이전까지의 텍스트와 이후의 텍스트를 Range로 긁어오기
+                const preRange = document.createRange();
+                preRange.setStart(contentArea, 0);
+                preRange.setEndBefore(marker);
+                
+                const postRange = document.createRange();
+                postRange.setStartAfter(marker);
+                postRange.setEnd(contentArea, contentArea.childNodes.length);
+
+                const preText = preRange.toString();
+                const postText = postRange.toString();
+
+                // 3. 마커 제거
+                marker.remove();
+
+                // 4. 적용
+                contentArea.innerText = preText;
+                contentArea.innerHTML = highlightText(preText);
+
+                const newCard = createCardElement(postText);
+                panelContainer.insertBefore(newCard, card.nextSibling);
+                
+                updateStats();
+            }
+        }
+
+        // --- Other Functions ---
+
+        function deleteCard(btn) {
+            saveState();
+            btn.closest('.group').remove();
+            updateStats();
+        }
+
+        function selectCard(e, card) {
+            if (activeCard) activeCard.classList.remove('card-selected');
             activeCard = card;
             activeCard.classList.add('card-selected');
             selectionMsg.classList.remove('hidden');
             selectionMsg.innerText = `${card.querySelector('.cut-num').innerText} 뒤에 삽입됩니다.`;
         }
 
-        // 빈 공간 클릭 시 선택 해제
         function clearSelection(e) {
             if (e.target.id === 'panelContainer' || e.target.tagName === 'SECTION') {
                 if (activeCard) activeCard.classList.remove('card-selected');
@@ -187,43 +365,16 @@
             }
         }
 
-        // 커서 위치 분할
-        function splitAtCursor(btn) {
-            const card = btn.closest('.group');
-            const contentArea = card.querySelector('.content-area');
-            const selection = window.getSelection();
-            
-            if (selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                if (!contentArea.contains(range.commonAncestorContainer)) return; // 엉뚱한 곳 분할 방지
-
-                const preRange = range.cloneRange();
-                preRange.selectNodeContents(contentArea);
-                preRange.setEnd(range.endContainer, range.endOffset);
-                
-                const preText = preRange.toString();
-                const totalText = contentArea.innerText;
-                const postText = totalText.substring(preText.length);
-
-                if (postText.trim().length > 0) {
-                    contentArea.innerText = preText;
-                    contentArea.innerHTML = highlightText(preText);
-                    const newCard = createCardElement(postText);
-                    panelContainer.insertBefore(newCard, card.nextSibling);
-                    updateStats();
-                }
-            }
-        }
-
-        // (기존 기능 유지) 이미지, 메모, 병합 등
         function toggleMemo(checkbox, label) {
+            saveState();
             const memoArea = checkbox.closest('.group').querySelector('.memo-area');
             if (checkbox.checked) {
                 const input = document.createElement('input');
                 input.className = 'memo-input';
                 input.placeholder = `${label}...`;
                 input.dataset.type = label;
-                input.onclick = (e) => e.stopPropagation(); // 입력 시 카드 선택 방지
+                input.onclick = (e) => e.stopPropagation(); 
+                input.onfocus = () => saveState(); // 입력 시작 전 상태 저장
                 memoArea.appendChild(input);
                 checkbox.parentElement.classList.add('text-blue-500', 'opacity-100');
                 input.focus();
@@ -239,6 +390,7 @@
             for (let item of items) {
                 if (item.kind === 'file') {
                     e.preventDefault();
+                    saveState();
                     const blob = item.getAsFile();
                     const reader = new FileReader();
                     reader.onload = function(event) {
@@ -264,12 +416,14 @@
 
         function removeImage(btn) {
             event.stopPropagation();
+            saveState();
             const slot = btn.closest('.image-slot');
             slot.querySelector('img').src = '';
             slot.classList.add('hidden');
         }
 
         function mergeUp(btn) {
+            saveState();
             const current = btn.closest('.group');
             const prev = current.previousElementSibling;
             if (prev) {
@@ -290,13 +444,13 @@
         }
 
         function saveToLocal() {
-            const data = Array.from(panelContainer.querySelectorAll('.group')).map(card => ({
-                text: card.querySelector('.content-area').innerText,
-                cut: card.querySelector('.cut-num').innerText
-            }));
-            localStorage.setItem('dragonAdapter_v6', JSON.stringify(data));
-            alert('임시 저장되었습니다.');
+            // (간소화: HTML 전체 저장 방식)
+            localStorage.setItem('dragonAdapter_v7', panelContainer.innerHTML);
+            alert('현재 상태가 저장되었습니다.');
         }
+        
+        // 페이지 로드 시 복원 (선택 사항)
+        // window.onload = () => { if(localStorage.getItem('dragonAdapter_v7')) panelContainer.innerHTML = localStorage.getItem('dragonAdapter_v7'); reattachEvents(); }
 
         function exportToNotion() {
             let markdown = `# 각색 원고 (${new Date().toLocaleDateString()})\n\n`;
