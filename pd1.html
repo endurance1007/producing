@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 각색 워크스테이션 v1.3</title>
+    <title>지혜의 용 | 각색 워크스테이션 v1.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 4px; }
@@ -16,9 +16,15 @@
         .memo-input { background: transparent; border-bottom: 1px solid #333; font-size: 11px; padding: 2px 0; color: #888; width: 120px; outline: none; transition: all 0.2s; }
         .memo-input:focus { border-bottom-color: #3b82f6; color: #fff; }
         .overlay-active { overflow: hidden; }
+        
+        /* 선택/드래그 스타일 */
         .card-selected { border-color: #3b82f6 !important; background-color: #111 !important; }
-        .dragging { opacity: 0.5; border: 2px dashed #555; }
+        .card-dragging { opacity: 0.5; border: 2px dashed #555; }
+        .img-dragging { opacity: 0.4; transform: scale(0.9); border: 2px solid #3b82f6; }
+        
         .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 4px; }
+        /* 이미지 드롭존 강조 */
+        .img-drag-over { background-color: rgba(59, 130, 246, 0.2) !important; border-color: #3b82f6 !important; }
     </style>
 </head>
 <body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
@@ -26,7 +32,7 @@
     <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0">
         <div class="flex items-center gap-3">
             <span class="text-2xl">🐲</span>
-            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v1.3 Persist</span></h1>
+            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v1.4 Image DnD</span></h1>
         </div>
         <div class="flex gap-4 items-center">
             <div class="text-[10px] text-gray-600 flex gap-2">
@@ -98,19 +104,22 @@
         let activeCard = null;
         const historyStack = [];
         let historyIndex = -1;
+        
+        // 드래그 타입 구분 ('card' or 'image')
+        let dragType = null;
+        let dragImgEl = null;
 
         // --- 초기 로드 ---
         window.onload = () => {
-            const savedData = localStorage.getItem('dragonAdapter_v13_board');
-            const savedOriginal = localStorage.getItem('dragonAdapter_v13_original');
+            const savedData = localStorage.getItem('dragonAdapter_v14_board');
+            const savedOriginal = localStorage.getItem('dragonAdapter_v14_original');
             
             if (savedOriginal) originalView.value = savedOriginal;
 
             if (savedData) {
                 panelContainer.innerHTML = savedData;
-                reattachEvents(); // 여기가 핵심: 저장된 HTML에 생명을 불어넣음
+                reattachEvents(); 
                 updateStats();
-                // input 값 복원
                 const inputs = panelContainer.querySelectorAll('input.memo-input');
                 inputs.forEach(input => input.value = input.getAttribute('value'));
                 const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
@@ -120,16 +129,15 @@
             }
         };
 
-        // --- 안전한 저장 로직 ---
         function saveToLocal(showAlert = false) {
             prepareStateForSave();
             try {
-                localStorage.setItem('dragonAdapter_v13_board', panelContainer.innerHTML);
-                localStorage.setItem('dragonAdapter_v13_original', originalView.value);
+                localStorage.setItem('dragonAdapter_v14_board', panelContainer.innerHTML);
+                localStorage.setItem('dragonAdapter_v14_original', originalView.value);
                 if (showAlert) alert('저장되었습니다.');
             } catch (e) {
                 console.error("Storage Error:", e);
-                if (showAlert) alert("용량 부족으로 저장 실패 (이미지가 너무 많습니다)");
+                if (showAlert) alert("용량 부족으로 저장 실패");
             }
         }
 
@@ -147,8 +155,8 @@
             historyStack.push(panelContainer.innerHTML);
             historyIndex++;
             try {
-                localStorage.setItem('dragonAdapter_v13_board', panelContainer.innerHTML);
-                localStorage.setItem('dragonAdapter_v13_original', originalView.value);
+                localStorage.setItem('dragonAdapter_v14_board', panelContainer.innerHTML);
+                localStorage.setItem('dragonAdapter_v14_original', originalView.value);
             } catch (e) { console.warn("Auto-save failed"); }
         }
 
@@ -166,23 +174,17 @@
             updateStats();
         }
 
-        // --- [핵심 수정] 이벤트 재부착 (Rehydration) ---
-        // 이 함수가 불러온 HTML의 이미지와 카드에 다시 클릭 기능을 심어줍니다.
         function reattachEvents() {
             const cards = panelContainer.querySelectorAll('.group');
             cards.forEach(card => {
                 card.onclick = (e) => selectCard(e, card);
-                addDragEvents(card);
+                addCardDragEvents(card);
                 
-                // [FIX] 이미지 래퍼에도 다시 이벤트를 걸어줍니다 (구버전 데이터 호환용)
+                // 이미지 래퍼 복구 (클릭 이벤트) - 드래그는 인라인 속성으로 해결
                 const imgWrappers = card.querySelectorAll('.group\\/img');
                 imgWrappers.forEach(wrapper => {
-                    const img = wrapper.querySelector('img');
-                    if (img) {
-                        // 기존 핸들러를 덮어쓰지 않도록 attribute 방식 사용 권장하나,
-                        // 확실한 복구를 위해 onclick 재할당
-                        wrapper.onclick = (e) => { e.stopPropagation(); openImgFS(img.src); };
-                    }
+                     const img = wrapper.querySelector('img');
+                     if (img) wrapper.onclick = (e) => { e.stopPropagation(); openImgFS(img.src); };
                 });
             });
         }
@@ -193,7 +195,6 @@
         });
 
         // --- Core Functions ---
-
         function highlightText(text) {
             if (!text) return "";
             text = text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>');
@@ -234,7 +235,6 @@
                     panelContainer.appendChild(newCard);
                 });
             }
-            
             updateStats();
             if (mode !== 'overwrite') sourceInput.value = ''; 
         }
@@ -244,7 +244,7 @@
             card.className = 'card-anim bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all group relative cursor-move';
             card.draggable = true;
             card.onclick = (e) => selectCard(e, card);
-            addDragEvents(card);
+            addCardDragEvents(card);
 
             card.innerHTML = `
                 <div class="flex flex-col gap-3 pointer-events-none">
@@ -265,7 +265,10 @@
 
                     <div class="flex gap-5 pointer-events-auto">
                         <div class="w-32 shrink-0 flex flex-col gap-2">
-                             <div class="img-container img-grid bg-black/50 rounded border border-white/5 min-h-[60px] p-1"></div>
+                             <div class="img-container img-grid bg-black/50 rounded border border-white/5 min-h-[60px] p-1 transition-colors"
+                                  ondragover="imgContainerDragOver(event)"
+                                  ondrop="imgContainerDrop(event, this)">
+                             </div>
                              <button onclick="event.stopPropagation(); triggerImageUpload(this)" class="text-[9px] bg-gray-800 hover:bg-gray-700 w-full py-1 rounded text-gray-400 hover:text-white transition">+ Add Image</button>
                         </div>
 
@@ -294,36 +297,107 @@
             return card;
         }
 
-        // --- Split Logic ---
-        function splitAtCursor(btn) {
-            saveState();
-            const card = btn.closest('.group');
-            const contentArea = card.querySelector('.content-area');
-            const selection = window.getSelection();
-
-            if (!selection.rangeCount) return;
-            const range = selection.getRangeAt(0);
-            
-            if (!contentArea.contains(range.commonAncestorContainer)) {
-                console.warn("Cursor outside");
-                return;
-            }
-
-            const rangeToEnd = document.createRange();
-            rangeToEnd.setStart(range.endContainer, range.endOffset);
-            rangeToEnd.setEnd(contentArea, contentArea.childNodes.length);
-
-            const postText = rangeToEnd.toString();
-            rangeToEnd.deleteContents();
-
-            contentArea.innerHTML = highlightText(contentArea.innerText);
-
-            const newCard = createCardElement(postText);
-            panelContainer.insertBefore(newCard, card.nextSibling);
-            updateStats();
+        // --- Image Drag & Drop Logic (NEW) ---
+        
+        function imgDragStart(e, wrapper) {
+            e.stopPropagation(); // 카드 드래그 방지
+            saveState(); // 드래그 시작 전 상태 저장
+            dragType = 'image';
+            dragImgEl = wrapper;
+            e.dataTransfer.effectAllowed = 'move';
+            wrapper.classList.add('img-dragging');
         }
 
-        // --- Image Compression & Addition ---
+        function imgDragEnd(e, wrapper) {
+            e.stopPropagation();
+            dragType = null;
+            dragImgEl = null;
+            wrapper.classList.remove('img-dragging');
+            
+            // 모든 드롭존 하이라이트 제거
+            document.querySelectorAll('.img-container').forEach(el => el.classList.remove('img-drag-over'));
+        }
+
+        function imgContainerDragOver(e) {
+            if (dragType === 'image') {
+                e.preventDefault(); // 드롭 허용
+                e.stopPropagation();
+                e.currentTarget.classList.add('img-drag-over');
+            }
+        }
+
+        function imgContainerDrop(e, container) {
+            e.stopPropagation();
+            e.preventDefault();
+            container.classList.remove('img-drag-over');
+
+            if (dragType === 'image' && dragImgEl) {
+                // 다른 컨테이너로 이동 시 개수 제한 체크
+                const sourceContainer = dragImgEl.parentElement;
+                if (sourceContainer !== container) {
+                    if (container.children.length >= MAX_IMAGES) {
+                        alert(`이 컷에는 이미 ${MAX_IMAGES}장의 이미지가 있어 이동할 수 없습니다.`);
+                        return;
+                    }
+                }
+
+                // 드롭 위치 계산 (순서 변경)
+                // 마우스 위치에 가장 가까운 이미지 찾기 (간단히 append 또는 insertBefore)
+                const targetWrapper = e.target.closest('.group\\/img');
+                
+                if (targetWrapper && container.contains(targetWrapper)) {
+                    // 타겟 이미지 앞에 삽입 (순서 변경)
+                    container.insertBefore(dragImgEl, targetWrapper);
+                } else {
+                    // 빈 공간이면 맨 뒤에 추가
+                    container.appendChild(dragImgEl);
+                }
+                
+                updateStats(); // (필요하다면)
+            }
+        }
+
+        // --- Card Drag & Drop Logic ---
+        let dragCardSrc = null;
+        function addCardDragEvents(card) {
+            card.addEventListener('dragstart', function(e) { 
+                if (dragType === 'image') { e.preventDefault(); return; } // 이미지 드래그 중이면 카드 드래그 취소
+                dragType = 'card';
+                saveState(); 
+                dragCardSrc = this; 
+                e.dataTransfer.effectAllowed = 'move'; 
+                this.classList.add('card-dragging'); 
+            });
+            card.addEventListener('dragover', function(e) { 
+                if (dragType === 'card') e.preventDefault(); 
+                return false; 
+            });
+            card.addEventListener('dragenter', function() { 
+                if (dragType === 'card') this.classList.add('border-blue-500'); 
+            });
+            card.addEventListener('dragleave', function() { 
+                if (dragType === 'card') this.classList.remove('border-blue-500'); 
+            });
+            card.addEventListener('drop', function(e) {
+                if (dragType === 'card') {
+                    e.stopPropagation();
+                    if (dragCardSrc !== this) {
+                        const allCards = [...panelContainer.children];
+                        if (allCards.indexOf(dragCardSrc) < allCards.indexOf(this)) this.after(dragCardSrc);
+                        else this.before(dragCardSrc);
+                        updateStats();
+                    }
+                }
+                return false;
+            });
+            card.addEventListener('dragend', function() { 
+                dragType = null;
+                this.classList.remove('card-dragging'); 
+                panelContainer.querySelectorAll('.group').forEach(c => c.classList.remove('border-blue-500')); 
+            });
+        }
+
+        // --- Image Handling ---
         function compressImage(file, callback) {
             const reader = new FileReader();
             reader.readAsDataURL(file);
@@ -351,12 +425,16 @@
             const wrapper = document.createElement('div');
             wrapper.className = "relative aspect-square bg-gray-900 rounded overflow-hidden group/img cursor-pointer";
             
-            // [핵심] HTML 속성으로 onclick을 박아넣어 저장 시에도 유지되게 함
-            // src에 따옴표가 있을 수 있으므로 안전하게 this.querySelector로 접근
+            // [핵심] 이미지 드래그 이벤트 추가
+            wrapper.setAttribute('draggable', 'true');
+            wrapper.setAttribute('ondragstart', 'imgDragStart(event, this)');
+            wrapper.setAttribute('ondragend', 'imgDragEnd(event, this)');
+            
+            // 클릭 이벤트 (확대)
             wrapper.setAttribute('onclick', "event.stopPropagation(); openImgFS(this.querySelector('img').src)");
 
             wrapper.innerHTML = `
-                <img src="${src}" class="w-full h-full object-cover hover:opacity-80 transition">
+                <img src="${src}" class="w-full h-full object-cover hover:opacity-80 transition pointer-events-none">
                 <button onclick="removeImage(event, this)" class="absolute top-0 right-0 bg-red-600 text-white w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover/img:opacity-100 transition">×</button>
             `;
             container.appendChild(wrapper);
@@ -366,11 +444,7 @@
         function triggerImageUpload(btn) {
             const card = btn.closest('.group');
             const container = card.querySelector('.img-container');
-            
-            if (container.children.length >= MAX_IMAGES) {
-                alert(`이미지는 최대 ${MAX_IMAGES}장까지만 가능합니다.`);
-                return;
-            }
+            if (container.children.length >= MAX_IMAGES) { alert(`최대 ${MAX_IMAGES}장까지입니다.`); return; }
             
             const input = document.createElement('input');
             input.type = 'file';
@@ -378,10 +452,7 @@
             input.onchange = e => {
                 const file = e.target.files[0];
                 if (file) {
-                    compressImage(file, (compressedSrc) => {
-                        saveState();
-                        addImageToCard(card, compressedSrc);
-                    });
+                    compressImage(file, (compressedSrc) => { saveState(); addImageToCard(card, compressedSrc); });
                 }
             };
             input.click();
@@ -394,67 +465,59 @@
                     e.preventDefault();
                     const card = element.closest('.group');
                     const container = card.querySelector('.img-container');
-                    if (container.children.length >= MAX_IMAGES) {
-                        alert("이미지 개수 초과!");
-                        return;
-                    }
+                    if (container.children.length >= MAX_IMAGES) { alert("이미지 개수 초과!"); return; }
+                    
                     const blob = item.getAsFile();
-                    compressImage(blob, (compressedSrc) => {
-                        saveState();
-                        addImageToCard(card, compressedSrc);
-                    });
+                    compressImage(blob, (compressedSrc) => { saveState(); addImageToCard(card, compressedSrc); });
                 }
             }
         }
 
         function removeImage(e, btn) { e.stopPropagation(); saveState(); btn.parentElement.remove(); }
         
+        // --- Other Logic ---
+        function splitAtCursor(btn) {
+            saveState();
+            const card = btn.closest('.group');
+            const contentArea = card.querySelector('.content-area');
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+            const range = selection.getRangeAt(0);
+            if (!contentArea.contains(range.commonAncestorContainer)) return;
+
+            const rangeToEnd = document.createRange();
+            rangeToEnd.setStart(range.endContainer, range.endOffset);
+            rangeToEnd.setEnd(contentArea, contentArea.childNodes.length);
+            const postText = rangeToEnd.toString();
+            rangeToEnd.deleteContents();
+            contentArea.innerHTML = highlightText(contentArea.innerText);
+
+            const newCard = createCardElement(postText);
+            panelContainer.insertBefore(newCard, card.nextSibling);
+            updateStats();
+        }
+
         function mergeUp(btn) {
             const current = btn.closest('.group');
             const prev = current.previousElementSibling;
-            
             if (prev) {
                 const prevCount = prev.querySelector('.img-container').children.length;
                 const curCount = current.querySelector('.img-container').children.length;
-                if (prevCount + curCount > MAX_IMAGES) {
-                    alert("병합 시 이미지 10장 초과! 병합 불가.");
-                    return;
-                }
+                if (prevCount + curCount > MAX_IMAGES) { alert("이미지 10장 초과! 병합 불가."); return; }
 
                 saveState();
                 const prevArea = prev.querySelector('.content-area');
                 prevArea.innerText += " " + current.querySelector('.content-area').innerText;
                 prevArea.innerHTML = highlightText(prevArea.innerText);
-                
-                const curImages = current.querySelectorAll('.img-container img');
-                curImages.forEach(img => addImageToCard(prev, img.src));
+                const curImages = current.querySelectorAll('.img-container .group\\/img');
+                // 기존 wrapper(draggable 포함)를 그대로 이동 (DOM Move)
+                curImages.forEach(wrapper => prev.querySelector('.img-container').appendChild(wrapper));
                 
                 current.remove();
                 updateStats();
             }
         }
 
-        // --- Drag & Drop ---
-        let dragSrcEl = null;
-        function addDragEvents(card) {
-            card.addEventListener('dragstart', function(e) { saveState(); dragSrcEl = this; e.dataTransfer.effectAllowed = 'move'; this.classList.add('dragging'); });
-            card.addEventListener('dragover', function(e) { e.preventDefault(); return false; });
-            card.addEventListener('dragenter', function() { this.classList.add('border-blue-500'); });
-            card.addEventListener('dragleave', function() { this.classList.remove('border-blue-500'); });
-            card.addEventListener('drop', function(e) {
-                e.stopPropagation();
-                if (dragSrcEl !== this) {
-                    const allCards = [...panelContainer.children];
-                    if (allCards.indexOf(dragSrcEl) < allCards.indexOf(this)) this.after(dragSrcEl);
-                    else this.before(dragSrcEl);
-                    updateStats();
-                }
-                return false;
-            });
-            card.addEventListener('dragend', function() { this.classList.remove('dragging'); panelContainer.querySelectorAll('.group').forEach(c => c.classList.remove('border-blue-500')); });
-        }
-
-        // --- Utils ---
         function deleteCard(btn) { saveState(); btn.closest('.group').remove(); updateStats(); }
         
         function selectCard(e, card) {
