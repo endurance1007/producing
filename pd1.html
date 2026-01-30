@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 각색 워크스테이션 v1.1</title>
+    <title>지혜의 용 | 각색 워크스테이션 v1.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 4px; }
@@ -26,7 +26,7 @@
     <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0">
         <div class="flex items-center gap-3">
             <span class="text-2xl">🐲</span>
-            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v1.1 Stable</span></h1>
+            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v1.2 Optimized</span></h1>
         </div>
         <div class="flex gap-4 items-center">
             <div class="text-[10px] text-gray-600 flex gap-2">
@@ -101,8 +101,8 @@
 
         // --- 초기 로드 ---
         window.onload = () => {
-            const savedData = localStorage.getItem('dragonAdapter_v11_board');
-            const savedOriginal = localStorage.getItem('dragonAdapter_v11_original');
+            const savedData = localStorage.getItem('dragonAdapter_v12_board');
+            const savedOriginal = localStorage.getItem('dragonAdapter_v12_original');
             
             if (savedOriginal) originalView.value = savedOriginal;
 
@@ -110,21 +110,26 @@
                 panelContainer.innerHTML = savedData;
                 reattachEvents();
                 updateStats();
-                // input 값 복원
                 const inputs = panelContainer.querySelectorAll('input.memo-input');
                 inputs.forEach(input => input.value = input.getAttribute('value'));
                 const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
                 checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
                 
-                saveState();
+                saveState(); // 초기 상태 저장
             }
         };
 
+        // --- 안전한 저장 로직 (Try-Catch) ---
         function saveToLocal(showAlert = false) {
             prepareStateForSave();
-            localStorage.setItem('dragonAdapter_v11_board', panelContainer.innerHTML);
-            localStorage.setItem('dragonAdapter_v11_original', originalView.value);
-            if (showAlert) alert('저장되었습니다.');
+            try {
+                localStorage.setItem('dragonAdapter_v12_board', panelContainer.innerHTML);
+                localStorage.setItem('dragonAdapter_v12_original', originalView.value);
+                if (showAlert) alert('저장되었습니다.');
+            } catch (e) {
+                console.error("Storage Error:", e);
+                if (showAlert) alert("용량이 가득 차서 저장하지 못했습니다. (이미지가 너무 많을 수 있습니다)");
+            }
         }
 
         // --- History System ---
@@ -140,9 +145,14 @@
             prepareStateForSave();
             historyStack.push(panelContainer.innerHTML);
             historyIndex++;
-            // 자동 저장
-            localStorage.setItem('dragonAdapter_v11_board', panelContainer.innerHTML);
-            localStorage.setItem('dragonAdapter_v11_original', originalView.value);
+            
+            // 자동 저장 시도 (실패해도 앱이 멈추지 않도록 예외 처리)
+            try {
+                localStorage.setItem('dragonAdapter_v12_board', panelContainer.innerHTML);
+                localStorage.setItem('dragonAdapter_v12_original', originalView.value);
+            } catch (e) {
+                console.warn("Auto-save failed due to quota limit. App continues to run.");
+            }
         }
 
         function restoreState(index) {
@@ -150,7 +160,6 @@
             panelContainer.innerHTML = historyStack[index];
             historyIndex = index;
             
-            // 복원
             const inputs = panelContainer.querySelectorAll('input.memo-input');
             inputs.forEach(input => input.value = input.getAttribute('value') || '');
             const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
@@ -194,11 +203,9 @@
                 panelContainer.innerHTML = '';
                 activeCard = null;
             } else {
-                // 히스토리 남기기 (Append)
                 const timestamp = new Date().toLocaleTimeString();
                 const separator = originalView.value ? `\n\n--- Added [${timestamp}] ---\n` : "";
                 originalView.value += separator + text;
-                // 스크롤 맨 아래로
                 originalView.scrollTop = originalView.scrollHeight;
             }
 
@@ -277,46 +284,63 @@
             return card;
         }
 
-        // --- [FIX] Split Logic ---
+        // --- Split Logic ---
         function splitAtCursor(btn) {
             saveState();
             const card = btn.closest('.group');
             const contentArea = card.querySelector('.content-area');
             const selection = window.getSelection();
 
-            // 유효성 검사: 커서가 현재 텍스트 영역 내부에 있는지 확인
             if (!selection.rangeCount) return;
             const range = selection.getRangeAt(0);
             
             if (!contentArea.contains(range.commonAncestorContainer)) {
-                console.warn("Cursor outside content area");
+                console.warn("Cursor outside");
                 return;
             }
 
-            // [FIX] Range를 사용하여 텍스트 추출 (가장 안전한 방법)
             const rangeToEnd = document.createRange();
             rangeToEnd.setStart(range.endContainer, range.endOffset);
-            rangeToEnd.setEnd(contentArea, contentArea.childNodes.length); // 끝까지 선택
+            rangeToEnd.setEnd(contentArea, contentArea.childNodes.length);
 
-            const postText = rangeToEnd.toString(); // 뒤쪽 텍스트 추출
-            rangeToEnd.deleteContents(); // 뒤쪽 텍스트 삭제
+            const postText = rangeToEnd.toString();
+            rangeToEnd.deleteContents();
 
-            // 앞쪽 텍스트 하이라이팅 갱신
             contentArea.innerHTML = highlightText(contentArea.innerText);
 
-            // 새 카드 생성 (빈 카드라도 생성되도록 조건 제거)
             const newCard = createCardElement(postText);
             panelContainer.insertBefore(newCard, card.nextSibling);
             
             updateStats();
         }
 
-        // --- [FIX] Image Logic ---
+        // --- Image Compression Logic (핵심 수정) ---
+        function compressImage(file, callback) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 600; // 썸네일용으로 충분한 크기
+                    const scaleSize = MAX_WIDTH / img.width;
+                    canvas.width = MAX_WIDTH;
+                    canvas.height = img.height * scaleSize;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    // JPEG 퀄리티 0.7로 압축
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    callback(dataUrl);
+                }
+            }
+        }
+
         function addImageToCard(card, src) {
             const container = card.querySelector('.img-container');
-            // 방어 코드: container가 없으면 중단
             if (!container) return false;
-            
             if (container.children.length >= MAX_IMAGES) return false;
             
             const wrapper = document.createElement('div');
@@ -339,17 +363,17 @@
                 return;
             }
             
-            // input 요소를 매번 새로 생성하여 이벤트 충돌 방지
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/*';
             input.onchange = e => {
                 const file = e.target.files[0];
                 if (file) {
-                    saveState();
-                    const reader = new FileReader();
-                    reader.onload = ev => addImageToCard(card, ev.target.result);
-                    reader.readAsDataURL(file);
+                    // 압축 후 저장
+                    compressImage(file, (compressedSrc) => {
+                        saveState();
+                        addImageToCard(card, compressedSrc);
+                    });
                 }
             };
             input.click();
@@ -357,11 +381,9 @@
 
         function handlePaste(e, element) {
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            let hasImage = false;
             for (let item of items) {
                 if (item.kind === 'file' && item.type.startsWith('image/')) {
                     e.preventDefault();
-                    hasImage = true;
                     
                     const card = element.closest('.group');
                     const container = card.querySelector('.img-container');
@@ -371,11 +393,12 @@
                         return;
                     }
 
-                    saveState();
                     const blob = item.getAsFile();
-                    const reader = new FileReader();
-                    reader.onload = ev => addImageToCard(card, ev.target.result);
-                    reader.readAsDataURL(blob);
+                    // 압축 후 저장
+                    compressImage(blob, (compressedSrc) => {
+                        saveState();
+                        addImageToCard(card, compressedSrc);
+                    });
                 }
             }
         }
@@ -387,7 +410,6 @@
             const prev = current.previousElementSibling;
             
             if (prev) {
-                // 이미지 개수 체크
                 const prevCount = prev.querySelector('.img-container').children.length;
                 const curCount = current.querySelector('.img-container').children.length;
                 if (prevCount + curCount > MAX_IMAGES) {
@@ -397,12 +419,10 @@
 
                 saveState();
                 
-                // 텍스트 병합
                 const prevArea = prev.querySelector('.content-area');
                 prevArea.innerText += " " + current.querySelector('.content-area').innerText;
                 prevArea.innerHTML = highlightText(prevArea.innerText);
                 
-                // 이미지 이동
                 const curImages = current.querySelectorAll('.img-container img');
                 curImages.forEach(img => addImageToCard(prev, img.src));
                 
