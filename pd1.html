@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 각색 워크스테이션 v3</title>
+    <title>지혜의 용 | 각색 워크스테이션 v4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 4px; }
@@ -11,10 +11,10 @@
         .hl-dialog { color: #60a5fa; font-weight: 600; }
         .hl-sfx { color: #fbbf24; font-style: italic; }
         .card-anim { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
-        [contenteditable]:focus { outline: none; background: rgba(59, 130, 246, 0.05); }
-        .tag-select { background: transparent; border: 1px solid #333; font-size: 10px; border-radius: 4px; padding: 2px 4px; color: #888; cursor: pointer; }
-        .tag-select:hover { border-color: #666; color: #ccc; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        [contenteditable]:focus { outline: none; background: rgba(59, 130, 246, 0.03); }
+        .memo-input { background: transparent; border-bottom: 1px solid #333; font-size: 11px; padding: 2px 0; color: #aaa; width: 100%; outline: none; }
+        .memo-input:focus { border-bottom-color: #2563eb; color: #fff; }
     </style>
 </head>
 <body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
@@ -22,11 +22,11 @@
     <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0">
         <div class="flex items-center gap-3">
             <span class="text-2xl">🐲</span>
-            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v3.0</span></h1>
+            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v4.0</span></h1>
         </div>
         <div class="flex gap-2">
             <button onclick="saveToLocal()" class="px-4 py-1.5 rounded-full border border-gray-700 text-[11px] font-bold hover:bg-gray-800 transition">임시 저장</button>
-            <button onclick="exportToNotion()" class="px-4 py-1.5 rounded-full bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-500 shadow-lg shadow-blue-900/20 transition">노션으로 내보내기 (MD)</button>
+            <button onclick="exportToNotion()" class="px-4 py-1.5 rounded-full bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-500 transition">노션 내보내기</button>
         </div>
     </header>
 
@@ -35,18 +35,18 @@
         <section class="w-1/4 flex flex-col border-r border-white/5 bg-[#080808]">
             <div class="p-3 bg-white/5 text-[9px] uppercase tracking-widest text-gray-500 font-bold">Source Script</div>
             <textarea id="sourceInput" 
-                      class="flex-1 bg-transparent p-6 outline-none resize-none leading-relaxed text-gray-500 focus:text-gray-400 transition-colors text-sm border-none"
+                      class="flex-1 bg-transparent p-6 outline-none resize-none leading-relaxed text-gray-500 focus:text-gray-400 text-sm border-none"
                       placeholder="원작 텍스트를 붙여넣으세요..."></textarea>
-            <button onclick="parseSource()" class="m-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-xs font-bold transition">분해 및 초기화</button>
+            <button onclick="parseSource()" class="m-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-xs font-bold transition">초기 분해 실행</button>
         </section>
 
         <section class="flex-1 flex flex-col">
             <div class="p-3 bg-black/40 text-[9px] uppercase tracking-widest text-blue-500 font-bold flex justify-between items-center">
-                <span>Adapter Board (Interactive)</span>
-                <span id="panelCount">0 Panels</span>
+                <span>Adapter Board (Cut System)</span>
+                <span id="panelCount">0 Cuts</span>
             </div>
             
-            <div id="panelContainer" class="flex-1 overflow-y-auto p-10 space-y-6 max-w-4xl mx-auto w-full">
+            <div id="panelContainer" class="flex-1 overflow-y-auto p-10 space-y-8 max-w-4xl mx-auto w-full">
                 </div>
         </section>
 
@@ -76,37 +76,50 @@
             updateStats();
         }
 
-        // B: 연출 태그 및 C: 이미지 공간 포함 카드 생성
         function createCard(text, referenceNode = null) {
             const card = document.createElement('div');
-            card.className = 'card-anim bg-[#111] border border-white/5 rounded-xl p-6 hover:border-blue-900/50 transition-all group';
+            card.className = 'card-anim bg-[#0d0d0d] border border-white/5 rounded-xl p-6 hover:border-white/10 transition-all group relative';
             
             card.innerHTML = `
-                <div class="flex gap-6">
-                    <div class="w-32 shrink-0 space-y-3">
-                        <div class="text-[10px] font-mono text-gray-600 font-bold panel-num">P-00</div>
-                        <div class="image-slot aspect-[3/4] bg-black/40 rounded border border-dashed border-gray-800 flex flex-col items-center justify-center cursor-pointer hover:bg-black/60 transition group/img" onclick="triggerImage(this)">
-                            <span class="text-[9px] text-gray-700 group-hover/img:text-gray-500">REF IMAGE</span>
-                            <input type="file" class="hidden" onchange="previewImage(this)">
-                            <img class="hidden w-full h-full object-cover rounded" src="">
+                <div class="flex flex-col gap-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span>
+                        <div class="flex gap-4 opacity-30 group-hover:opacity-100 transition-opacity">
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400">
+                                <input type="checkbox" onchange="toggleMemo(this, 'angle')" class="hidden"> 앵글
+                            </label>
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400">
+                                <input type="checkbox" onchange="toggleMemo(this, 'shot')" class="hidden"> 샷
+                            </label>
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400">
+                                <input type="checkbox" onchange="toggleMemo(this, 'bg')" class="hidden"> 배경
+                            </label>
+                            <button onclick="triggerImage(this)" class="text-[10px] hover:text-green-400 uppercase font-bold">이미지+</button>
                         </div>
                     </div>
 
-                    <div class="flex-1 space-y-4">
-                        <div class="flex gap-2">
-                            <select class="tag-select"><option>앵글: 보통</option><option>로우 앵글</option><option>하이 앵글</option></select>
-                            <select class="tag-select"><option>샷: 미디엄</option><option>클로즈업</option><option>풀샷</option><option>바스트</option></select>
-                            <select class="tag-select"><option>배경: 주방</option><option>실외</option><option>학교</option><option>직장</option></select>
+                    <div class="flex gap-6">
+                        <div class="image-slot hidden w-32 shrink-0 relative aspect-[3/4] bg-black rounded border border-white/5 overflow-hidden">
+                            <img src="" class="w-full h-full object-cover">
+                            <button onclick="removeImage(this)" class="absolute top-1 right-1 bg-black/70 text-white text-[8px] w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-600">X</button>
                         </div>
-                        <div class="content-area text-[14px] leading-relaxed text-gray-300 outline-none min-h-[3em]" contenteditable="true">
-                            ${highlightText(text)}
-                        </div>
-                        <div class="flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div class="flex gap-3">
-                                <button onclick="mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 uppercase font-bold tracking-tighter">위로 합치기</button>
-                                <button onclick="splitCard(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 uppercase font-bold tracking-tighter">현재 위치 쪼개기</button>
+
+                        <div class="flex-1 space-y-4">
+                            <div class="memo-area flex flex-wrap gap-x-4 gap-y-2"></div>
+                            
+                            <div class="content-area text-[15px] leading-relaxed text-gray-300 outline-none min-h-[1em]" 
+                                 contenteditable="true" 
+                                 onpaste="handlePaste(event, this)">
+                                ${highlightText(text)}
                             </div>
-                            <button onclick="this.closest('.group').remove(); updateStats();" class="text-[9px] text-red-900 hover:text-red-500 uppercase font-bold">삭제</button>
+
+                            <div class="flex justify-between items-center pt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div class="flex gap-4">
+                                    <button onclick="mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase tracking-tighter">Merge Up</button>
+                                    <button onclick="splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase tracking-tighter">Split at Cursor</button>
+                                </div>
+                                <button onclick="this.closest('.group').remove(); updateStats();" class="text-[9px] text-red-900 hover:text-red-500 font-bold">Delete</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -121,78 +134,125 @@
             updateStats();
         }
 
-        // C: 이미지 핸들링
-        function triggerImage(slot) { slot.querySelector('input').click(); }
-        function previewImage(input) {
-            const slot = input.parentElement;
-            const file = input.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    const img = slot.querySelector('img');
-                    img.src = e.target.result;
-                    img.classList.remove('hidden');
-                    slot.querySelector('span').classList.add('hidden');
-                };
-                reader.readAsDataURL(file);
+        // 1. 커서 위치 분할 로직
+        function splitAtCursor(btn) {
+            const card = btn.closest('.group');
+            const contentArea = card.querySelector('.content-area');
+            
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+
+            const range = selection.getRangeAt(0);
+            const preRange = range.cloneRange();
+            preRange.selectNodeContents(contentArea);
+            preRange.setEnd(range.endContainer, range.endOffset);
+            
+            const preText = preRange.toString();
+            const postText = contentArea.innerText.substring(preText.length);
+
+            contentArea.innerText = preText;
+            contentArea.innerHTML = highlightText(preText);
+            createCard(postText, card);
+        }
+
+        // 2. 선택적 메모 로직
+        function toggleMemo(checkbox, type) {
+            const memoArea = checkbox.closest('.group').querySelector('.memo-area');
+            if (checkbox.checked) {
+                const input = document.createElement('input');
+                input.className = 'memo-input max-w-[120px]';
+                input.placeholder = `${type.toUpperCase()} 입력...`;
+                input.dataset.type = type;
+                memoArea.appendChild(input);
+                checkbox.parentElement.classList.add('text-blue-500', 'opacity-100');
+            } else {
+                const input = memoArea.querySelector(`input[data-type="${type}"]`);
+                if (input) input.remove();
+                checkbox.parentElement.classList.remove('text-blue-500');
             }
         }
 
-        // A: 노션용 마크다운 내보내기
-        function exportToNotion() {
-            let markdown = "# " + (new Date().toLocaleDateString()) + " 각색 작업본\n\n";
-            const cards = panelContainer.querySelectorAll('.group');
-            cards.forEach((card, i) => {
-                const num = card.querySelector('.panel-num').innerText;
-                const text = card.querySelector('.content-area').innerText;
-                const tags = Array.from(card.querySelectorAll('.tag-select')).map(s => s.value).join(' | ');
-                markdown += `### ${num} [${tags}]\n- ${text}\n\n`;
-            });
-            
-            const blob = new Blob([markdown], { type: 'text/markdown' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `Dragon_Adapter_Export_${Date.now()}.md`;
-            a.click();
+        // 3. Ctrl+V 이미지 붙여넣기 및 핸들링
+        function handlePaste(e, element) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let item of items) {
+                if (item.kind === 'file') {
+                    e.preventDefault();
+                    const blob = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const slot = element.closest('.group').querySelector('.image-slot');
+                        slot.querySelector('img').src = event.target.result;
+                        slot.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            }
         }
 
-        // A: 로컬 저장
-        function saveToLocal() {
-            const data = Array.from(panelContainer.querySelectorAll('.group')).map(card => ({
-                text: card.querySelector('.content-area').innerText,
-                tags: Array.from(card.querySelectorAll('.tag-select')).map(s => s.value)
-            }));
-            localStorage.setItem('dragonAdapterSave', JSON.stringify(data));
-            alert('임시 저장되었습니다.');
+        function triggerImage(btn) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.onchange = e => {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    const slot = btn.closest('.group').querySelector('.image-slot');
+                    slot.querySelector('img').src = ev.target.result;
+                    slot.classList.remove('hidden');
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            };
+            input.click();
+        }
+
+        function removeImage(btn) {
+            const slot = btn.closest('.image-slot');
+            slot.querySelector('img').src = '';
+            slot.classList.add('hidden');
         }
 
         function mergeUp(btn) {
             const current = btn.closest('.group');
             const prev = current.previousElementSibling;
             if (prev) {
-                prev.querySelector('.content-area').innerText += " " + current.querySelector('.content-area').innerText;
-                prev.querySelector('.content-area').innerHTML = highlightText(prev.querySelector('.content-area').innerText);
+                const prevArea = prev.querySelector('.content-area');
+                prevArea.innerText += " " + current.querySelector('.content-area').innerText;
+                prevArea.innerHTML = highlightText(prevArea.innerText);
                 current.remove();
                 updateStats();
             }
         }
 
-        function splitCard(btn) {
-            const current = btn.closest('.group');
-            const area = current.querySelector('.content-area');
-            const text = area.innerText;
-            const mid = Math.floor(text.length / 2);
-            area.innerText = text.slice(0, mid);
-            area.innerHTML = highlightText(area.innerText);
-            createCard(text.slice(mid), current);
-        }
-
         function updateStats() {
             const cards = panelContainer.querySelectorAll('.group');
-            panelCountDisplay.innerText = `${cards.length} Panels`;
+            panelCountDisplay.innerText = `${cards.length} Cuts`;
             cards.forEach((card, i) => {
-                card.querySelector('.panel-num').innerText = `PANEL-${String(i + 1).padStart(2, '0')}`;
+                card.querySelector('.cut-num').innerText = `Cut ${String(i + 1).padStart(2, '0')}`;
             });
+        }
+
+        function saveToLocal() {
+            const data = Array.from(panelContainer.querySelectorAll('.group')).map(card => ({
+                text: card.querySelector('.content-area').innerText,
+                cut: card.querySelector('.cut-num').innerText
+            }));
+            localStorage.setItem('dragonAdapter_v4', JSON.stringify(data));
+            alert('저장되었습니다.');
+        }
+
+        function exportToNotion() {
+            let markdown = `# 각색 원고 (${new Date().toLocaleDateString()})\n\n`;
+            panelContainer.querySelectorAll('.group').forEach(card => {
+                const cut = card.querySelector('.cut-num').innerText;
+                const text = card.querySelector('.content-area').innerText;
+                const memos = Array.from(card.querySelectorAll('.memo-input')).map(i => `[${i.dataset.type}: ${i.value}]`).join(' ');
+                markdown += `### ${cut} ${memos}\n${text}\n\n`;
+            });
+            const blob = new Blob([markdown], { type: 'text/markdown' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `Dragon_Cut_Export.md`;
+            a.click();
         }
     </script>
 </body>
