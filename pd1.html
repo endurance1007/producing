@@ -3,45 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 각색 워크스테이션</title>
+    <title>지혜의 용 | 각색 워크스테이션 v2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-        .card-anim { animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .source-font { font-family: 'Pretendard', sans-serif; line-height: 1.8; }
+        
+        /* 하이라이팅 스타일 (B) */
+        .hl-dialog { color: #60a5fa; font-weight: 600; } /* 대사: 파란색 */
+        .hl-sfx { color: #fbbf24; font-style: italic; } /* 효과음: 노란색 */
+        .hl-action { color: #d1d5db; } /* 지문: 기본 회색 */
+
+        .card-anim { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+        
+        [contenteditable]:focus { outline: none; background: rgba(59, 130, 246, 0.05); border-radius: 4px; }
     </style>
 </head>
 <body class="bg-[#0c0c0c] text-gray-200 h-screen overflow-hidden flex flex-col">
 
-    <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 shrink-0">
+    <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 shrink-0 bg-[#0f0f0f]">
         <div class="flex items-center gap-2">
             <span class="text-xl">🐲</span>
-            <h1 class="font-black tracking-tight text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2">v1.0</span></h1>
+            <h1 class="font-black tracking-tight text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-sm">v2.0</span></h1>
         </div>
-        <div id="stats" class="text-[10px] text-gray-500 font-mono uppercase tracking-widest">
-            Ready to Deconstruct
+        <div class="flex gap-4 items-center">
+            <div id="stats" class="text-[10px] text-gray-500 font-mono uppercase tracking-widest">Ready</div>
+            <button onclick="parseSource()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1 rounded text-xs font-bold transition">분해 시작</button>
         </div>
     </header>
 
     <main class="flex flex-1 overflow-hidden">
         
-        <section class="w-1/2 flex flex-col border-r border-white/5">
-            <div class="p-3 bg-white/5 text-[10px] uppercase tracking-tighter text-gray-400 font-bold">Source Text (Paste here)</div>
+        <section class="w-1/3 flex flex-col border-r border-white/5 bg-[#0a0a0a]">
+            <div class="p-3 bg-white/5 text-[10px] uppercase tracking-tighter text-gray-400 font-bold">Source Text</div>
             <textarea id="sourceInput" 
-                      class="flex-1 bg-transparent p-8 outline-none resize-none source-font text-gray-400 focus:text-white transition-colors"
-                      placeholder="이곳에 원작 소설이나 시나리오 텍스트를 붙여넣으세요..."></textarea>
+                      class="flex-1 bg-transparent p-6 outline-none resize-none leading-relaxed text-gray-500 focus:text-gray-300 transition-colors text-sm"
+                      placeholder="원작 텍스트를 붙여넣고 '분해 시작'을 누르세요..."></textarea>
         </section>
 
-        <section class="w-1/2 flex flex-col bg-[#080808]">
-            <div class="p-3 bg-black/40 text-[10px] uppercase tracking-tighter text-blue-400 font-bold flex justify-between">
-                <span>Deconstructed Panels</span>
-                <span id="panelCount">0 Panels</span>
+        <section class="w-2/3 flex flex-col">
+            <div class="p-3 bg-black/40 text-[10px] uppercase tracking-tighter text-blue-400 font-bold flex justify-between items-center">
+                <span>Adapter Board (Interactive)</span>
+                <span id="panelCount" class="bg-blue-900/30 px-2 py-0.5 rounded">0 Panels</span>
             </div>
-            <div id="panelContainer" class="flex-1 overflow-y-auto p-6 space-y-4">
-                <div class="h-full flex items-center justify-center text-gray-700 italic text-sm">
-                    왼쪽에 텍스트를 입력하면 자동으로 컷이 분할됩니다.
+            
+            <div id="panelContainer" class="flex-1 overflow-y-auto p-8 space-y-4">
+                <div class="h-full flex flex-col items-center justify-center text-gray-700 italic text-sm space-y-2">
+                    <p>분해된 카드가 이곳에 표시됩니다.</p>
+                    <p class="text-[11px] not-italic opacity-50">카드의 텍스트를 직접 수정하거나 버튼으로 병합/분할 하세요.</p>
                 </div>
             </div>
         </section>
@@ -52,58 +62,104 @@
         const sourceInput = document.getElementById('sourceInput');
         const panelContainer = document.getElementById('panelContainer');
         const panelCountDisplay = document.getElementById('panelCount');
-        const stats = document.getElementById('stats');
 
-        // 문장 분리 정규식: . ! ? 뒤에 공백이 오면 분리
-        const sentenceRegex = /(?<=[.!?])\s+/;
+        // B: 하이라이팅 엔진
+        function highlightText(text) {
+            // 1. 대사: " " 또는 ' ' 사이의 문구
+            text = text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>');
+            // 2. 효과음: ( ) 또는 [ ] 사이의 문구
+            text = text.replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
+            return text;
+        }
 
-        sourceInput.addEventListener('input', () => {
+        function parseSource() {
             const text = sourceInput.value.trim();
-            if (!text) {
-                renderEmpty();
-                return;
-            }
+            if (!text) return;
 
-            // 문장 단위 분해
+            const sentenceRegex = /(?<=[.!?])\s+/;
             const sentences = text.split(sentenceRegex).filter(s => s.length > 0);
             renderPanels(sentences);
-            
-            // 통계 업데이트
-            panelCountDisplay.innerText = `${sentences.length} Panels`;
-            stats.innerText = `Word count: ${text.length} | Sentences: ${sentences.length}`;
-        });
+        }
 
         function renderPanels(sentences) {
             panelContainer.innerHTML = '';
-            sentences.forEach((sentence, index) => {
-                const card = document.createElement('div');
-                card.className = 'card-anim bg-[#141414] border border-white/5 rounded-lg p-5 hover:border-blue-500/50 transition-all group relative';
-                
-                card.innerHTML = `
-                    <div class="flex items-start gap-4">
-                        <span class="text-[10px] font-mono text-blue-600 mt-1 font-bold">P-${String(index + 1).padStart(2, '0')}</span>
-                        <p class="text-sm leading-relaxed text-gray-300 group-hover:text-white transition-colors">${sentence}</p>
-                    </div>
-                    
-                    <div class="mt-4 pt-4 border-t border-white/5 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div class="flex gap-2">
-                            <span class="px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400 text-[9px] font-bold uppercase">Ready</span>
-                        </div>
-                        <button class="text-[10px] text-gray-500 hover:text-blue-400 transition-colors uppercase font-bold tracking-tighter">Add Note</button>
-                    </div>
-                `;
-                panelContainer.appendChild(card);
-            });
+            sentences.forEach((s, i) => createCard(s));
+            updateStats();
         }
 
-        function renderEmpty() {
-            panelContainer.innerHTML = `
-                <div class="h-full flex items-center justify-center text-gray-700 italic text-sm">
-                    왼쪽에 텍스트를 입력하면 자동으로 컷이 분할됩니다.
+        function createCard(text, referenceNode = null) {
+            const card = document.createElement('div');
+            card.className = 'card-anim bg-[#141414] border border-white/5 rounded-lg p-5 hover:border-white/20 transition-all group';
+            
+            card.innerHTML = `
+                <div class="flex items-start gap-4">
+                    <span class="panel-num text-[10px] font-mono text-gray-600 mt-1 font-bold shrink-0">00</span>
+                    <div class="content-area flex-1 text-sm leading-relaxed text-gray-300 outline-none" contenteditable="true">
+                        ${highlightText(text)}
+                    </div>
+                    
+                    <div class="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button onclick="mergeUp(this)" title="위로 병합" class="p-1 hover:text-blue-500 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" /></svg>
+                        </button>
+                        <button onclick="splitCard(this)" title="분할" class="p-1 hover:text-yellow-500 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" /></svg>
+                        </button>
+                    </div>
                 </div>
             `;
-            panelCountDisplay.innerText = '0 Panels';
-            stats.innerText = 'Ready to Deconstruct';
+
+            if (referenceNode) {
+                panelContainer.insertBefore(card, referenceNode.nextSibling);
+            } else {
+                panelContainer.appendChild(card);
+            }
+            
+            // 텍스트 수정 시 실시간 하이라이팅 적용 (성능을 위해 포커스 아웃 시 적용)
+            const contentArea = card.querySelector('.content-area');
+            contentArea.addEventListener('blur', function() {
+                this.innerHTML = highlightText(this.innerText);
+            });
+
+            updateStats();
+        }
+
+        // A-1: 위로 병합 기능
+        function mergeUp(btn) {
+            const currentCard = btn.closest('.group');
+            const prevCard = currentCard.previousElementSibling;
+            if (prevCard && prevCard.querySelector('.content-area')) {
+                const prevArea = prevCard.querySelector('.content-area');
+                const currentArea = currentCard.querySelector('.content-area');
+                prevArea.innerText = prevArea.innerText + " " + currentArea.innerText;
+                prevArea.innerHTML = highlightText(prevArea.innerText);
+                currentCard.remove();
+                updateStats();
+            }
+        }
+
+        // A-2: 분할 기능 (단순 2등분 분할)
+        function splitCard(btn) {
+            const currentCard = btn.closest('.group');
+            const contentArea = currentCard.querySelector('.content-area');
+            const text = contentArea.innerText;
+            const mid = Math.floor(text.length / 2);
+            
+            // 실제 작업 시에는 커서 위치 기준으로 쪼개는 게 좋지만, 바이브 코딩에서는 단순 분할 버튼으로 구현
+            const firstHalf = text.slice(0, mid);
+            const secondHalf = text.slice(mid);
+            
+            contentArea.innerText = firstHalf;
+            contentArea.innerHTML = highlightText(firstHalf);
+            createCard(secondHalf, currentCard);
+        }
+
+        function updateStats() {
+            const cards = panelContainer.querySelectorAll('.group');
+            panelCountDisplay.innerText = `${cards.length} Panels`;
+            cards.forEach((card, i) => {
+                card.querySelector('.panel-num').innerText = String(i + 1).padStart(2, '0');
+            });
         }
     </script>
 </body>
