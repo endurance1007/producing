@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지혜의 용 | 각색 워크스테이션</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .card-anim { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .source-font { font-family: 'Pretendard', sans-serif; line-height: 1.8; }
+    </style>
+</head>
+<body class="bg-[#0c0c0c] text-gray-200 h-screen overflow-hidden flex flex-col">
+
+    <header class="h-14 border-b border-white/5 flex items-center justify-between px-6 shrink-0">
+        <div class="flex items-center gap-2">
+            <span class="text-xl">🐲</span>
+            <h1 class="font-black tracking-tight text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2">v1.0</span></h1>
+        </div>
+        <div id="stats" class="text-[10px] text-gray-500 font-mono uppercase tracking-widest">
+            Ready to Deconstruct
+        </div>
+    </header>
+
+    <main class="flex flex-1 overflow-hidden">
+        
+        <section class="w-1/2 flex flex-col border-r border-white/5">
+            <div class="p-3 bg-white/5 text-[10px] uppercase tracking-tighter text-gray-400 font-bold">Source Text (Paste here)</div>
+            <textarea id="sourceInput" 
+                      class="flex-1 bg-transparent p-8 outline-none resize-none source-font text-gray-400 focus:text-white transition-colors"
+                      placeholder="이곳에 원작 소설이나 시나리오 텍스트를 붙여넣으세요..."></textarea>
+        </section>
+
+        <section class="w-1/2 flex flex-col bg-[#080808]">
+            <div class="p-3 bg-black/40 text-[10px] uppercase tracking-tighter text-blue-400 font-bold flex justify-between">
+                <span>Deconstructed Panels</span>
+                <span id="panelCount">0 Panels</span>
+            </div>
+            <div id="panelContainer" class="flex-1 overflow-y-auto p-6 space-y-4">
+                <div class="h-full flex items-center justify-center text-gray-700 italic text-sm">
+                    왼쪽에 텍스트를 입력하면 자동으로 컷이 분할됩니다.
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        const sourceInput = document.getElementById('sourceInput');
+        const panelContainer = document.getElementById('panelContainer');
+        const panelCountDisplay = document.getElementById('panelCount');
+        const stats = document.getElementById('stats');
+
+        // 문장 분리 정규식: . ! ? 뒤에 공백이 오면 분리
+        const sentenceRegex = /(?<=[.!?])\s+/;
+
+        sourceInput.addEventListener('input', () => {
+            const text = sourceInput.value.trim();
+            if (!text) {
+                renderEmpty();
+                return;
+            }
+
+            // 문장 단위 분해
+            const sentences = text.split(sentenceRegex).filter(s => s.length > 0);
+            renderPanels(sentences);
+            
+            // 통계 업데이트
+            panelCountDisplay.innerText = `${sentences.length} Panels`;
+            stats.innerText = `Word count: ${text.length} | Sentences: ${sentences.length}`;
+        });
+
+        function renderPanels(sentences) {
+            panelContainer.innerHTML = '';
+            sentences.forEach((sentence, index) => {
+                const card = document.createElement('div');
+                card.className = 'card-anim bg-[#141414] border border-white/5 rounded-lg p-5 hover:border-blue-500/50 transition-all group relative';
+                
+                card.innerHTML = `
+                    <div class="flex items-start gap-4">
+                        <span class="text-[10px] font-mono text-blue-600 mt-1 font-bold">P-${String(index + 1).padStart(2, '0')}</span>
+                        <p class="text-sm leading-relaxed text-gray-300 group-hover:text-white transition-colors">${sentence}</p>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-white/5 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div class="flex gap-2">
+                            <span class="px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-400 text-[9px] font-bold uppercase">Ready</span>
+                        </div>
+                        <button class="text-[10px] text-gray-500 hover:text-blue-400 transition-colors uppercase font-bold tracking-tighter">Add Note</button>
+                    </div>
+                `;
+                panelContainer.appendChild(card);
+            });
+        }
+
+        function renderEmpty() {
+            panelContainer.innerHTML = `
+                <div class="h-full flex items-center justify-center text-gray-700 italic text-sm">
+                    왼쪽에 텍스트를 입력하면 자동으로 컷이 분할됩니다.
+                </div>
+            `;
+            panelCountDisplay.innerText = '0 Panels';
+            stats.innerText = 'Ready to Deconstruct';
+        }
+    </script>
+</body>
+</html>
