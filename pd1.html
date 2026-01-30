@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 각색 워크스테이션 v1.2</title>
+    <title>지혜의 용 | 각색 워크스테이션 v1.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 4px; }
@@ -26,7 +26,7 @@
     <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0">
         <div class="flex items-center gap-3">
             <span class="text-2xl">🐲</span>
-            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v1.2 Optimized</span></h1>
+            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v1.3 Persist</span></h1>
         </div>
         <div class="flex gap-4 items-center">
             <div class="text-[10px] text-gray-600 flex gap-2">
@@ -101,34 +101,35 @@
 
         // --- 초기 로드 ---
         window.onload = () => {
-            const savedData = localStorage.getItem('dragonAdapter_v12_board');
-            const savedOriginal = localStorage.getItem('dragonAdapter_v12_original');
+            const savedData = localStorage.getItem('dragonAdapter_v13_board');
+            const savedOriginal = localStorage.getItem('dragonAdapter_v13_original');
             
             if (savedOriginal) originalView.value = savedOriginal;
 
             if (savedData) {
                 panelContainer.innerHTML = savedData;
-                reattachEvents();
+                reattachEvents(); // 여기가 핵심: 저장된 HTML에 생명을 불어넣음
                 updateStats();
+                // input 값 복원
                 const inputs = panelContainer.querySelectorAll('input.memo-input');
                 inputs.forEach(input => input.value = input.getAttribute('value'));
                 const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
                 checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
                 
-                saveState(); // 초기 상태 저장
+                saveState(); 
             }
         };
 
-        // --- 안전한 저장 로직 (Try-Catch) ---
+        // --- 안전한 저장 로직 ---
         function saveToLocal(showAlert = false) {
             prepareStateForSave();
             try {
-                localStorage.setItem('dragonAdapter_v12_board', panelContainer.innerHTML);
-                localStorage.setItem('dragonAdapter_v12_original', originalView.value);
+                localStorage.setItem('dragonAdapter_v13_board', panelContainer.innerHTML);
+                localStorage.setItem('dragonAdapter_v13_original', originalView.value);
                 if (showAlert) alert('저장되었습니다.');
             } catch (e) {
                 console.error("Storage Error:", e);
-                if (showAlert) alert("용량이 가득 차서 저장하지 못했습니다. (이미지가 너무 많을 수 있습니다)");
+                if (showAlert) alert("용량 부족으로 저장 실패 (이미지가 너무 많습니다)");
             }
         }
 
@@ -145,14 +146,10 @@
             prepareStateForSave();
             historyStack.push(panelContainer.innerHTML);
             historyIndex++;
-            
-            // 자동 저장 시도 (실패해도 앱이 멈추지 않도록 예외 처리)
             try {
-                localStorage.setItem('dragonAdapter_v12_board', panelContainer.innerHTML);
-                localStorage.setItem('dragonAdapter_v12_original', originalView.value);
-            } catch (e) {
-                console.warn("Auto-save failed due to quota limit. App continues to run.");
-            }
+                localStorage.setItem('dragonAdapter_v13_board', panelContainer.innerHTML);
+                localStorage.setItem('dragonAdapter_v13_original', originalView.value);
+            } catch (e) { console.warn("Auto-save failed"); }
         }
 
         function restoreState(index) {
@@ -169,11 +166,24 @@
             updateStats();
         }
 
+        // --- [핵심 수정] 이벤트 재부착 (Rehydration) ---
+        // 이 함수가 불러온 HTML의 이미지와 카드에 다시 클릭 기능을 심어줍니다.
         function reattachEvents() {
             const cards = panelContainer.querySelectorAll('.group');
             cards.forEach(card => {
                 card.onclick = (e) => selectCard(e, card);
                 addDragEvents(card);
+                
+                // [FIX] 이미지 래퍼에도 다시 이벤트를 걸어줍니다 (구버전 데이터 호환용)
+                const imgWrappers = card.querySelectorAll('.group\\/img');
+                imgWrappers.forEach(wrapper => {
+                    const img = wrapper.querySelector('img');
+                    if (img) {
+                        // 기존 핸들러를 덮어쓰지 않도록 attribute 방식 사용 권장하나,
+                        // 확실한 복구를 위해 onclick 재할당
+                        wrapper.onclick = (e) => { e.stopPropagation(); openImgFS(img.src); };
+                    }
+                });
             });
         }
 
@@ -310,11 +320,10 @@
 
             const newCard = createCardElement(postText);
             panelContainer.insertBefore(newCard, card.nextSibling);
-            
             updateStats();
         }
 
-        // --- Image Compression Logic (핵심 수정) ---
+        // --- Image Compression & Addition ---
         function compressImage(file, callback) {
             const reader = new FileReader();
             reader.readAsDataURL(file);
@@ -323,15 +332,12 @@
                 img.src = event.target.result;
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 600; // 썸네일용으로 충분한 크기
+                    const MAX_WIDTH = 600;
                     const scaleSize = MAX_WIDTH / img.width;
                     canvas.width = MAX_WIDTH;
                     canvas.height = img.height * scaleSize;
-
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
-                    // JPEG 퀄리티 0.7로 압축
                     const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
                     callback(dataUrl);
                 }
@@ -340,12 +346,15 @@
 
         function addImageToCard(card, src) {
             const container = card.querySelector('.img-container');
-            if (!container) return false;
-            if (container.children.length >= MAX_IMAGES) return false;
+            if (!container || container.children.length >= MAX_IMAGES) return false;
             
             const wrapper = document.createElement('div');
             wrapper.className = "relative aspect-square bg-gray-900 rounded overflow-hidden group/img cursor-pointer";
-            wrapper.onclick = (e) => { e.stopPropagation(); openImgFS(src); };
+            
+            // [핵심] HTML 속성으로 onclick을 박아넣어 저장 시에도 유지되게 함
+            // src에 따옴표가 있을 수 있으므로 안전하게 this.querySelector로 접근
+            wrapper.setAttribute('onclick', "event.stopPropagation(); openImgFS(this.querySelector('img').src)");
+
             wrapper.innerHTML = `
                 <img src="${src}" class="w-full h-full object-cover hover:opacity-80 transition">
                 <button onclick="removeImage(event, this)" class="absolute top-0 right-0 bg-red-600 text-white w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover/img:opacity-100 transition">×</button>
@@ -369,7 +378,6 @@
             input.onchange = e => {
                 const file = e.target.files[0];
                 if (file) {
-                    // 압축 후 저장
                     compressImage(file, (compressedSrc) => {
                         saveState();
                         addImageToCard(card, compressedSrc);
@@ -384,17 +392,13 @@
             for (let item of items) {
                 if (item.kind === 'file' && item.type.startsWith('image/')) {
                     e.preventDefault();
-                    
                     const card = element.closest('.group');
                     const container = card.querySelector('.img-container');
-                    
                     if (container.children.length >= MAX_IMAGES) {
                         alert("이미지 개수 초과!");
                         return;
                     }
-
                     const blob = item.getAsFile();
-                    // 압축 후 저장
                     compressImage(blob, (compressedSrc) => {
                         saveState();
                         addImageToCard(card, compressedSrc);
@@ -418,7 +422,6 @@
                 }
 
                 saveState();
-                
                 const prevArea = prev.querySelector('.content-area');
                 prevArea.innerText += " " + current.querySelector('.content-area').innerText;
                 prevArea.innerHTML = highlightText(prevArea.innerText);
