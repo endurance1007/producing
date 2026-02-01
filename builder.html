@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Story Engine v4.5</title>
+    <title>Story Engine v4.6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style type="text/tailwindcss">
@@ -13,20 +13,20 @@
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-        /* 메인 스토리 입력창 (넓고 편안하게) */
+        /* 메인 스토리 입력창 */
         .input-dark { 
             @apply w-full bg-slate-800 text-gray-100 border border-slate-700 rounded-lg px-5 py-4 text-base focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-slate-500 resize-none overflow-hidden leading-relaxed transition-colors duration-200; 
         }
 
-        /* 캐릭터 카드 내부 입력창 (좁은 공간용) */
+        /* 캐릭터 카드 내부 입력창 */
         .input-card {
             @apply w-full bg-slate-900/80 text-gray-200 border border-slate-700 rounded px-2 py-1.5 text-xs focus:border-blue-500 focus:outline-none placeholder-slate-600 resize-none overflow-hidden mb-1;
         }
 
-        /* 섹션 카드 스타일 (통일됨) */
+        /* 섹션 카드 스타일 */
         .section-card { @apply bg-slate-900/40 rounded-xl p-6 border border-slate-800 hover:border-slate-700 transition-colors duration-300 shadow-sm relative; }
         
-        /* 항목 제목 스타일 (Part 1,2,3 통일) */
+        /* 항목 제목 스타일 */
         .item-title { @apply font-bold text-lg mb-2 flex items-center gap-2; }
         .item-desc { @apply text-xs text-slate-500 mb-3 block; }
 
@@ -46,7 +46,7 @@
         <div class="mb-12">
             <div class="flex justify-between items-start mb-6">
                 <div class="w-full mr-8">
-                    <h1 class="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-2">Story Engine v4.5</h1>
+                    <h1 class="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-2">Story Engine v4.6</h1>
                     <input id="f_title" oninput="saveData()" class="bg-transparent text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-100 to-emerald-100 placeholder-slate-700 focus:outline-none w-full border-b border-transparent focus:border-slate-800 transition-colors pb-2" placeholder="이야기의 제목을 입력하세요 (클릭하여 수정)">
                 </div>
                 <div class="flex gap-2 shrink-0">
@@ -156,21 +156,27 @@
                 </div>
 
                 <div class="section-card border-l-4 border-l-orange-500 relative">
-                    <h3 class="item-title text-orange-400">13. 판돈 상승 & 14. 패배</h3>
-                    <span class="item-desc">실패 시 잃는 것의 크기 & 최악의 절망(All is Lost)</span>
-                    <div class="space-y-4">
-                        <textarea id="p_18" oninput="autoResize(this); saveData()" rows="1" class="input-dark" placeholder="판돈: 도시 전체의 시스템이 다운될 위기. 실패하면 자신뿐 아니라 시민 전원이 사망한다."></textarea>
-                        <textarea id="p_19" oninput="autoResize(this); saveData()" rows="1" class="input-dark" placeholder="절망: 동생과의 첫 대면에서 완패하고, 유일한 무기마저 파괴된다. 아무런 희망이 보이지 않는다."></textarea>
-                    </div>
+                    <h3 class="item-title text-orange-400">13. 판돈 상승 (Raising Stakes)</h3>
+                    <span class="item-desc">실패 시 잃게 되는 것의 크기가 극적으로 커짐</span>
+                    <textarea id="p_18" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 단순히 동생을 구하는 문제가 아니다. 실패하면 도시 전체의 생명 유지 시스템이 다운되어 시민 전원이 사망한다."></textarea>
+                </div>
+
+                <div class="section-card border-l-4 border-l-orange-600 relative">
+                    <h3 class="item-title text-orange-500">14. 패배와 절망 (All is Lost)</h3>
+                    <span class="item-desc">모든 것을 잃은 것 같은 최악의 순간, 멘토의 죽음</span>
+                    <textarea id="p_19" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 동생과의 첫 대면에서 처참하게 패배하고, 유일한 무기마저 파괴된다. 아무런 희망이 보이지 않는다."></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-red-500 relative">
-                    <h3 class="item-title text-red-400">15. 클라이맥스 & 16. 선택</h3>
-                    <span class="item-desc">최후의 결전과 주인공의 희생적 선택</span>
-                     <div class="space-y-4">
-                        <textarea id="p_20" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="클라이맥스: 주인공이 자신의 뇌 칩을 과부하시켜 리미터를 해제하고 동생과 최후의 결전을 벌인다."></textarea>
-                        <textarea id="p_21" oninput="autoResize(this); saveData()" rows="1" class="input-dark" placeholder="선택: 동생을 죽여야만 도시를 구할 수 있다. 주인공은 동생과 함께 자폭하는 길을 선택한다."></textarea>
-                    </div>
+                    <h3 class="item-title text-red-500">15. 클라이맥스 (Climax)</h3>
+                    <span class="item-desc">주인공이 자신의 결함을 극복하고 벌이는 최후의 결전</span>
+                    <textarea id="p_20" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 주인공이 자신의 안전(규칙)을 버리고 뇌 칩을 과부하시켜 리미터를 해제한 뒤, 동생과 최후의 결전을 벌인다."></textarea>
+                </div>
+
+                <div class="section-card border-l-4 border-l-red-400 relative">
+                    <h3 class="item-title text-red-300">16. 최후의 선택 (The Choice)</h3>
+                    <span class="item-desc">승리를 위해 주인공이 희생하거나 포기해야 하는 가치</span>
+                    <textarea id="p_21" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 동생을 죽여야만 도시를 구할 수 있다. 혹은 동생과 함께 자폭하는 길을 선택한다."></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-emerald-500 relative">
@@ -209,7 +215,7 @@
 
         // 초기화
         window.onload = function() {
-            const saved = localStorage.getItem('storyDashboardFinal_v45');
+            const saved = localStorage.getItem('storyDashboardFinal_v46');
             if (saved) {
                 projectData = JSON.parse(saved);
                 loadUI();
@@ -234,7 +240,7 @@
                 if(el) projectData.plot[id.replace('_','')] = el.value;
             });
 
-            localStorage.setItem('storyDashboardFinal_v45', JSON.stringify(projectData));
+            localStorage.setItem('storyDashboardFinal_v46', JSON.stringify(projectData));
             
             const status = document.getElementById('save-status');
             status.style.opacity = '1';
@@ -389,14 +395,14 @@
             const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
             const node = document.createElement('a');
             node.href = str;
-            node.download = "story_engine_final_v4.5.json";
+            node.download = "story_engine_final_v4.6.json";
             document.body.appendChild(node);
             node.click();
             node.remove();
         }
         function clearData() {
             if(confirm('모든 데이터를 초기화하시겠습니까?')) {
-                localStorage.removeItem('storyDashboardFinal_v45');
+                localStorage.removeItem('storyDashboardFinal_v46');
                 location.reload();
             }
         }
