@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mystery Story Architect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 커스텀 스크롤바 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        .tab-active { border-left: 4px solid #10b981; background-color: #1f2937; color: white; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-300 font-sans h-screen flex overflow-hidden">
+
+    <aside class="w-64 bg-gray-800 flex flex-col border-r border-gray-700 flex-shrink-0">
+        <div class="p-6 border-b border-gray-700">
+            <h1 class="text-xl font-bold text-emerald-400">🕵️‍♂️ Mystery Architect</h1>
+            <p class="text-xs text-gray-500 mt-1">스토리 설계 워크시트</p>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-4">
+            <button onclick="switchTab('overview')" id="btn-overview" class="w-full text-left px-6 py-3 hover:bg-gray-700 transition tab-active">
+                1. 프로젝트 개요
+            </button>
+            <button onclick="switchTab('mystery')" id="btn-mystery" class="w-full text-left px-6 py-3 hover:bg-gray-700 transition">
+                2. 미스테리 핵심 (트릭)
+            </button>
+            <button onclick="switchTab('characters')" id="btn-characters" class="w-full text-left px-6 py-3 hover:bg-gray-700 transition">
+                3. 캐릭터 (용의자들)
+            </button>
+            <button onclick="switchTab('plot')" id="btn-plot" class="w-full text-left px-6 py-3 hover:bg-gray-700 transition">
+                4. 7단계 플롯 구조
+            </button>
+        </nav>
+        <div class="p-4 border-t border-gray-700">
+            <button onclick="exportData()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded font-bold transition flex items-center justify-center gap-2">
+                <span>📥 데이터 내보내기</span>
+            </button>
+            <button onclick="clearData()" class="w-full mt-2 text-xs text-red-400 hover:text-red-300">
+                초기화
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto bg-gray-900 p-8 relative">
+        
+        <div id="save-status" class="fixed top-4 right-8 text-xs text-gray-500 opacity-0 transition-opacity">
+            자동 저장됨...
+        </div>
+
+        <section id="tab-overview" class="max-w-4xl mx-auto space-y-8">
+            <h2 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">프로젝트 개요</h2>
+            
+            <div class="grid grid-cols-1 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">제목 (가제)</label>
+                    <input type="text" id="title" oninput="saveData()" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-emerald-500 focus:outline-none" placeholder="예: 붉은 저택의 살인">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">로그라인 (Irony & Hook)</label>
+                    <textarea id="logline" oninput="saveData()" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-emerald-500 focus:outline-none" placeholder="주인공의 특성과 상황이 충돌하는 한 문장"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">핵심 질문 (Dramatic Question)</label>
+                    <input type="text" id="coreQuestion" oninput="saveData()" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-emerald-500 focus:outline-none" placeholder="주인공은 과연 ~ 할 수 있을까?">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">테마 (Controlling Idea)</label>
+                    <input type="text" id="theme" oninput="saveData()" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-emerald-500 focus:outline-none" placeholder="결국 이 이야기는 ~에 관한 것이다.">
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-mystery" class="max-w-4xl mx-auto space-y-8 hidden">
+            <h2 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">미스테리 설계 (Doyle & Christie)</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-emerald-400 mb-1">기이한 발상 (The Bizarre Detail)</label>
+                    <textarea id="bizarreDetail" oninput="saveData()" rows="3" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-emerald-500 focus:outline-none" placeholder="논리적으로 설명되지 않는 현장의 특징 (예: 짖지 않은 개, 사라진 흉기)"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">피해자 & 죽음의 이유</label>
+                    <textarea id="victimInfo" oninput="saveData()" rows="4" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-emerald-500 focus:outline-none" placeholder="누구이며, 왜 죽어야 했는가? (비밀/죄)"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">범행 트릭 & 도구</label>
+                    <textarea id="trickInfo" oninput="saveData()" rows="4" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-emerald-500 focus:outline-none" placeholder="어떻게 불가능해 보이는 범죄를 저질렀는가?"></textarea>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-400 mb-1">결정적 단서 (The Clue)</label>
+                    <input type="text" id="keyClue" oninput="saveData()" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-emerald-500 focus:outline-none" placeholder="결말에서 무릎을 치게 만들 복선">
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-characters" class="max-w-4xl mx-auto space-y-8 hidden">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-2 mb-6">
+                <h2 class="text-2xl font-bold text-white">캐릭터 (용의자 매트릭스)</h2>
+                <button onclick="addCharacter()" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm transition">+ 캐릭터 추가</button>
+            </div>
+            
+            <div id="character-list" class="space-y-6">
+                </div>
+        </section>
+
+        <section id="tab-plot" class="max-w-4xl mx-auto space-y-8 hidden">
+            <h2 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">7단계 구조 (Robert McKee Flow)</h2>
+            
+            <div class="space-y-6">
+                <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                    <h3 class="font-bold text-emerald-400 mb-2">1. 사건의 발단 (Inciting Incident)</h3>
+                    <p class="text-xs text-gray-500 mb-2">일상의 파괴, 주인공이 사건을 맡게 되는 필연적 이유</p>
+                    <textarea id="plotStep1" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                    <h3 class="font-bold text-emerald-400 mb-2">2. 욕망의 충돌 (Conflict)</h3>
+                    <p class="text-xs text-gray-500 mb-2">주인공의 목표 vs 범인의 방해, 첫 번째 장벽</p>
+                    <textarea id="plotStep2" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                    <h3 class="font-bold text-emerald-400 mb-2">3. 레드 헤링과 혼란 (Rising Action)</h3>
+                    <p class="text-xs text-gray-500 mb-2">가장 유력한 용의자가 범인이 아님이 밝혀짐, 수사의 난항</p>
+                    <textarea id="plotStep3" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                    <h3 class="font-bold text-emerald-400 mb-2">4. 미드포인트 (Mid-point)</h3>
+                    <p class="text-xs text-gray-500 mb-2">판이 뒤집히는 큰 사건, 주인공이 수동적 태도에서 능동적으로 변함</p>
+                    <textarea id="plotStep4" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                    <h3 class="font-bold text-emerald-400 mb-2">5. 위기와 선택 (Crisis)</h3>
+                    <p class="text-xs text-gray-500 mb-2">주인공이 진실을 위해 가장 소중한 것을 걸어야 하는 순간</p>
+                    <textarea id="plotStep5" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                    <h3 class="font-bold text-emerald-400 mb-2">6. 클라이맥스 (Climax)</h3>
+                    <p class="text-xs text-gray-500 mb-2">범인과의 최후 대결, 트릭의 파훼</p>
+                    <textarea id="plotStep6" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="bg-gray-800 p-4 rounded border border-gray-700">
+                    <h3 class="font-bold text-emerald-400 mb-2">7. 결말과 여운 (Resolution)</h3>
+                    <p class="text-xs text-gray-500 mb-2">사건 이후 변화된 세계와 주인공</p>
+                    <textarea id="plotStep7" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none"></textarea>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // 데이터 구조 정의
+        let storyData = {
+            overview: { title: "", logline: "", coreQuestion: "", theme: "" },
+            mystery: { bizarreDetail: "", victimInfo: "", trickInfo: "", keyClue: "" },
+            characters: [], // [{id, name, role, desire, secret, ...}]
+            plot: { step1: "", step2: "", step3: "", step4: "", step5: "", step6: "", step7: "" }
+        };
+
+        // 초기화
+        window.onload = function() {
+            const savedData = localStorage.getItem('mysteryStoryData');
+            if (savedData) {
+                storyData = JSON.parse(savedData);
+                loadDataToUI();
+            } else {
+                // 기본 캐릭터 1명 추가
+                addCharacter(); 
+            }
+        };
+
+        // 탭 전환 함수
+        function switchTab(tabId) {
+            // 모든 섹션 숨기기
+            document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
+            // 모든 버튼 스타일 초기화
+            document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('tab-active'));
+
+            // 선택된 섹션 보이기
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            // 선택된 버튼 활성화
+            document.getElementById('btn-' + tabId).classList.add('tab-active');
+        }
+
+        // 데이터 저장 (Local Storage)
+        function saveData() {
+            // Overview
+            storyData.overview.title = document.getElementById('title').value;
+            storyData.overview.logline = document.getElementById('logline').value;
+            storyData.overview.coreQuestion = document.getElementById('coreQuestion').value;
+            storyData.overview.theme = document.getElementById('theme').value;
+
+            // Mystery
+            storyData.mystery.bizarreDetail = document.getElementById('bizarreDetail').value;
+            storyData.mystery.victimInfo = document.getElementById('victimInfo').value;
+            storyData.mystery.trickInfo = document.getElementById('trickInfo').value;
+            storyData.mystery.keyClue = document.getElementById('keyClue').value;
+
+            // Plot
+            for(let i=1; i<=7; i++) {
+                storyData.plot[`step${i}`] = document.getElementById(`plotStep${i}`).value;
+            }
+
+            // Characters: oninput에서 개별 저장됨 (아래 saveCharacterInput 참고)
+
+            localStorage.setItem('mysteryStoryData', JSON.stringify(storyData));
+            
+            // 저장 알림
+            const status = document.getElementById('save-status');
+            status.style.opacity = '1';
+            setTimeout(() => status.style.opacity = '0', 1000);
+        }
+
+        // UI에 데이터 로드
+        function loadDataToUI() {
+            // Overview
+            document.getElementById('title').value = storyData.overview.title;
+            document.getElementById('logline').value = storyData.overview.logline;
+            document.getElementById('coreQuestion').value = storyData.overview.coreQuestion;
+            document.getElementById('theme').value = storyData.overview.theme;
+
+            // Mystery
+            document.getElementById('bizarreDetail').value = storyData.mystery.bizarreDetail;
+            document.getElementById('victimInfo').value = storyData.mystery.victimInfo;
+            document.getElementById('trickInfo').value = storyData.mystery.trickInfo;
+            document.getElementById('keyClue').value = storyData.mystery.keyClue;
+
+            // Plot
+            for(let i=1; i<=7; i++) {
+                if(storyData.plot[`step${i}`]) {
+                    document.getElementById(`plotStep${i}`).value = storyData.plot[`step${i}`];
+                }
+            }
+
+            // Characters
+            const list = document.getElementById('character-list');
+            list.innerHTML = '';
+            storyData.characters.forEach(char => renderCharacterCard(char));
+            if(storyData.characters.length === 0) addCharacter();
+        }
+
+        // 캐릭터 추가
+        function addCharacter() {
+            const newChar = {
+                id: Date.now(),
+                name: "",
+                role: "용의자",
+                desire: "", // 욕망
+                flaw: "", // 결함
+                secret: "", // 비밀
+                appearance: ""
+            };
+            storyData.characters.push(newChar);
+            renderCharacterCard(newChar);
+            saveData();
+        }
+
+        // 캐릭터 카드 렌더링
+        function renderCharacterCard(char) {
+            const list = document.getElementById('character-list');
+            const card = document.createElement('div');
+            card.className = "bg-gray-800 p-6 rounded border border-gray-700 relative";
+            card.innerHTML = `
+                <button onclick="deleteCharacter(${char.id})" class="absolute top-4 right-4 text-gray-500 hover:text-red-400">✖</button>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">이름</label>
+                        <input type="text" value="${char.name}" oninput="updateCharacter(${char.id}, 'name', this.value)" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">역할 (포지션)</label>
+                        <select onchange="updateCharacter(${char.id}, 'role', this.value)" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none">
+                            <option value="주인공" ${char.role === '주인공' ? 'selected' : ''}>주인공 (탐정)</option>
+                            <option value="대립자" ${char.role === '대립자' ? 'selected' : ''}>대립자 (범인/라이벌)</option>
+                            <option value="용의자" ${char.role === '용의자' ? 'selected' : ''}>용의자</option>
+                            <option value="조력자" ${char.role === '조력자' ? 'selected' : ''}>조력자</option>
+                            <option value="피해자" ${char.role === '피해자' ? 'selected' : ''}>피해자</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">욕망 (Want) / 결핍 (Need)</label>
+                        <input type="text" value="${char.desire}" oninput="updateCharacter(${char.id}, 'desire', this.value)" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none" placeholder="무엇을 원하고 무엇이 부족한가?">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">치명적 결함 / 비밀</label>
+                        <input type="text" value="${char.secret || ''}" oninput="updateCharacter(${char.id}, 'secret', this.value)" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none" placeholder="감추고 있는 것">
+                    </div>
+                    <div class="md:col-span-2">
+                         <label class="block text-xs text-gray-500 mb-1">외형 특징 / 비고</label>
+                        <input type="text" value="${char.appearance || ''}" oninput="updateCharacter(${char.id}, 'appearance', this.value)" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-emerald-500 focus:outline-none" placeholder="실루엣, 상징색, 아이템 등">
+                    </div>
+                </div>
+            `;
+            list.appendChild(card);
+        }
+
+        // 캐릭터 데이터 업데이트
+        function updateCharacter(id, field, value) {
+            const charIndex = storyData.characters.findIndex(c => c.id === id);
+            if (charIndex > -1) {
+                storyData.characters[charIndex][field] = value;
+                saveData();
+            }
+        }
+
+        // 캐릭터 삭제
+        function deleteCharacter(id) {
+            if(confirm('이 캐릭터를 삭제하시겠습니까?')) {
+                storyData.characters = storyData.characters.filter(c => c.id !== id);
+                saveData();
+                loadDataToUI(); // 리스트 다시 그리기
+            }
+        }
+
+        // 데이터 내보내기 (JSON 다운로드)
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(storyData, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "mystery_draft.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        // 데이터 초기화
+        function clearData() {
+            if(confirm('모든 데이터를 초기화하시겠습니까? 복구할 수 없습니다.')) {
+                localStorage.removeItem('mysteryStoryData');
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
