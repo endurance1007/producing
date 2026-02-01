@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Story Engine v4.5 : Vertical & Editable</title>
+    <title>Story Engine v5.0 : Complete Architect</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 스크롤바 디자인 */
@@ -12,56 +12,69 @@
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; border: 2px solid #0f172a; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-        /* [핵심 수정] 입력창 스타일 : 무조건 다크 컬러 적용 */
+        /* 입력창 스타일 */
         .input-dark { 
             display: block;
             width: 100%;
-            background-color: #1f2937 !important; /* 강제 다크 적용 */
-            color: #e2e8f0 !important; /* 밝은 글씨 */
+            background-color: #1f2937 !important; /* 강제 다크 */
+            color: #e2e8f0 !important;
             border: 1px solid #374151;
             border-radius: 0.5rem;
             padding: 1rem;
-            font-size: 1rem;
+            font-size: 0.95rem;
             line-height: 1.6;
             margin-top: 0.5rem;
             resize: none;
             overflow: hidden;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
         }
         .input-dark:focus {
             outline: none;
             border-color: #3b82f6;
             background-color: #111827 !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        .input-dark::placeholder {
+            color: #4b5563;
+            font-style: italic;
         }
 
-        /* [핵심 수정] 항목 제목(Label)도 수정 가능한 Input으로 변경 */
+        /* 항목 제목(Label) 스타일 - 수정 가능 */
         .label-editable {
             width: 100%;
             background: transparent;
             border: none;
-            color: #60a5fa; /* Blue-400 */
             font-weight: 800;
-            font-size: 0.875rem; /* text-sm */
+            font-size: 0.9rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.1rem;
             cursor: text;
         }
         .label-editable:focus {
             outline: none;
             border-bottom: 1px dashed #60a5fa;
         }
+
+        /* 설명 텍스트 */
+        .desc-text {
+            font-size: 0.75rem;
+            color: #94a3b8; /* Slate-400 */
+            margin-bottom: 0.5rem;
+            display: block;
+        }
         
-        /* 섹션 카드 스타일 (가로 꽉 차게) */
+        /* 섹션 카드 스타일 */
         .section-card { 
             background-color: #1e293b; /* Slate-800 */
             border-radius: 0.75rem; 
             padding: 1.5rem; 
             border: 1px solid #334155; 
-            margin-bottom: 2rem; /* 항목 간 간격 넉넉하게 */
+            margin-bottom: 2rem; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
-        /* 캐릭터 덱용 작은 입력창 */
+        /* 캐릭터 덱용 입력창 */
         .input-char {
             width: 100%;
             background-color: #0f172a !important;
@@ -72,6 +85,8 @@
             font-size: 0.8rem;
             margin-top: 0.25rem;
         }
+        .input-char::placeholder { color: #475569; }
+        .label-char { font-size: 0.7rem; color: #64748b; font-weight: bold; text-transform: uppercase; margin-top: 0.5rem; display: block; }
 
     </style>
 </head>
@@ -81,11 +96,11 @@
         
         <div class="flex justify-between items-end mb-16 border-b border-slate-800 pb-6">
             <div>
-                <h1 class="text-4xl font-black text-white tracking-tight mb-2">Story Engine <span class="text-blue-500">v4.5</span></h1>
-                <p class="text-slate-500">Vertical Flow & Editable Labels</p>
+                <h1 class="text-4xl font-black text-white tracking-tight mb-2">Story Engine <span class="text-blue-500">v5.0</span></h1>
+                <p class="text-slate-500">The Complete Architect</p>
             </div>
             <div class="flex gap-3">
-                <button onclick="exportData()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg transition">
+                <button onclick="exportData()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg transition flex items-center gap-2">
                     📥 저장
                 </button>
                 <button onclick="clearData()" class="text-slate-500 hover:text-red-400 px-4 py-2 transition">
@@ -105,30 +120,33 @@
             </h2>
             
             <div class="section-card border-l-4 border-l-blue-500">
-                <input type="text" id="lbl_f_logline" class="label-editable text-blue-400" value="1. 아이러니 로그라인" oninput="saveLabel(this.id, this.value)">
-                <p class="text-xs text-slate-500 mb-2">주인공의 특성과 상황이 모순되는 결정적 한 문장</p>
-                <textarea id="f_logline" oninput="autoResize(this); saveData()" rows="2" class="input-dark"></textarea>
+                <input type="text" id="lbl_f_logline" class="label-editable text-blue-400" value="1. 아이러니 로그라인 (Logline)" oninput="saveLabel(this.id, this.value)">
+                <span class="desc-text">주인공의 특성과 상황이 모순되는 결정적 한 문장</span>
+                <textarea id="f_logline" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 살인을 싫어하는 전설의 청부업자가 육아를 맡게 되면서 벌어지는 이야기"></textarea>
             </div>
 
-            <div class="section-card">
-                <input type="text" id="lbl_f_question" class="label-editable" value="2. 핵심 질문 (Dramatic Question)" oninput="saveLabel(this.id, this.value)">
-                <textarea id="f_question" oninput="autoResize(this); saveData()" rows="1" class="input-dark"></textarea>
+            <div class="section-card border-l-4 border-l-blue-400">
+                <input type="text" id="lbl_f_question" class="label-editable text-blue-300" value="2. 핵심 질문 (Dramatic Question)" oninput="saveLabel(this.id, this.value)">
+                <span class="desc-text">독자가 끝까지 궁금해할, 이야기 전체를 관통하는 질문</span>
+                <textarea id="f_question" oninput="autoResize(this); saveData()" rows="1" class="input-dark" placeholder="예: 과연 주인공은 정체를 들키지 않고 아이를 지켜낼 수 있을까?"></textarea>
             </div>
 
-            <div class="section-card">
-                <input type="text" id="lbl_f_target" class="label-editable" value="3. 타겟 & 장르" oninput="saveLabel(this.id, this.value)">
-                <textarea id="f_target" oninput="autoResize(this); saveData()" rows="1" class="input-dark"></textarea>
+            <div class="section-card border-l-4 border-l-blue-300">
+                <input type="text" id="lbl_f_target" class="label-editable text-blue-200" value="3. 타겟 & 장르" oninput="saveLabel(this.id, this.value)">
+                <span class="desc-text">이 이야기를 소비할 독자층과 장르적 문법</span>
+                <textarea id="f_target" oninput="autoResize(this); saveData()" rows="1" class="input-dark" placeholder="예: 2030 남성 / 누아르 코미디"></textarea>
             </div>
 
-            <div class="section-card">
-                <input type="text" id="lbl_f_hook" class="label-editable" value="4. 차별화 포인트 (The Hook)" oninput="saveLabel(this.id, this.value)">
-                <textarea id="f_hook" oninput="autoResize(this); saveData()" rows="1" class="input-dark"></textarea>
+            <div class="section-card border-l-4 border-l-cyan-400">
+                <input type="text" id="lbl_f_hook" class="label-editable text-cyan-300" value="4. 차별화 포인트 (The Hook)" oninput="saveLabel(this.id, this.value)">
+                <span class="desc-text">기존의 비슷한 이야기들과 다른 결정적인 '한 끗'</span>
+                <textarea id="f_hook" oninput="autoResize(this); saveData()" rows="1" class="input-dark" placeholder="예: 킬러가 육아용품으로 사람을 제압함"></textarea>
             </div>
 
-            <div class="section-card border border-blue-500/30 bg-blue-900/10">
-                <input type="text" id="lbl_f_theme" class="label-editable text-blue-300" value="23. 테마 (Controlling Idea)" oninput="saveLabel(this.id, this.value)">
-                <p class="text-xs text-blue-400/50 mb-2">결국 이 이야기는 무엇에 관한 것인가?</p>
-                <textarea id="f_theme" oninput="autoResize(this); saveData()" rows="1" class="input-dark bg-slate-800"></textarea>
+            <div class="section-card border-l-4 border-l-blue-600 bg-blue-900/10">
+                <input type="text" id="lbl_f_theme" class="label-editable text-blue-300" value="23. 테마 (Theme)" oninput="saveLabel(this.id, this.value)">
+                <span class="desc-text">이야기의 마침표. 결국 작가가 하고 싶은 말.</span>
+                <textarea id="f_theme" oninput="autoResize(this); saveData()" rows="1" class="input-dark bg-slate-800" placeholder="예: 진정한 강함은 지키는 것에서 나온다."></textarea>
             </div>
         </div>
 
@@ -138,19 +156,22 @@
                 세계관 (World)
             </h2>
 
-            <div class="section-card">
+            <div class="section-card border-l-4 border-l-indigo-500">
                 <input type="text" id="lbl_f_setting" class="label-editable text-indigo-400" value="11. 배경 (Setting)" oninput="saveLabel(this.id, this.value)">
-                <textarea id="f_setting" oninput="autoResize(this); saveData()" rows="1" class="input-dark"></textarea>
+                <span class="desc-text">사건이 벌어지는 시간적, 공간적 무대와 분위기</span>
+                <textarea id="f_setting" oninput="autoResize(this); saveData()" rows="1" class="input-dark" placeholder="예: 2024년 서울, 비가 그치지 않는 음습한 뒷골목"></textarea>
             </div>
 
-            <div class="section-card">
-                <input type="text" id="lbl_f_rules" class="label-editable text-indigo-400" value="12. 규칙 (Rules)" oninput="saveLabel(this.id, this.value)">
-                <textarea id="f_rules" oninput="autoResize(this); saveData()" rows="2" class="input-dark"></textarea>
+            <div class="section-card border-l-4 border-l-indigo-400">
+                <input type="text" id="lbl_f_rules" class="label-editable text-indigo-300" value="12. 규칙 (Rules)" oninput="saveLabel(this.id, this.value)">
+                <span class="desc-text">이 세계에서 절대 어길 수 없는 물리적/사회적 법칙</span>
+                <textarea id="f_rules" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 조직의 규칙 1조, 아이는 건드리지 않는다."></textarea>
             </div>
 
-            <div class="section-card">
-                <input type="text" id="lbl_f_statusQuo" class="label-editable text-indigo-400" value="13. 일상의 붕괴 전" oninput="saveLabel(this.id, this.value)">
-                <textarea id="f_statusQuo" oninput="autoResize(this); saveData()" rows="2" class="input-dark"></textarea>
+            <div class="section-card border-l-4 border-l-violet-400">
+                <input type="text" id="lbl_f_statusQuo" class="label-editable text-violet-300" value="13. 일상의 붕괴 전 (Status Quo)" oninput="saveLabel(this.id, this.value)">
+                <span class="desc-text">사건이 터지기 직전, 주인공이 영위하던 평범(혹은 지루)한 일상</span>
+                <textarea id="f_statusQuo" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 피 냄새를 지우기 위해 매일 목욕탕에 가는 기계적인 삶"></textarea>
             </div>
         </div>
 
@@ -160,66 +181,72 @@
                 플롯의 파동 (The Plot)
             </h2>
 
-            <div class="pl-4 border-l-2 border-slate-800 ml-2 space-y-8">
+            <div class="space-y-8">
                 
                 <div class="section-card border-l-4 border-l-sky-500">
                     <input type="text" id="lbl_p_14" class="label-editable text-sky-400" value="14. 도입부 사건 (Inciting Incident)" oninput="saveLabel(this.id, this.value)">
-                    <p class="text-xs text-slate-500 mb-2">일상에 불을 지르는 사건</p>
-                    <textarea id="p_14" oninput="autoResize(this); saveData()" rows="3" class="input-dark"></textarea>
+                    <span class="desc-text">주인공의 일상에 불을 지르고 균형을 깨뜨리는 사건</span>
+                    <textarea id="p_14" oninput="autoResize(this); saveData()" rows="3" class="input-dark" placeholder="예: 조직 보스가 갑자기 갓난아기를 맡기고 사라진다."></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-blue-600">
                     <input type="text" id="lbl_p_15" class="label-editable text-blue-400" value="15. 회귀 불가 지점 (Point of No Return)" oninput="saveLabel(this.id, this.value)">
-                    <p class="text-xs text-slate-500 mb-2">새로운 세계로의 진입</p>
-                    <textarea id="p_15" oninput="autoResize(this); saveData()" rows="3" class="input-dark"></textarea>
+                    <span class="desc-text">주인공이 사건을 받아들이고 새로운 세계로 발을 들이는 순간</span>
+                    <textarea id="p_15" oninput="autoResize(this); saveData()" rows="3" class="input-dark" placeholder="예: 아이를 노리는 적들을 피해 집을 태우고 도망친다."></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-indigo-500">
                     <input type="text" id="lbl_p_16" class="label-editable text-indigo-400" value="16. 시련과 상승 (Rising Action)" oninput="saveLabel(this.id, this.value)">
-                    <textarea id="p_16" oninput="autoResize(this); saveData()" rows="4" class="input-dark"></textarea>
+                    <span class="desc-text">목표를 향해 가며 겪는 3~4개의 점층적인 시련들</span>
+                    <textarea id="p_16" oninput="autoResize(this); saveData()" rows="4" class="input-dark" placeholder="예: 기저귀를 구하려다 정체가 탄로남 -> 암살자의 습격 -> 경찰의 추적"></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-purple-500 bg-slate-800 relative overflow-hidden">
                     <div class="absolute right-0 top-0 p-4 opacity-5 text-6xl font-black text-purple-500 pointer-events-none">MID</div>
                     <input type="text" id="lbl_p_17" class="label-editable text-purple-400 text-lg" value="17. 미드포인트 (Mid-point)" oninput="saveLabel(this.id, this.value)">
-                    <p class="text-sm text-slate-500 mb-2">판이 뒤집히는 거대한 반전. 주인공의 각성.</p>
-                    <textarea id="p_17" oninput="autoResize(this); saveData()" rows="4" class="input-dark border-purple-500/30"></textarea>
+                    <span class="desc-text">이야기의 허리. 판이 뒤집히거나 주인공이 각성하는 지점.</span>
+                    <textarea id="p_17" oninput="autoResize(this); saveData()" rows="4" class="input-dark border-purple-500/30" placeholder="예: 아이가 보스의 친자식이 아니라 내 아이였다는 사실을 알게 됨."></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-orange-500">
                     <input type="text" id="lbl_p_18" class="label-editable text-orange-400" value="18. 판돈 상승 (Stakes)" oninput="saveLabel(this.id, this.value)">
-                    <textarea id="p_18" oninput="autoResize(this); saveData()" rows="2" class="input-dark"></textarea>
+                    <span class="desc-text">실패했을 때 잃게 되는 것이 어떻게 더 커졌는가?</span>
+                    <textarea id="p_18" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 이제는 내 목숨뿐 아니라 아이의 미래까지 걸려있다."></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-red-800 bg-red-900/10">
                     <input type="text" id="lbl_p_19" class="label-editable text-red-400" value="19. 패배 (All is Lost)" oninput="saveLabel(this.id, this.value)">
-                    <textarea id="p_19" oninput="autoResize(this); saveData()" rows="2" class="input-dark border-red-900/50"></textarea>
+                    <span class="desc-text">최악의 절망. 희망이 없어 보이는 순간.</span>
+                    <textarea id="p_19" oninput="autoResize(this); saveData()" rows="2" class="input-dark border-red-900/50" placeholder="예: 아이를 적에게 뺏기고 동료는 배신했다."></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-red-600">
                     <input type="text" id="lbl_p_20" class="label-editable text-red-400" value="20. 클라이맥스 (Climax)" oninput="saveLabel(this.id, this.value)">
-                    <textarea id="p_20" oninput="autoResize(this); saveData()" rows="3" class="input-dark"></textarea>
+                    <span class="desc-text">주인공과 대립자의 최후의 정면 승부</span>
+                    <textarea id="p_20" oninput="autoResize(this); saveData()" rows="3" class="input-dark" placeholder="예: 적의 본거지에 홀로 침투하여 최종 보스와 대결한다."></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-yellow-500">
                     <input type="text" id="lbl_p_21" class="label-editable text-yellow-400" value="21. 최후의 선택 (The Choice)" oninput="saveLabel(this.id, this.value)">
-                    <textarea id="p_21" oninput="autoResize(this); saveData()" rows="2" class="input-dark"></textarea>
+                    <span class="desc-text">승리를 위해 주인공이 기꺼이 희생하거나 포기하는 가치</span>
+                    <textarea id="p_21" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 킬러로서의 명성을 버리고 아이를 위해 자수한다."></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-emerald-500">
                     <input type="text" id="lbl_p_22" class="label-editable text-emerald-400" value="22. 해소 (Resolution)" oninput="saveLabel(this.id, this.value)">
-                    <textarea id="p_22" oninput="autoResize(this); saveData()" rows="3" class="input-dark"></textarea>
+                    <span class="desc-text">사건 이후 변화된 세계와 주인공의 모습</span>
+                    <textarea id="p_22" oninput="autoResize(this); saveData()" rows="3" class="input-dark" placeholder="예: 감옥에서 아이의 편지를 받으며 미소 짓는 주인공."></textarea>
                 </div>
             </div>
         </div>
     </main>
 
-    <aside class="w-[420px] bg-slate-900 border-l border-slate-800 flex flex-col shadow-2xl z-20">
+    <aside class="w-[450px] bg-slate-900 border-l border-slate-800 flex flex-col shadow-2xl z-20">
         <div class="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900 shrink-0">
             <h2 class="text-sm font-bold text-slate-100 uppercase tracking-widest flex items-center gap-2">
                 🎭 Character Deck
             </h2>
-            <button onclick="addCharacter()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded font-bold transition shadow-lg">+ New Character</button>
+            <button onclick="addCharacter()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded font-bold transition shadow-lg">+ New</button>
         </div>
         
         <div id="character-list" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950">
@@ -233,9 +260,9 @@
             el.style.height = el.scrollHeight + 'px';
         }
 
-        // === 데이터 구조 (라벨 저장소 추가) ===
+        // === 데이터 구조 ===
         let projectData = {
-            labels: {}, // 사용자가 수정한 항목 이름을 저장
+            labels: {}, 
             concept: { logline: "", question: "", target: "", hook: "", theme: "", setting: "", rules: "", statusQuo: "" },
             characters: [], 
             plot: { p14: "", p15: "", p16: "", p17: "", p18: "", p19: "", p20: "", p21: "", p22: "" }
@@ -243,10 +270,9 @@
 
         // === 초기화 ===
         window.onload = function() {
-            const saved = localStorage.getItem('storyEngineV4_5');
+            const saved = localStorage.getItem('storyEngineV5');
             if (saved) {
                 const parsed = JSON.parse(saved);
-                // 기존 데이터에 labels가 없으면 빈 객체로 초기화
                 if(!parsed.labels) parsed.labels = {};
                 projectData = parsed;
                 loadUI();
@@ -255,40 +281,38 @@
             }
         };
 
-        // === 라벨(항목 이름) 저장 함수 ===
+        // === 라벨/데이터 저장 ===
         function saveLabel(id, value) {
             projectData.labels[id] = value;
-            saveData(false); // 라벨 저장시는 resize 불필요
+            saveData(false);
         }
 
         function saveData(resize = true) {
-            // Concept Data
+            // Concept
             ['logline', 'question', 'target', 'hook', 'theme', 'setting', 'rules', 'statusQuo'].forEach(id => {
                 const el = document.getElementById('f_' + id);
                 if(el) projectData.concept[id] = el.value;
             });
-            // Plot Data
+            // Plot
             ['p14', 'p15', 'p16', 'p17', 'p18', 'p19', 'p20', 'p21', 'p22'].forEach(id => {
                 const el = document.getElementById('p_' + id.replace('p', ''));
                 if(el) projectData.plot[id.replace('_','')] = el.value;
             });
 
-            localStorage.setItem('storyEngineV4_5', JSON.stringify(projectData));
+            localStorage.setItem('storyEngineV5', JSON.stringify(projectData));
             
-            // 저장 알림
             const status = document.getElementById('save-status');
             status.style.opacity = '1';
             setTimeout(() => status.style.opacity = '0', 1000);
         }
 
         function loadUI() {
-            // 1. 라벨 복구
+            // 라벨 로드
             for (const [key, val] of Object.entries(projectData.labels)) {
                 const el = document.getElementById(key);
                 if(el) el.value = val;
             }
-
-            // 2. 텍스트 내용 복구
+            // 텍스트 로드
             for (const [key, val] of Object.entries(projectData.concept)) {
                 const el = document.getElementById('f_' + key);
                 if(el) { el.value = val; autoResize(el); }
@@ -297,22 +321,26 @@
                  const el = document.getElementById('p_' + key.replace('p',''));
                  if(el) { el.value = val; autoResize(el); }
             }
-            // 3. 캐릭터 복구
+            // 캐릭터 로드
             const list = document.getElementById('character-list');
             list.innerHTML = '';
             projectData.characters.forEach(c => renderCharacterCard(c));
         }
 
-        // === 캐릭터 관리 ===
+        // === 캐릭터 관리 (Full Enhanced) ===
         function addCharacter() {
             const newChar = {
                 id: Date.now(),
                 name: "", role: "", color: "#3b82f6",
-                // 상세 항목
-                wound: "", want: "", need: "", flaw: "", values: "",
+                // 1. Inner
+                want: "", need: "", wound: "", flaw: "", values: "",
+                // 2. Function
                 position: "", secret: "", skill: "",
-                silhouette: "", item: "", gap: "",
-                startState: "", endState: "",
+                // 3. Visual
+                silhouette: "", item: "", habit: "", gap: "",
+                // 4. Relations & Arc
+                attitude: "", history: "",
+                startState: "", catalyst: "", endState: "",
                 isExpanded: true
             };
             projectData.characters.push(newChar);
@@ -344,52 +372,87 @@
                     </div>
                 </div>
                 
-                <div id="card-body-${c.id}" class="${c.isExpanded ? '' : 'hidden'} p-4 space-y-6 bg-slate-900 border-t border-slate-800">
+                <div id="card-body-${c.id}" class="${c.isExpanded ? '' : 'hidden'} p-4 bg-slate-900 border-t border-slate-800">
                     
-                    <div class="grid grid-cols-5 gap-2">
+                    <div class="grid grid-cols-5 gap-2 mb-4">
                         <div class="col-span-3">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase">Name</label>
-                            <input value="${c.name}" oninput="updateChar(${c.id}, 'name', this.value)" class="input-char font-bold text-sm text-white" placeholder="이름">
+                            <label class="label-char">NAME</label>
+                            <input value="${c.name}" oninput="updateChar(${c.id}, 'name', this.value)" class="input-char font-bold text-white text-sm" placeholder="이름">
                         </div>
                         <div class="col-span-2">
-                             <label class="text-[10px] font-bold text-slate-500 uppercase">Color</label>
+                             <label class="label-char">COLOR</label>
                              <div class="h-[30px] bg-slate-900 rounded border border-slate-700 flex items-center px-1 mt-1">
                                 <input type="color" value="${c.color}" oninput="updateCharColor(${c.id}, this.value, this)" class="w-full h-5 bg-transparent cursor-pointer">
                              </div>
                         </div>
                     </div>
-                    <div>
-                        <label class="text-[10px] font-bold text-slate-500 uppercase">Role</label>
-                        <input value="${c.role}" oninput="updateChar(${c.id}, 'role', this.value)" class="input-char" placeholder="역할">
+                    <div class="mb-4">
+                        <label class="label-char">ROLE</label>
+                        <input value="${c.role}" oninput="updateChar(${c.id}, 'role', this.value)" class="input-char" placeholder="예: 주인공, 메인 빌런">
                     </div>
 
-                    <div class="pt-2 border-t border-slate-800">
-                        <h4 class="text-xs font-bold text-blue-400 mb-2">🧠 내면 엔진</h4>
-                        <input value="${c.want}" oninput="updateChar(${c.id}, 'want', this.value)" class="input-char" placeholder="욕망 (Want)">
-                        <input value="${c.need}" oninput="updateChar(${c.id}, 'need', this.value)" class="input-char" placeholder="결핍 (Need)">
-                        <input value="${c.wound}" oninput="updateChar(${c.id}, 'wound', this.value)" class="input-char" placeholder="상처 (Wound)">
-                        <input value="${c.flaw}" oninput="updateChar(${c.id}, 'flaw', this.value)" class="input-char" placeholder="결함 (Flaw)">
+                    <div class="pt-2 border-t border-slate-800 mb-4">
+                        <h4 class="text-xs font-bold text-blue-400 mb-2 mt-2">🧠 INNER ENGINE (내면)</h4>
+                        <label class="label-char">WANT (욕망)</label>
+                        <input value="${c.want}" oninput="updateChar(${c.id}, 'want', this.value)" class="input-char" placeholder="겉으로 얻으려는 구체적 목표">
+                        
+                        <label class="label-char">NEED (결핍)</label>
+                        <input value="${c.need}" oninput="updateChar(${c.id}, 'need', this.value)" class="input-char" placeholder="내적 성장을 위해 진짜 필요한 것">
+                        
+                        <label class="label-char">WOUND (상처)</label>
+                        <input value="${c.wound}" oninput="updateChar(${c.id}, 'wound', this.value)" class="input-char" placeholder="과거의 트라우마">
+                        
+                        <label class="label-char">FLAW (결함)</label>
+                        <input value="${c.flaw}" oninput="updateChar(${c.id}, 'flaw', this.value)" class="input-char" placeholder="목표 달성을 방해하는 성격적 결점">
+                        
+                        <label class="label-char">VALUES (가치관)</label>
+                        <input value="${c.values}" oninput="updateChar(${c.id}, 'values', this.value)" class="input-char" placeholder="예: 돈이 최고다 vs 정의가 먼저다">
                     </div>
 
-                    <div class="pt-2 border-t border-slate-800">
-                         <h4 class="text-xs font-bold text-indigo-400 mb-2">🤫 비밀 & 기능</h4>
-                         <input value="${c.secret}" oninput="updateChar(${c.id}, 'secret', this.value)" class="input-char" placeholder="비밀 (Secret)">
-                         <input value="${c.position}" oninput="updateChar(${c.id}, 'position', this.value)" class="input-char" placeholder="포지션">
+                    <div class="pt-2 border-t border-slate-800 mb-4">
+                         <h4 class="text-xs font-bold text-indigo-400 mb-2 mt-2">🤫 FUNCTION & SECRET</h4>
+                         <label class="label-char">POSITION</label>
+                         <input value="${c.position}" oninput="updateChar(${c.id}, 'position', this.value)" class="input-char" placeholder="서사적 기능 (예: 정보원, 방해꾼)">
+                         
+                         <label class="label-char">SECRET</label>
+                         <input value="${c.secret}" oninput="updateChar(${c.id}, 'secret', this.value)" class="input-char" placeholder="남에게 절대 들키면 안 되는 비밀">
+                         
+                         <label class="label-char">SKILL</label>
+                         <input value="${c.skill}" oninput="updateChar(${c.id}, 'skill', this.value)" class="input-char" placeholder="특기나 능력">
                     </div>
 
-                    <div class="pt-2 border-t border-slate-800">
-                        <h4 class="text-xs font-bold text-emerald-400 mb-2">👁️ 비주얼</h4>
-                        <input value="${c.silhouette}" oninput="updateChar(${c.id}, 'silhouette', this.value)" class="input-char" placeholder="외형">
-                        <input value="${c.item}" oninput="updateChar(${c.id}, 'item', this.value)" class="input-char" placeholder="아이템/습관">
-                        <input value="${c.gap}" oninput="updateChar(${c.id}, 'gap', this.value)" class="input-char" placeholder="반전 매력">
+                    <div class="pt-2 border-t border-slate-800 mb-4">
+                        <h4 class="text-xs font-bold text-emerald-400 mb-2 mt-2">👁️ VISUAL & PERSONA</h4>
+                        <label class="label-char">SILHOUETTE</label>
+                        <input value="${c.silhouette}" oninput="updateChar(${c.id}, 'silhouette', this.value)" class="input-char" placeholder="외형적 특징, 체형, 스타일">
+                        
+                        <label class="label-char">ITEM</label>
+                        <input value="${c.item}" oninput="updateChar(${c.id}, 'item', this.value)" class="input-char" placeholder="시그니처 아이템">
+                        
+                        <label class="label-char">HABIT</label>
+                        <input value="${c.habit}" oninput="updateChar(${c.id}, 'habit', this.value)" class="input-char" placeholder="말버릇이나 신체적 습관">
+                        
+                        <label class="label-char">GAP (반전매력)</label>
+                        <input value="${c.gap}" oninput="updateChar(${c.id}, 'gap', this.value)" class="input-char" placeholder="첫인상과 다른 실제 성격">
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-800 mb-4">
+                        <h4 class="text-xs font-bold text-pink-400 mb-2 mt-2">🤝 RELATIONS</h4>
+                        <label class="label-char">ATTITUDE</label>
+                        <input value="${c.attitude}" oninput="updateChar(${c.id}, 'attitude', this.value)" class="input-char" placeholder="타인을 대하는 태도">
+                        
+                        <label class="label-char">HISTORY</label>
+                        <input value="${c.history}" oninput="updateChar(${c.id}, 'history', this.value)" class="input-char" placeholder="주요 과거사 요약">
                     </div>
 
                      <div class="pt-2 border-t border-slate-800">
-                        <h4 class="text-xs font-bold text-orange-400 mb-2">📈 성장 아크</h4>
-                        <div class="flex gap-1 items-center">
-                            <input value="${c.startState}" oninput="updateChar(${c.id}, 'startState', this.value)" class="input-char" placeholder="Start">
+                        <h4 class="text-xs font-bold text-orange-400 mb-2 mt-2">📈 ARC (성장 곡선)</h4>
+                        <div class="flex gap-2 items-center">
+                            <input value="${c.startState}" oninput="updateChar(${c.id}, 'startState', this.value)" class="input-char" placeholder="Start (초반)">
                             <span class="text-slate-500">→</span>
-                            <input value="${c.endState}" oninput="updateChar(${c.id}, 'endState', this.value)" class="input-char" placeholder="End">
+                            <input value="${c.catalyst}" oninput="updateChar(${c.id}, 'catalyst', this.value)" class="input-char" placeholder="계기">
+                            <span class="text-slate-500">→</span>
+                            <input value="${c.endState}" oninput="updateChar(${c.id}, 'endState', this.value)" class="input-char" placeholder="End (결말)">
                         </div>
                     </div>
                 </div>
@@ -443,7 +506,7 @@
             const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
             const node = document.createElement('a');
             node.href = str;
-            node.download = "story_engine_v4_5.json";
+            node.download = "story_engine_v5.json";
             document.body.appendChild(node);
             node.click();
             node.remove();
@@ -451,7 +514,7 @@
 
         function clearData() {
             if(confirm('초기화하시겠습니까?')) {
-                localStorage.removeItem('storyEngineV4_5');
+                localStorage.removeItem('storyEngineV5');
                 location.reload();
             }
         }
