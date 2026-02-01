@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Story Engine v4.6</title>
+    <title>Story Engine v4.7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style type="text/tailwindcss">
@@ -46,7 +46,7 @@
         <div class="mb-12">
             <div class="flex justify-between items-start mb-6">
                 <div class="w-full mr-8">
-                    <h1 class="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-2">Story Engine v4.6</h1>
+                    <h1 class="text-[10px] font-bold text-slate-500 tracking-widest uppercase mb-2">Story Engine v4.7</h1>
                     <input id="f_title" oninput="saveData()" class="bg-transparent text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-100 to-emerald-100 placeholder-slate-700 focus:outline-none w-full border-b border-transparent focus:border-slate-800 transition-colors pb-2" placeholder="이야기의 제목을 입력하세요 (클릭하여 수정)">
                 </div>
                 <div class="flex gap-2 shrink-0">
@@ -128,58 +128,56 @@
                 플롯의 파동 (The Plot)
             </div>
 
-            <div class="space-y-8 relative pl-4 md:pl-0">
-                <div class="absolute left-[-10px] md:left-[-20px] top-6 bottom-6 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-emerald-500 opacity-20 hidden md:block"></div>
-
-                <div class="section-card border-l-4 border-l-sky-500 relative">
+            <div class="space-y-8">
+                <div class="section-card border-l-4 border-l-sky-500">
                     <h3 class="item-title text-sky-400">9. 도입부 사건 (Inciting Incident)</h3>
                     <span class="item-desc">주인공의 일상에 불을 지르는 사건 / 거절할 수 없는 제안</span>
                     <textarea id="p_14" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 주인공의 집에 정체를 알 수 없는 소포가 배달되고, 그 안에는 10년 전 실종된 동생의 신분증이 들어있다."></textarea>
                 </div>
 
-                <div class="section-card border-l-4 border-l-blue-500 relative">
+                <div class="section-card border-l-4 border-l-blue-500">
                     <h3 class="item-title text-blue-400">10. 회귀 불가 지점 (Point of No Return)</h3>
                     <span class="item-desc">주인공이 망설임을 끝내고 새로운 세계로 발을 들이는 순간</span>
                     <textarea id="p_15" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 주인공이 소포의 발신지를 추적하기 위해 직장에 사표를 던지고 금지 구역행 기차에 탄다."></textarea>
                 </div>
 
-                <div class="section-card border-l-4 border-l-indigo-500 relative">
+                <div class="section-card border-l-4 border-l-indigo-500">
                     <h3 class="item-title text-indigo-400">11. 시련과 상승 (Rising Action)</h3>
                     <span class="item-desc">목표를 향해 나아가지만 계속해서 부딪히는 3~4개의 장애물들</span>
                     <textarea id="p_16" oninput="autoResize(this); saveData()" rows="3" class="input-dark" placeholder="예: 1) 정보상을 만나러 갔다가 갱단에 쫓김. 2) 믿었던 조력자가 스파이였음이 밝혀짐. 3) 단서를 찾았지만 암호가 걸려있음."></textarea>
                 </div>
 
-                <div class="section-card border-l-4 border-l-purple-500 relative bg-purple-900/10 border-purple-500/50">
+                <div class="section-card border-l-4 border-l-purple-500 bg-purple-900/10 border-purple-500/50">
                     <h3 class="item-title text-purple-400">12. 미드포인트 (Mid-point)</h3>
                     <span class="item-desc">판이 뒤집히는 거대한 반전. 주인공이 수동적 태도에서 벗어나 각성함.</span>
                     <textarea id="p_17" oninput="autoResize(this); saveData()" rows="3" class="input-dark bg-purple-900/20 border-purple-500/30" placeholder="예: 동생은 실종된 게 아니라, 이 도시를 지배하는 흑막의 오른팔이 되어 있었다. 주인공은 동생을 구하는 게 아니라 막아야 함을 깨닫는다."></textarea>
                 </div>
 
-                <div class="section-card border-l-4 border-l-orange-500 relative">
+                <div class="section-card border-l-4 border-l-orange-500">
                     <h3 class="item-title text-orange-400">13. 판돈 상승 (Raising Stakes)</h3>
                     <span class="item-desc">실패 시 잃게 되는 것의 크기가 극적으로 커짐</span>
                     <textarea id="p_18" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 단순히 동생을 구하는 문제가 아니다. 실패하면 도시 전체의 생명 유지 시스템이 다운되어 시민 전원이 사망한다."></textarea>
                 </div>
 
-                <div class="section-card border-l-4 border-l-orange-600 relative">
+                <div class="section-card border-l-4 border-l-orange-600">
                     <h3 class="item-title text-orange-500">14. 패배와 절망 (All is Lost)</h3>
                     <span class="item-desc">모든 것을 잃은 것 같은 최악의 순간, 멘토의 죽음</span>
                     <textarea id="p_19" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 동생과의 첫 대면에서 처참하게 패배하고, 유일한 무기마저 파괴된다. 아무런 희망이 보이지 않는다."></textarea>
                 </div>
 
-                <div class="section-card border-l-4 border-l-red-500 relative">
+                <div class="section-card border-l-4 border-l-red-500">
                     <h3 class="item-title text-red-500">15. 클라이맥스 (Climax)</h3>
                     <span class="item-desc">주인공이 자신의 결함을 극복하고 벌이는 최후의 결전</span>
                     <textarea id="p_20" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 주인공이 자신의 안전(규칙)을 버리고 뇌 칩을 과부하시켜 리미터를 해제한 뒤, 동생과 최후의 결전을 벌인다."></textarea>
                 </div>
 
-                <div class="section-card border-l-4 border-l-red-400 relative">
+                <div class="section-card border-l-4 border-l-red-400">
                     <h3 class="item-title text-red-300">16. 최후의 선택 (The Choice)</h3>
                     <span class="item-desc">승리를 위해 주인공이 희생하거나 포기해야 하는 가치</span>
                     <textarea id="p_21" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 동생을 죽여야만 도시를 구할 수 있다. 혹은 동생과 함께 자폭하는 길을 선택한다."></textarea>
                 </div>
 
-                <div class="section-card border-l-4 border-l-emerald-500 relative">
+                <div class="section-card border-l-4 border-l-emerald-500">
                     <h3 class="item-title text-emerald-400">17. 해소 (Resolution)</h3>
                     <span class="item-desc">사건이 끝난 후, 변화된 세계와 여운</span>
                     <textarea id="p_22" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="예: 도시에 비가 그치고 해가 뜬다. 살아남은 사람들이 시스템 없는 새로운 삶을 시작한다. 폐허 속에 주인공의 낡은 배지만이 남아있다."></textarea>
@@ -395,7 +393,7 @@
             const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
             const node = document.createElement('a');
             node.href = str;
-            node.download = "story_engine_final_v4.6.json";
+            node.download = "story_engine_v4.6.json";
             document.body.appendChild(node);
             node.click();
             node.remove();
