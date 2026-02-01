@@ -3,30 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Story Engine v3.5 : Refined Dashboard</title>
+    <title>Story Engine v3.5 : Final</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 기본 스크롤바 커스텀 */
+        /* 스크롤바 커스텀 */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-        /* 입력창 스타일: 배경과 조화, 자동 높이 조절을 위해 transition 제거 */
+        /* 핵심: 입력창 스타일 (다크 & 자동 높이 조절용) */
         .input-dark { 
-            @apply w-full bg-gray-800 text-gray-200 border border-gray-700 rounded-lg px-4 py-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-gray-600 resize-none overflow-hidden leading-relaxed; 
+            @apply w-full bg-slate-800 text-gray-200 border border-slate-700 rounded-lg px-4 py-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-slate-500 resize-none overflow-hidden leading-relaxed transition-colors duration-200; 
         }
 
         /* 라벨 스타일 */
-        .label-main { @apply block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2; }
+        .label-main { @apply block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2; }
         
-        /* 섹션 카드 스타일 (공통) */
-        .section-card { @apply bg-gray-900/50 rounded-xl p-6 border border-gray-800 hover:border-gray-700 transition-colors duration-300; }
+        /* 섹션 카드 스타일 */
+        .section-card { @apply bg-slate-900/50 rounded-xl p-6 border border-slate-800 hover:border-slate-700 transition-colors duration-300; }
         
         /* Part 헤더 스타일 */
-        .part-header { @apply flex items-center gap-3 text-xl font-bold text-gray-200 mb-6 pb-4 border-b border-gray-800; }
+        .part-header { @apply flex items-center gap-3 text-xl font-bold text-gray-200 mb-6 pb-4 border-b border-slate-800; }
         .part-badge { @apply text-xs px-2 py-1 rounded font-bold tracking-wide; }
-
     </style>
 </head>
 <body class="bg-slate-950 text-slate-300 font-sans h-screen flex overflow-hidden selection:bg-blue-500/30">
@@ -36,7 +35,7 @@
         <div class="flex justify-between items-end mb-16">
             <div>
                 <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 tracking-tight">Story Engine v3.5</h1>
-                <p class="text-sm text-gray-500 mt-2">Refined Dark Dashboard</p>
+                <p class="text-sm text-slate-500 mt-2">Final Renumbered Edition</p>
             </div>
             <div class="flex gap-2">
                 <button onclick="exportData()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg border border-slate-700 transition">📥 JSON 저장</button>
@@ -66,7 +65,7 @@
                         <textarea id="f_question" oninput="autoResize(this); saveData()" rows="1" class="input-dark" placeholder="독자가 끝까지 궁금해할 질문"></textarea>
                     </div>
                     <div class="section-card border border-blue-500/30 bg-blue-900/10">
-                        <label class="label-main text-blue-300">23. 테마 (Theme)</label>
+                        <label class="label-main text-blue-300">5. 테마 (Theme)</label>
                         <textarea id="f_theme" oninput="autoResize(this); saveData()" rows="1" class="input-dark bg-blue-900/20 border-blue-500/30 focus:border-blue-400" placeholder="결국 이 이야기는 무엇에 관한 것인가?"></textarea>
                     </div>
                 </div>
@@ -91,16 +90,16 @@
             </div>
             <div class="grid grid-cols-1 gap-6">
                 <div class="section-card">
-                    <label class="label-main">11. 배경 (Setting)</label>
+                    <label class="label-main">6. 배경 (Setting)</label>
                     <textarea id="f_setting" oninput="autoResize(this); saveData()" rows="1" class="input-dark" placeholder="시간적, 공간적 배경과 분위기"></textarea>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="section-card">
-                        <label class="label-main">12. 규칙 (Rules)</label>
+                        <label class="label-main">7. 규칙 (Rules)</label>
                         <textarea id="f_rules" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="이 세계의 제약이나 법칙"></textarea>
                     </div>
                     <div class="section-card">
-                        <label class="label-main">13. 일상의 붕괴 전</label>
+                         <label class="label-main">8. 일상의 붕괴 전 (Status Quo)</label>
                         <textarea id="f_statusQuo" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="사건 발생 전 평범한 일상"></textarea>
                     </div>
                 </div>
@@ -118,35 +117,35 @@
 
                 <div class="section-card border-l-4 border-l-sky-500 ml-0 md:ml-10 relative">
                     <div class="absolute -left-[45px] top-6 w-3 h-3 rounded-full bg-sky-500 hidden md:block"></div>
-                    <h3 class="text-sky-400 font-bold text-lg mb-1">14. 도입부 사건 (Inciting Incident)</h3>
+                    <h3 class="text-sky-400 font-bold text-lg mb-1">9. 도입부 사건 (Inciting Incident)</h3>
                     <p class="text-xs text-slate-500 mb-3">일상에 불을 지르는 사건</p>
                     <textarea id="p_14" oninput="autoResize(this); saveData()" rows="2" class="input-dark"></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-blue-500 ml-0 md:ml-10 relative">
                     <div class="absolute -left-[45px] top-6 w-3 h-3 rounded-full bg-blue-500 hidden md:block"></div>
-                    <h3 class="text-blue-400 font-bold text-lg mb-1">15. 회귀 불가 지점 (Point of No Return)</h3>
+                    <h3 class="text-blue-400 font-bold text-lg mb-1">10. 회귀 불가 지점 (Point of No Return)</h3>
                     <p class="text-xs text-slate-500 mb-3">새로운 세계로의 진입</p>
                     <textarea id="p_15" oninput="autoResize(this); saveData()" rows="2" class="input-dark"></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-indigo-500 ml-0 md:ml-10 relative">
                     <div class="absolute -left-[45px] top-6 w-3 h-3 rounded-full bg-indigo-500 hidden md:block"></div>
-                    <h3 class="text-indigo-400 font-bold text-lg mb-1">16. 시련과 상승 (Rising Action)</h3>
+                    <h3 class="text-indigo-400 font-bold text-lg mb-1">11. 시련과 상승 (Rising Action)</h3>
                     <p class="text-xs text-slate-500 mb-3">점점 커지는 장애물들</p>
                     <textarea id="p_16" oninput="autoResize(this); saveData()" rows="3" class="input-dark"></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-purple-500 ml-0 md:ml-10 relative bg-purple-900/10 border-purple-500/50">
                     <div class="absolute -left-[45px] top-6 w-4 h-4 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)] hidden md:block"></div>
-                    <h3 class="text-purple-400 font-black text-xl mb-1">17. 미드포인트 (Mid-point)</h3>
+                    <h3 class="text-purple-400 font-black text-xl mb-1">12. 미드포인트 (Mid-point)</h3>
                     <p class="text-xs text-purple-300/70 mb-3">판이 뒤집히는 거대한 반전. 주인공의 각성.</p>
                     <textarea id="p_17" oninput="autoResize(this); saveData()" rows="3" class="input-dark bg-purple-900/20 border-purple-500/30"></textarea>
                 </div>
 
                 <div class="section-card border-l-4 border-l-orange-500 ml-0 md:ml-10 relative">
                     <div class="absolute -left-[45px] top-6 w-3 h-3 rounded-full bg-orange-500 hidden md:block"></div>
-                    <h3 class="text-orange-400 font-bold text-lg mb-1">18. 판돈 상승 & 19. 패배</h3>
+                    <h3 class="text-orange-400 font-bold text-lg mb-1">13. 판돈 상승 & 14. 패배</h3>
                     <p class="text-xs text-slate-500 mb-3">실패 시 잃는 것 & 최악의 절망</p>
                     <div class="space-y-3">
                         <textarea id="p_18" oninput="autoResize(this); saveData()" rows="1" class="input-dark" placeholder="판돈 상승 (Stakes)"></textarea>
@@ -156,7 +155,7 @@
 
                 <div class="section-card border-l-4 border-l-red-500 ml-0 md:ml-10 relative">
                     <div class="absolute -left-[45px] top-6 w-3 h-3 rounded-full bg-red-500 hidden md:block"></div>
-                    <h3 class="text-red-400 font-bold text-lg mb-1">20. 클라이맥스 & 21. 선택</h3>
+                    <h3 class="text-red-400 font-bold text-lg mb-1">15. 클라이맥스 & 16. 선택</h3>
                     <p class="text-xs text-slate-500 mb-3">최후의 결전과 희생</p>
                      <div class="space-y-3">
                         <textarea id="p_20" oninput="autoResize(this); saveData()" rows="2" class="input-dark" placeholder="클라이맥스 (Climax)"></textarea>
@@ -166,7 +165,7 @@
 
                 <div class="section-card border-l-4 border-l-emerald-500 ml-0 md:ml-10 relative">
                     <div class="absolute -left-[45px] top-6 w-3 h-3 rounded-full bg-emerald-500 hidden md:block"></div>
-                    <h3 class="text-emerald-400 font-bold text-lg mb-1">22. 해소 (Resolution)</h3>
+                    <h3 class="text-emerald-400 font-bold text-lg mb-1">17. 해소 (Resolution)</h3>
                     <p class="text-xs text-slate-500 mb-3">변화된 세계와 여운</p>
                     <textarea id="p_22" oninput="autoResize(this); saveData()" rows="2" class="input-dark"></textarea>
                 </div>
@@ -200,7 +199,7 @@
 
         // 초기화
         window.onload = function() {
-            const saved = localStorage.getItem('storyDashboardV35');
+            const saved = localStorage.getItem('storyDashboardFinal');
             if (saved) {
                 projectData = JSON.parse(saved);
                 loadUI();
@@ -221,7 +220,7 @@
                 if(el) projectData.plot[id.replace('_','')] = el.value;
             });
 
-            localStorage.setItem('storyDashboardV35', JSON.stringify(projectData));
+            localStorage.setItem('storyDashboardFinal', JSON.stringify(projectData));
             
             const status = document.getElementById('save-status');
             status.style.opacity = '1';
@@ -354,14 +353,14 @@
             const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
             const node = document.createElement('a');
             node.href = str;
-            node.download = "story_engine_v3_5.json";
+            node.download = "story_engine_final.json";
             document.body.appendChild(node);
             node.click();
             node.remove();
         }
         function clearData() {
             if(confirm('초기화하시겠습니까?')) {
-                localStorage.removeItem('storyDashboardV35');
+                localStorage.removeItem('storyDashboardFinal');
                 location.reload();
             }
         }
