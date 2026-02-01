@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Story Engine v3.5 : Final Numbering</title>
+    <title>Story Engine v3.5 : Final Renumbered</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 기본 스크롤바 커스텀 */
@@ -14,17 +14,17 @@
 
         /* 입력창 스타일: 배경과 조화, 자동 높이 조절 */
         .input-dark { 
-            @apply w-full bg-gray-800 text-gray-200 border border-gray-700 rounded-lg px-4 py-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-gray-600 resize-none overflow-hidden leading-relaxed; 
+            @apply w-full bg-slate-800 text-gray-200 border border-slate-700 rounded-lg px-4 py-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none placeholder-slate-500 resize-none overflow-hidden leading-relaxed; 
         }
 
         /* 라벨 스타일 */
-        .label-main { @apply block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2; }
+        .label-main { @apply block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2; }
         
-        /* 섹션 카드 스타일 (공통) */
-        .section-card { @apply bg-gray-900/50 rounded-xl p-6 border border-gray-800 hover:border-gray-700 transition-colors duration-300; }
+        /* 섹션 카드 스타일 */
+        .section-card { @apply bg-slate-900/50 rounded-xl p-6 border border-slate-800 hover:border-slate-700 transition-colors duration-300; }
         
         /* Part 헤더 스타일 */
-        .part-header { @apply flex items-center gap-3 text-xl font-bold text-gray-200 mb-6 pb-4 border-b border-gray-800; }
+        .part-header { @apply flex items-center gap-3 text-xl font-bold text-gray-200 mb-6 pb-4 border-b border-slate-800; }
         .part-badge { @apply text-xs px-2 py-1 rounded font-bold tracking-wide; }
 
     </style>
@@ -36,7 +36,7 @@
         <div class="flex justify-between items-end mb-16">
             <div>
                 <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 tracking-tight">Story Engine v3.5</h1>
-                <p class="text-sm text-gray-500 mt-2">Final Numbering Edition</p>
+                <p class="text-sm text-slate-500 mt-2">Final Numbering Edition</p>
             </div>
             <div class="flex gap-2">
                 <button onclick="exportData()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg border border-slate-700 transition">📥 JSON 저장</button>
@@ -243,7 +243,7 @@
             projectData.characters.forEach(c => renderCharacterCard(c));
         }
 
-        // === 캐릭터 관리 ===
+        // === 캐릭터 관리 (디자인 개선) ===
         function addCharacter() {
             const newChar = {
                 id: Date.now(),
@@ -266,7 +266,7 @@
         function renderCharacterCard(c) {
             const list = document.getElementById('character-list');
             const card = document.createElement('div');
-            card.className = "bg-slate-800 rounded-lg border-l-[6px] shadow-lg overflow-hidden transition-all duration-200 group border-gray-700";
+            card.className = "bg-slate-800 rounded-lg border-l-[6px] shadow-lg overflow-hidden transition-all duration-200 group border-slate-700";
             card.style.borderLeftColor = c.color;
 
             card.innerHTML = `
@@ -312,6 +312,7 @@
                 </div>
             `;
             list.appendChild(card);
+            // 렌더링 후 텍스트영역 리사이즈
             card.querySelectorAll('textarea').forEach(el => autoResize(el));
         }
 
@@ -353,7 +354,7 @@
             const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
             const node = document.createElement('a');
             node.href = str;
-            node.download = "story_engine_final.json";
+            node.download = "story_engine_final_v3.5.json";
             document.body.appendChild(node);
             node.click();
             node.remove();
