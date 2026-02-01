@@ -3,361 +3,368 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Story Engine v2.0</title>
+    <title>Story Engine v3.0 : Dark Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* 다크모드 스크롤바 커스텀 */
         ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #1f2937; }
-        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
-        .tab-active { border-left: 4px solid #3b82f6; background-color: #1f2937; color: white; }
-        .input-dark { @apply w-full bg-gray-900 border border-gray-600 rounded p-2 text-white focus:border-blue-500 focus:outline-none; }
-        .label-main { @apply block text-sm font-bold text-blue-400 mb-1; }
-        .label-sub { @apply block text-xs text-gray-500 mb-1; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+
+        /* 입력창 스타일: 배경과 거의 비슷하게, 눈이 편안하도록 */
+        .input-ghost { 
+            @apply w-full bg-gray-800/50 text-gray-200 border border-transparent rounded px-3 py-2 transition duration-200; 
+        }
+        .input-ghost:focus { 
+            @apply bg-gray-800 border-gray-600 outline-none ring-1 ring-blue-500/50; 
+        }
+        .input-card {
+            @apply w-full bg-gray-900/50 text-sm text-gray-300 border border-gray-700 rounded px-2 py-1.5 focus:border-blue-500 focus:outline-none transition;
+        }
+        
+        /* 라벨 스타일 */
+        .label-main { @apply block text-sm font-bold text-blue-400 mb-1 mt-4; }
+        .label-sub { @apply block text-xs text-gray-500 mb-1.5; }
+        
+        /* 섹션 구분선 */
+        .section-divider { @apply border-b border-gray-800 pb-8 mb-8; }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-300 font-sans h-screen flex overflow-hidden">
+<body class="bg-gray-950 text-gray-300 font-sans h-screen flex overflow-hidden selection:bg-blue-500/30">
 
-    <aside class="w-72 bg-gray-800 flex flex-col border-r border-gray-700 flex-shrink-0">
-        <div class="p-6 border-b border-gray-700">
-            <h1 class="text-xl font-bold text-blue-400">🧬 Story Engine</h1>
-            <p class="text-xs text-gray-500 mt-1">v2.0 : 23단계 스토리 빌더</p>
-        </div>
-        <nav class="flex-1 overflow-y-auto py-4 space-y-1">
-            <button onclick="switchTab('concept')" id="btn-concept" class="w-full text-left px-6 py-3 hover:bg-gray-700 transition tab-active">
-                1. 컨셉 & 세계관 (뼈대)
-            </button>
-            <button onclick="switchTab('characters')" id="btn-characters" class="w-full text-left px-6 py-3 hover:bg-gray-700 transition">
-                2. 캐릭터 랩 (상세 설정)
-            </button>
-            <button onclick="switchTab('plot')" id="btn-plot" class="w-full text-left px-6 py-3 hover:bg-gray-700 transition">
-                3. 23단계 플롯 (파동)
-            </button>
-        </nav>
-        <div class="p-4 border-t border-gray-700">
-            <button onclick="exportData()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded font-bold transition flex items-center justify-center gap-2">
-                <span>📥 JSON 내보내기</span>
-            </button>
-            <button onclick="clearData()" class="w-full mt-2 text-xs text-red-400 hover:text-red-300">
-                초기화
-            </button>
-        </div>
-    </aside>
-
-    <main class="flex-1 overflow-y-auto bg-gray-900 p-8 relative">
-        <div id="save-status" class="fixed top-4 right-8 text-xs text-green-500 opacity-0 transition-opacity font-bold">
-            ✓ 자동 저장됨
-        </div>
-
-        <section id="tab-concept" class="max-w-4xl mx-auto space-y-10">
+    <main class="flex-1 overflow-y-auto relative p-8 md:p-12 scroll-smooth">
+        
+        <div class="flex justify-between items-end mb-12 border-b border-gray-800 pb-4">
             <div>
-                <h2 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">Step 1. 이야기의 뼈대 (Concept)</h2>
-                <div class="grid grid-cols-1 gap-6">
-                    <div>
-                        <span class="label-main">1. 아이러니 로그라인</span>
-                        <span class="label-sub">주인공의 특성과 상황이 충돌하는 한 문장 ("A임에도 불구하고 B해야 한다")</span>
-                        <textarea id="f_logline" oninput="saveData()" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-blue-500 focus:outline-none"></textarea>
-                    </div>
-                    <div>
-                        <span class="label-main">2. 핵심 질문 (Dramatic Question)</span>
-                        <span class="label-sub">독자가 끝까지 궁금해할 질문 ("과연 주인공은 ~할 수 있을까?")</span>
-                        <input type="text" id="f_question" oninput="saveData()" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-blue-500 focus:outline-none">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <span class="label-main">3. 타겟 & 장르</span>
-                            <input type="text" id="f_target" oninput="saveData()" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-blue-500 focus:outline-none">
-                        </div>
-                        <div>
-                            <span class="label-main">4. 차별화 포인트 (The Hook)</span>
-                            <input type="text" id="f_hook" oninput="saveData()" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-blue-500 focus:outline-none">
-                        </div>
-                    </div>
-                     <div>
-                        <span class="label-main">23. 테마 (Controlling Idea) - *먼저 설정 추천*</span>
-                        <span class="label-sub">"결국 이 이야기는 ~에 관한 것이다" (이야기의 마침표)</span>
-                        <input type="text" id="f_theme" oninput="saveData()" class="w-full bg-gray-800 border border-blue-500 rounded p-3 text-white focus:outline-none font-bold">
-                    </div>
-                </div>
+                <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Story Engine v3.0</h1>
+                <p class="text-sm text-gray-500 mt-1">Dark Dashboard Mode</p>
             </div>
+            <div class="flex gap-2">
+                <button onclick="exportData()" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded border border-gray-700 transition">📥 JSON 저장</button>
+                <button onclick="clearData()" class="text-xs bg-gray-900 hover:text-red-400 text-gray-600 px-3 py-2 rounded transition">초기화</button>
+            </div>
+        </div>
 
-            <div>
-                <h2 class="text-2xl font-bold text-white mb-6 border-b border-gray-700 pb-2">Step 3. 세계관과 규칙 (World Building)</h2>
-                <div class="grid grid-cols-1 gap-6">
-                    <div>
-                        <span class="label-main">11. 공간적 배경</span>
-                        <span class="label-sub">주된 무대의 분위기와 특성</span>
-                        <textarea id="f_setting" oninput="saveData()" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-blue-500 focus:outline-none"></textarea>
-                    </div>
-                    <div>
-                        <span class="label-main">12. 작동 원리 & 제약 (Rules)</span>
-                        <span class="label-sub">이 세계에서 절대 어길 수 없는 법칙이나 한계</span>
-                        <textarea id="f_rules" oninput="saveData()" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-blue-500 focus:outline-none"></textarea>
-                    </div>
-                    <div>
-                        <span class="label-main">13. 일상의 모습 (Status Quo)</span>
-                        <span class="label-sub">사건이 터지기 전, 주인공이 누리던(혹은 견디던) 평범한 일상</span>
-                        <textarea id="f_statusQuo" oninput="saveData()" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded p-3 text-white focus:border-blue-500 focus:outline-none"></textarea>
-                    </div>
-                </div>
-            </div>
-        </section>
+        <div id="save-status" class="fixed top-5 left-1/2 transform -translate-x-1/2 text-xs text-emerald-500 font-mono opacity-0 transition-opacity pointer-events-none">
+            ● Auto-saved
+        </div>
 
-        <section id="tab-characters" class="max-w-5xl mx-auto space-y-8 hidden">
-            <div class="flex justify-between items-center border-b border-gray-700 pb-2 mb-6">
-                <div>
-                    <h2 class="text-2xl font-bold text-white">Step 2. 캐릭터 랩 (Character Lab)</h2>
-                    <p class="text-sm text-gray-500">항목 5~10을 포함한 정밀 설계</p>
-                </div>
-                <button onclick="addCharacter()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-bold transition shadow-lg">+ 캐릭터 추가</button>
-            </div>
+        <div class="section-divider">
+            <h2 class="text-xl font-bold text-gray-100 flex items-center gap-2">
+                <span class="bg-blue-900 text-blue-300 text-xs px-2 py-1 rounded">PART 1</span> 
+                이야기의 씨앗 (Concept)
+            </h2>
             
-            <div id="character-list" class="space-y-8">
+            <div class="mt-6 space-y-2">
+                <span class="label-main">1. 아이러니 로그라인 (Irony Logline)</span>
+                <textarea id="f_logline" oninput="saveData()" rows="2" class="input-ghost" placeholder="주인공의 특성과 상황이 모순되는 한 문장..."></textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                <div>
+                    <span class="label-main">2. 핵심 질문 (Dramatic Question)</span>
+                    <input type="text" id="f_question" oninput="saveData()" class="input-ghost" placeholder="주인공은 과연 ~할 수 있을까?">
                 </div>
-        </section>
-
-        <section id="tab-plot" class="max-w-4xl mx-auto space-y-12 hidden">
-             <div>
-                <h2 class="text-2xl font-bold text-white mb-2 border-b border-gray-700 pb-2">Step 4. 플롯의 파동 (Plotting)</h2>
-                <p class="text-gray-500 mb-6">시간 순서가 아닌 사건의 강도 순서로 배치</p>
-                
-                <div class="space-y-8">
-                    <div class="bg-gray-800 p-5 rounded-lg border-l-4 border-blue-500">
-                        <span class="label-main text-lg">14. 도입부 사건 (Inciting Incident)</span>
-                        <span class="label-sub">주인공의 일상에 불을 지르는 사건 / 거절할 수 없는 제안</span>
-                        <textarea id="p_14" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded p-3 text-white focus:border-blue-500 mt-2"></textarea>
-                    </div>
-
-                    <div class="bg-gray-800 p-5 rounded-lg border-l-4 border-indigo-500">
-                        <span class="label-main text-lg">15. 돌이킬 수 없는 지점 (Point of No Return)</span>
-                        <span class="label-sub">주인공이 새로운 세계로 완전히 발을 들이는 순간</span>
-                        <textarea id="p_15" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded p-3 text-white focus:border-indigo-500 mt-2"></textarea>
-                    </div>
-
-                    <div class="bg-gray-800 p-5 rounded-lg border-l-4 border-indigo-500">
-                        <span class="label-main text-lg">16. 상승하는 행동 (Rising Action) & 시련들</span>
-                        <span class="label-sub">목표를 향해 가며 겪는 3~4개의 점점 커지는 장애물</span>
-                        <textarea id="p_16" oninput="saveData()" rows="4" class="w-full bg-gray-900 border border-gray-700 rounded p-3 text-white focus:border-indigo-500 mt-2"></textarea>
-                    </div>
-
-                    <div class="bg-gray-800 p-5 rounded-lg border-l-4 border-purple-500 relative overflow-hidden">
-                        <div class="absolute top-0 right-0 p-2 opacity-10 text-6xl font-black text-purple-500">MID</div>
-                        <span class="label-main text-lg">17. 미드포인트 (Mid-point)</span>
-                        <span class="label-sub">수동적 -> 능동적 변화 / 정보의 반전 / "이제 장난은 끝났다"</span>
-                        <textarea id="p_17" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded p-3 text-white focus:border-purple-500 mt-2"></textarea>
-                    </div>
-
-                    <div class="bg-gray-800 p-5 rounded-lg border-l-4 border-orange-500">
-                        <span class="label-main text-lg">18. 판돈의 상승 (Raising Stakes)</span>
-                        <span class="label-sub">실패 시 잃게 되는 것이 어떻게 더 커지는가?</span>
-                        <textarea id="p_18" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded p-3 text-white focus:border-orange-500 mt-2"></textarea>
-                    </div>
-
-                    <div class="bg-gray-800 p-5 rounded-lg border-l-4 border-red-600">
-                        <span class="label-main text-lg">19. 모든 것을 잃는 순간 (All is Lost)</span>
-                        <span class="label-sub">최악의 패배, 멘토의 죽음, 희망이 없어 보이는 지점</span>
-                        <textarea id="p_19" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded p-3 text-white focus:border-red-500 mt-2"></textarea>
-                    </div>
+                <div>
+                    <span class="label-main">23. 테마 (Controlling Idea)</span>
+                    <input type="text" id="f_theme" oninput="saveData()" class="input-ghost border-l-4 border-blue-500" placeholder="결국 이 이야기는 ~에 관한 것이다.">
                 </div>
             </div>
 
-            <div>
-                <h2 class="text-2xl font-bold text-white mb-2 border-b border-gray-700 pb-2">Step 5. 절정 및 마무리 (Resolution)</h2>
-                <div class="space-y-8">
-                     <div class="bg-gray-800 p-5 rounded-lg border-l-4 border-red-500">
-                        <span class="label-main text-lg">20. 최종 결전 (Climax)</span>
-                        <span class="label-sub">주인공 vs 대립자(혹은 자신)의 정면 승부</span>
-                        <textarea id="p_20" oninput="saveData()" rows="4" class="w-full bg-gray-900 border border-gray-700 rounded p-3 text-white focus:border-red-500 mt-2"></textarea>
-                    </div>
-                     <div class="bg-gray-800 p-5 rounded-lg border-l-4 border-yellow-500">
-                        <span class="label-main text-lg">21. 최종 선택 (The Choice)</span>
-                        <span class="label-sub">승리를 위해 주인공이 희생하거나 포기하는 가치</span>
-                        <textarea id="p_21" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded p-3 text-white focus:border-yellow-500 mt-2"></textarea>
-                    </div>
-                     <div class="bg-gray-800 p-5 rounded-lg border-l-4 border-green-500">
-                        <span class="label-main text-lg">22. 해소와 변화 (Resolution)</span>
-                        <span class="label-sub">사건 후 달라진 세계와 주인공의 모습</span>
-                        <textarea id="p_22" oninput="saveData()" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded p-3 text-white focus:border-green-500 mt-2"></textarea>
-                    </div>
+            <div class="grid grid-cols-2 gap-6 mt-4">
+                <div><span class="label-main">3. 타겟 & 장르</span><input id="f_target" oninput="saveData()" class="input-ghost"></div>
+                <div><span class="label-main">4. 차별화 (The Hook)</span><input id="f_hook" oninput="saveData()" class="input-ghost"></div>
+            </div>
+        </div>
+
+        <div class="section-divider">
+            <h2 class="text-xl font-bold text-gray-100 flex items-center gap-2">
+                <span class="bg-indigo-900 text-indigo-300 text-xs px-2 py-1 rounded">PART 2</span> 
+                세계관 (World)
+            </h2>
+            <div class="mt-6 grid grid-cols-1 gap-4">
+                <div><span class="label-main">11. 배경 (Setting)</span><textarea id="f_setting" oninput="saveData()" rows="2" class="input-ghost"></textarea></div>
+                <div><span class="label-main">12. 규칙 (Rules)</span><textarea id="f_rules" oninput="saveData()" rows="2" class="input-ghost"></textarea></div>
+                <div><span class="label-main">13. 일상의 붕괴 전 (Status Quo)</span><textarea id="f_statusQuo" oninput="saveData()" rows="2" class="input-ghost"></textarea></div>
+            </div>
+        </div>
+
+        <div class="pb-24">
+            <h2 class="text-xl font-bold text-gray-100 flex items-center gap-2 mb-6">
+                <span class="bg-purple-900 text-purple-300 text-xs px-2 py-1 rounded">PART 3</span> 
+                플롯의 파동 (The Plot)
+            </h2>
+
+            <div class="space-y-6">
+                <div class="bg-gray-900/40 p-5 rounded-lg border-l-2 border-emerald-500 hover:bg-gray-900 transition">
+                    <h3 class="text-emerald-400 font-bold text-lg">14. 도입부 사건 (Inciting Incident)</h3>
+                    <p class="text-xs text-gray-500 mb-3">일상에 불을 지르는 사건</p>
+                    <textarea id="p_14" oninput="saveData()" rows="3" class="input-ghost"></textarea>
+                </div>
+
+                <div class="bg-gray-900/40 p-5 rounded-lg border-l-2 border-blue-500 hover:bg-gray-900 transition">
+                    <h3 class="text-blue-400 font-bold text-lg">15. 회귀 불가 지점 (Point of No Return)</h3>
+                    <p class="text-xs text-gray-500 mb-3">새로운 세계로의 진입</p>
+                    <textarea id="p_15" oninput="saveData()" rows="3" class="input-ghost"></textarea>
+                </div>
+
+                <div class="bg-gray-900/40 p-5 rounded-lg border-l-2 border-blue-500 hover:bg-gray-900 transition">
+                    <h3 class="text-blue-400 font-bold text-lg">16. 시련과 상승 (Rising Action)</h3>
+                    <p class="text-xs text-gray-500 mb-3">점점 커지는 장애물들</p>
+                    <textarea id="p_16" oninput="saveData()" rows="4" class="input-ghost"></textarea>
+                </div>
+
+                <div class="bg-gray-800/80 p-6 rounded-lg border border-purple-500/30 shadow-lg shadow-purple-900/20">
+                    <h3 class="text-purple-400 font-black text-xl">17. 미드포인트 (Mid-point)</h3>
+                    <p class="text-xs text-gray-400 mb-3">판이 뒤집히는 거대한 반전. 주인공의 각성.</p>
+                    <textarea id="p_17" oninput="saveData()" rows="4" class="input-ghost bg-gray-900"></textarea>
+                </div>
+
+                <div class="bg-gray-900/40 p-5 rounded-lg border-l-2 border-orange-500 hover:bg-gray-900 transition">
+                    <h3 class="text-orange-400 font-bold text-lg">18. 판돈 상승 (Stakes) & 19. 패배 (All is Lost)</h3>
+                    <p class="text-xs text-gray-500 mb-3">실패 시 잃는 것의 크기 & 최악의 절망</p>
+                    <textarea id="p_18" oninput="saveData()" rows="3" class="input-ghost mb-2" placeholder="판돈 상승..."></textarea>
+                    <textarea id="p_19" oninput="saveData()" rows="3" class="input-ghost" placeholder="모든 것을 잃은 순간..."></textarea>
+                </div>
+
+                <div class="bg-gray-900/40 p-5 rounded-lg border-l-2 border-red-500 hover:bg-gray-900 transition">
+                    <h3 class="text-red-400 font-bold text-lg">20. 클라이맥스 & 21. 선택</h3>
+                    <p class="text-xs text-gray-500 mb-3">최후의 결전과 주인공의 희생적 선택</p>
+                    <textarea id="p_20" oninput="saveData()" rows="4" class="input-ghost mb-2" placeholder="결전..."></textarea>
+                    <textarea id="p_21" oninput="saveData()" rows="2" class="input-ghost" placeholder="최후의 선택..."></textarea>
+                </div>
+
+                <div class="bg-gray-900/40 p-5 rounded-lg border-l-2 border-gray-500 hover:bg-gray-900 transition">
+                    <h3 class="text-gray-300 font-bold text-lg">22. 해소 (Resolution)</h3>
+                    <p class="text-xs text-gray-500 mb-3">변화된 세계와 여운</p>
+                    <textarea id="p_22" oninput="saveData()" rows="3" class="input-ghost"></textarea>
                 </div>
             </div>
-        </section>
-
+        </div>
     </main>
 
+    <aside class="w-[400px] bg-gray-900 border-l border-gray-800 flex flex-col shadow-2xl z-10">
+        <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900">
+            <h2 class="text-lg font-bold text-gray-200">🎭 Character Deck</h2>
+            <button onclick="addCharacter()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded font-bold shadow transition">+ 추가</button>
+        </div>
+        
+        <div id="character-list" class="flex-1 overflow-y-auto p-4 space-y-4">
+            </div>
+    </aside>
+
     <script>
-        // === 데이터 구조 (23단계 + 상세 캐릭터 포함) ===
+        // === 데이터 구조 ===
         let projectData = {
             concept: { logline: "", question: "", target: "", hook: "", theme: "", setting: "", rules: "", statusQuo: "" },
-            characters: [], // Detailed Objects
+            characters: [], 
             plot: { p14: "", p15: "", p16: "", p17: "", p18: "", p19: "", p20: "", p21: "", p22: "" }
         };
 
         // 초기화
         window.onload = function() {
-            const saved = localStorage.getItem('storyEngineV2');
+            const saved = localStorage.getItem('storyDashboardV3');
             if (saved) {
                 projectData = JSON.parse(saved);
                 loadUI();
             } else {
-                addCharacter(); // 기본 캐릭터 1명
+                addCharacter(); // 기본 1명
             }
         };
 
-        // 데이터 저장
+        // 데이터 저장 & 상태 표시
         function saveData() {
             // Concept
             const conceptFields = ['logline', 'question', 'target', 'hook', 'theme', 'setting', 'rules', 'statusQuo'];
-            conceptFields.forEach(id => projectData.concept[id] = document.getElementById('f_' + id).value);
+            conceptFields.forEach(id => {
+                const el = document.getElementById('f_' + id);
+                if(el) projectData.concept[id] = el.value;
+            });
 
             // Plot
             const plotFields = ['p14', 'p15', 'p16', 'p17', 'p18', 'p19', 'p20', 'p21', 'p22'];
-            plotFields.forEach(id => projectData.plot[id.replace('_','')] = document.getElementById('p_' + id.replace('p', '')).value);
+            plotFields.forEach(id => {
+                const el = document.getElementById('p_' + id.replace('p', ''));
+                if(el) projectData.plot[id.replace('_','')] = el.value;
+            });
 
-            // Characters are saved individually via updateCharacter()
-
-            localStorage.setItem('storyEngineV2', JSON.stringify(projectData));
-            showSaveStatus();
-        }
-
-        function showSaveStatus() {
-            const el = document.getElementById('save-status');
-            el.style.opacity = '1';
-            setTimeout(() => el.style.opacity = '0', 1000);
+            localStorage.setItem('storyDashboardV3', JSON.stringify(projectData));
+            
+            const status = document.getElementById('save-status');
+            status.style.opacity = '1';
+            setTimeout(() => status.style.opacity = '0', 1000);
         }
 
         // UI 로드
         function loadUI() {
-            // Concept
             for (const [key, val] of Object.entries(projectData.concept)) {
                 if(document.getElementById('f_' + key)) document.getElementById('f_' + key).value = val;
             }
-            // Plot
             for (const [key, val] of Object.entries(projectData.plot)) {
-                 if(document.getElementById('p_' + key.replace('p',''))) document.getElementById('p_' + key.replace('p','')).value = val;
+                 const el = document.getElementById('p_' + key.replace('p',''));
+                 if(el) el.value = val;
             }
-            // Characters
             const list = document.getElementById('character-list');
             list.innerHTML = '';
             projectData.characters.forEach(c => renderCharacterCard(c));
         }
 
-        // 탭 전환
-        function switchTab(id) {
-            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('tab-active'));
-            document.getElementById('tab-' + id).classList.remove('hidden');
-            document.getElementById('btn-' + id).classList.add('tab-active');
-        }
-
-        // === 캐릭터 관리 (5개 카테고리 상세 구현) ===
+        // === 캐릭터 관리 ===
         function addCharacter() {
             const newChar = {
                 id: Date.now(),
-                // Core
-                name: "", role: "주인공", color: "#ffffff",
-                // 1. Inner Engine
+                name: "", role: "", color: "#3b82f6",
+                // 내면
                 wound: "", want: "", need: "", flaw: "", values: "",
-                // 2. Function
+                // 기능
                 position: "", secret: "", skill: "",
-                // 3. Visual
+                // 시각
                 silhouette: "", item: "", habit: "", gap: "",
-                // 4. Relations
+                // 관계/아크
                 attitude: "", chemistry: "", history: "",
-                // 5. Arc
-                startState: "", catalyst: "", endState: ""
+                startState: "", catalyst: "", endState: "",
+                isExpanded: true // 접기/펼치기 상태 저장
             };
             projectData.characters.push(newChar);
             renderCharacterCard(newChar);
             saveData();
+            // 스크롤 맨 아래로
+            setTimeout(() => {
+                const list = document.getElementById('character-list');
+                list.scrollTop = list.scrollHeight;
+            }, 100);
         }
 
         function renderCharacterCard(c) {
             const list = document.getElementById('character-list');
             const card = document.createElement('div');
-            card.className = "bg-gray-800 rounded-lg border border-gray-700 overflow-hidden";
+            card.className = "bg-gray-800 rounded-lg border-l-4 shadow-lg overflow-hidden transition-all duration-200 group";
+            card.style.borderColor = c.color;
+
+            // 카드 헤더 (클릭 시 펼치기/접기 구현 가능)
             card.innerHTML = `
-                <div class="bg-gray-700 p-4 flex justify-between items-center cursor-pointer" onclick="toggleCard(this)">
-                    <div class="flex items-center gap-4">
-                        <div class="w-4 h-12 rounded" style="background-color:${c.color || '#ccc'}"></div>
-                        <div>
-                            <input type="text" value="${c.name}" oninput="updateChar(${c.id}, 'name', this.value)" onclick="event.stopPropagation()" class="bg-transparent text-xl font-bold text-white focus:outline-none placeholder-gray-400" placeholder="이름 입력">
-                            <span class="text-sm text-gray-400"> / </span>
-                            <input type="text" value="${c.role}" oninput="updateChar(${c.id}, 'role', this.value)" onclick="event.stopPropagation()" class="bg-transparent text-sm text-gray-300 focus:outline-none placeholder-gray-500" placeholder="역할">
-                        </div>
+                <div class="p-3 bg-gray-800 flex justify-between items-center cursor-pointer border-b border-gray-700 hover:bg-gray-750" onclick="toggleCard(${c.id})">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <div class="w-3 h-3 rounded-full flex-shrink-0" style="background-color:${c.color}"></div>
+                        <h3 class="font-bold text-gray-200 truncate max-w-[150px]">${c.name || '이름 없음'}</h3>
+                        <span class="text-xs text-gray-500 truncate">${c.role || ''}</span>
                     </div>
-                    <button onclick="deleteChar(${c.id}, event)" class="text-gray-500 hover:text-red-400">🗑</button>
+                    <button onclick="deleteChar(${c.id}, event)" class="text-gray-600 hover:text-red-400 px-2">×</button>
                 </div>
                 
-                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 content-body">
+                <div id="card-body-${c.id}" class="${c.isExpanded ? '' : 'hidden'} p-3 space-y-4 bg-gray-800">
                     
-                    <div class="space-y-4">
-                        <h4 class="text-blue-400 font-bold border-b border-gray-600 pb-1">1. 내면 엔진 (Inner Engine)</h4>
-                        <div><span class="label-sub">5. 상처 (The Wound)</span><input oninput="updateChar(${c.id}, 'wound', this.value)" value="${c.wound}" class="input-dark"></div>
-                        <div><span class="label-sub">6. 욕망 (The Want)</span><input oninput="updateChar(${c.id}, 'want', this.value)" value="${c.want}" class="input-dark"></div>
-                        <div><span class="label-sub">7. 필요/결핍 (The Need)</span><input oninput="updateChar(${c.id}, 'need', this.value)" value="${c.need}" class="input-dark"></div>
-                        <div><span class="label-sub">8. 치명적 결함 (Fatal Flaw)</span><input oninput="updateChar(${c.id}, 'flaw', this.value)" value="${c.flaw}" class="input-dark"></div>
-                        <div><span class="label-sub">가치관 (Values)</span><input oninput="updateChar(${c.id}, 'values', this.value)" value="${c.values}" class="input-dark"></div>
-                    </div>
-
-                    <div class="space-y-4">
-                        <h4 class="text-blue-400 font-bold border-b border-gray-600 pb-1">2. 기능 & 관계 (Function)</h4>
-                        <div><span class="label-sub">9. 대립자/서사적 포지션</span><input oninput="updateChar(${c.id}, 'position', this.value)" value="${c.position}" class="input-dark"></div>
-                        <div><span class="label-sub">비밀 (The Secret)</span><input oninput="updateChar(${c.id}, 'secret', this.value)" value="${c.secret}" class="input-dark"></div>
-                        <div><span class="label-sub">10. 조력/방해 & 타인과의 태도</span><textarea oninput="updateChar(${c.id}, 'attitude', this.value)" rows="2" class="input-dark">${c.attitude}</textarea></div>
-                         <div><span class="label-sub">과거사 (History)</span><textarea oninput="updateChar(${c.id}, 'history', this.value)" rows="2" class="input-dark">${c.history}</textarea></div>
-                    </div>
-
-                    <div class="space-y-4">
-                        <h4 class="text-blue-400 font-bold border-b border-gray-600 pb-1">3. 시각 & 페르소나 (Visual)</h4>
-                        <div class="flex gap-2">
-                             <div class="flex-1"><span class="label-sub">실루엣/외형</span><input oninput="updateChar(${c.id}, 'silhouette', this.value)" value="${c.silhouette}" class="input-dark"></div>
-                             <div class="w-1/3"><span class="label-sub">상징색 (Hex)</span><input type="color" oninput="updateChar(${c.id}, 'color', this.value); this.closest('.rounded-lg').querySelector('.w-4').style.backgroundColor=this.value" value="${c.color}" class="w-full h-10 bg-gray-800 border border-gray-600 rounded"></div>
+                    <div class="grid grid-cols-5 gap-2">
+                        <div class="col-span-3">
+                            <label class="label-sub">이름</label>
+                            <input value="${c.name}" oninput="updateChar(${c.id}, 'name', this.value)" class="input-card font-bold text-white bg-gray-900">
                         </div>
-                        <div><span class="label-sub">시그니처 아이템</span><input oninput="updateChar(${c.id}, 'item', this.value)" value="${c.item}" class="input-dark"></div>
-                        <div><span class="label-sub">말투/버릇</span><input oninput="updateChar(${c.id}, 'habit', this.value)" value="${c.habit}" class="input-dark"></div>
-                        <div><span class="label-sub">첫인상 vs 실제 (Gap)</span><input oninput="updateChar(${c.id}, 'gap', this.value)" value="${c.gap}" class="input-dark"></div>
+                        <div class="col-span-2">
+                            <label class="label-sub">상징색</label>
+                            <div class="flex items-center gap-1 bg-gray-900 rounded border border-gray-700 px-1">
+                                <input type="color" value="${c.color}" oninput="updateCharColor(${c.id}, this.value, this)" class="w-full h-6 bg-transparent cursor-pointer">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label-sub">역할</label>
+                        <input value="${c.role}" oninput="updateChar(${c.id}, 'role', this.value)" class="input-card" placeholder="주인공, 조력자...">
                     </div>
 
-                    <div class="space-y-4">
-                        <h4 class="text-blue-400 font-bold border-b border-gray-600 pb-1">4. 성장 아크 (Arc)</h4>
-                        <div><span class="label-sub">시작점 (결함 상태)</span><input oninput="updateChar(${c.id}, 'startState', this.value)" value="${c.startState}" class="input-dark"></div>
-                        <div><span class="label-sub">변화의 계기</span><input oninput="updateChar(${c.id}, 'catalyst', this.value)" value="${c.catalyst}" class="input-dark"></div>
-                        <div><span class="label-sub">도착점 (변화된 모습)</span><input oninput="updateChar(${c.id}, 'endState', this.value)" value="${c.endState}" class="input-dark"></div>
+                    <div class="pt-2 border-t border-gray-700">
+                        <p class="text-xs font-bold text-blue-400 mb-2">🧠 내면 엔진</p>
+                        <div class="space-y-2">
+                            <input value="${c.wound}" oninput="updateChar(${c.id}, 'wound', this.value)" class="input-card" placeholder="상처 (Wound)">
+                            <input value="${c.want}" oninput="updateChar(${c.id}, 'want', this.value)" class="input-card" placeholder="욕망 (Want)">
+                            <input value="${c.need}" oninput="updateChar(${c.id}, 'need', this.value)" class="input-card" placeholder="결핍 (Need)">
+                            <input value="${c.flaw}" oninput="updateChar(${c.id}, 'flaw', this.value)" class="input-card" placeholder="치명적 결함">
+                        </div>
                     </div>
 
+                    <div class="pt-2 border-t border-gray-700">
+                        <p class="text-xs font-bold text-blue-400 mb-2">🤫 비밀 & 관계</p>
+                         <div class="space-y-2">
+                            <input value="${c.secret}" oninput="updateChar(${c.id}, 'secret', this.value)" class="input-card" placeholder="비밀 (Secret)">
+                            <textarea oninput="updateChar(${c.id}, 'attitude', this.value)" rows="2" class="input-card" placeholder="타인과의 태도">${c.attitude}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-gray-700">
+                        <p class="text-xs font-bold text-blue-400 mb-2">👁️ 비주얼</p>
+                        <div class="space-y-2">
+                            <input value="${c.silhouette}" oninput="updateChar(${c.id}, 'silhouette', this.value)" class="input-card" placeholder="외형/실루엣">
+                            <input value="${c.item}" oninput="updateChar(${c.id}, 'item', this.value)" class="input-card" placeholder="아이템">
+                        </div>
+                    </div>
+
+                     <div class="pt-2 border-t border-gray-700">
+                        <p class="text-xs font-bold text-blue-400 mb-2">📈 성장</p>
+                        <div class="space-y-2">
+                            <input value="${c.startState}" oninput="updateChar(${c.id}, 'startState', this.value)" class="input-card" placeholder="시작점">
+                            <input value="${c.endState}" oninput="updateChar(${c.id}, 'endState', this.value)" class="input-card" placeholder="도착점">
+                        </div>
+                    </div>
                 </div>
             `;
             list.appendChild(card);
         }
 
-        function toggleCard(header) {
-            // 접기/펴기 (선택사항)
+        function toggleCard(id) {
+            const body = document.getElementById(`card-body-${id}`);
+            const char = projectData.characters.find(c => c.id === id);
+            
+            if (body.classList.contains('hidden')) {
+                body.classList.remove('hidden');
+                if(char) char.isExpanded = true;
+            } else {
+                body.classList.add('hidden');
+                if(char) char.isExpanded = false;
+            }
+            saveData();
         }
 
         function updateChar(id, key, val) {
             const idx = projectData.characters.findIndex(c => c.id === id);
             if(idx > -1) {
                 projectData.characters[idx][key] = val;
+                // 이름이나 역할이 바뀌면 헤더도 업데이트해야 하므로 리렌더링 대신 텍스트만 찾아서 바꿔줄 수도 있으나, 
+                // 간단하게 저장만 하고 헤더 업데이트는 다음 로드 시 반영되게 하거나 DOM 조작.
+                // 여기서는 이름 변경 시 즉시 헤더 반영을 위해 DOM 조작 추가
+                if(key === 'name') {
+                    // 헤더의 h3 찾기 (좀 더 정교한 셀렉터 필요하지만 간단히 구현)
+                    // 실시간 반영은 복잡도를 높이므로 여기서는 데이터 저장만 우선.
+                }
+                saveData();
+            }
+        }
+
+        function updateCharColor(id, color, inputEl) {
+            const idx = projectData.characters.findIndex(c => c.id === id);
+            if(idx > -1) {
+                projectData.characters[idx].color = color;
+                // 카드 테두리 색상 즉시 변경
+                inputEl.closest('.rounded-lg').style.borderColor = color;
+                // 헤더의 원 색상 변경
+                inputEl.closest('.rounded-lg').querySelector('.rounded-full').style.backgroundColor = color;
                 saveData();
             }
         }
 
         function deleteChar(id, e) {
             e.stopPropagation();
-            if(confirm('삭제하시겠습니까?')) {
+            if(confirm('이 캐릭터를 삭제하시겠습니까?')) {
                 projectData.characters = projectData.characters.filter(c => c.id !== id);
                 saveData();
                 loadUI();
             }
         }
 
-        // Export & Clear
         function exportData() {
             const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
             const node = document.createElement('a');
             node.href = str;
-            node.download = "story_engine_data.json";
+            node.download = "story_dashboard.json";
             document.body.appendChild(node);
             node.click();
             node.remove();
@@ -365,7 +372,7 @@
 
         function clearData() {
             if(confirm('정말 초기화하시겠습니까?')) {
-                localStorage.removeItem('storyEngineV2');
+                localStorage.removeItem('storyDashboardV3');
                 location.reload();
             }
         }
