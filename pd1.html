@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 각색 워크스테이션 v1.7</title>
+    <title>지혜의 용 | 각색 워크스테이션 v1.8</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 4px; }
@@ -29,15 +29,15 @@
     <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0">
         <div class="flex items-center gap-3">
             <span class="text-2xl">🐲</span>
-            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v1.7 Backup</span></h1>
+            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v1.8 Copy</span></h1>
         </div>
         <div class="flex gap-4 items-center">
             <div class="flex gap-2 mr-4 border-r border-white/10 pr-4">
                 <button onclick="downloadBackup()" class="px-3 py-1.5 rounded bg-green-900/30 text-green-400 border border-green-900/50 text-[10px] font-bold hover:bg-green-900/50 transition flex items-center gap-1">
-                    💾 파일로 저장
+                    💾 프로젝트 저장
                 </button>
                 <button onclick="document.getElementById('fileInput').click()" class="px-3 py-1.5 rounded bg-gray-800 text-gray-300 border border-gray-700 text-[10px] font-bold hover:bg-gray-700 transition flex items-center gap-1">
-                    📂 파일 불러오기
+                    📂 불러오기
                 </button>
                 <input type="file" id="fileInput" class="hidden" accept=".json" onchange="loadBackup(this)">
             </div>
@@ -47,7 +47,9 @@
                 <span>Redo: Ctrl+Y</span>
             </div>
             <div class="flex gap-2">
-                <button onclick="exportToNotion()" class="px-4 py-1.5 rounded-full bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-500 transition">노션 내보내기</button>
+                <button onclick="copyToClipboard()" class="px-4 py-1.5 rounded-full bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-500 transition shadow-lg shadow-blue-900/20 flex items-center gap-2">
+                    <span>📋</span> 노션용 복사 (Text Only)
+                </button>
             </div>
         </div>
     </header>
@@ -129,8 +131,8 @@
         let dragImgEl = null;
 
         window.onload = () => {
-            const savedData = localStorage.getItem('dragonAdapter_v17_board');
-            const savedOriginal = localStorage.getItem('dragonAdapter_v17_original');
+            const savedData = localStorage.getItem('dragonAdapter_v18_board');
+            const savedOriginal = localStorage.getItem('dragonAdapter_v18_original');
             if (savedOriginal) originalView.value = savedOriginal;
             if (savedData) {
                 panelContainer.innerHTML = savedData;
@@ -144,77 +146,76 @@
             }
         };
 
-        // --- NEW: File Backup System ---
-
-        function downloadBackup() {
-            prepareStateForSave(); // 현재 상태를 HTML 속성에 굽기
+        // --- NEW: Copy to Clipboard ---
+        async function copyToClipboard() {
+            let markdown = `# 각색 원고 (${new Date().toLocaleDateString()})\n\n`;
             
+            panelContainer.querySelectorAll('.group').forEach(card => {
+                const cut = card.querySelector('.cut-num').innerText;
+                const text = card.querySelector('.content-area').innerText.trim();
+                
+                // 메모 수집
+                const memos = [];
+                card.querySelectorAll('.memo-input').forEach(input => {
+                    if (input.value) memos.push(`[${input.dataset.type}: ${input.value}]`);
+                });
+                
+                const memoString = memos.length > 0 ? ` ${memos.join(' ')}` : "";
+                
+                // 노션이 좋아하는 마크다운 포맷
+                markdown += `### ${cut}${memoString}\n${text}\n\n`;
+            });
+
+            try {
+                await navigator.clipboard.writeText(markdown);
+                alert("✅ 복사되었습니다!\n노션 페이지에서 Ctrl+V 하세요.\n(텍스트와 메모만 복사됩니다)");
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+                alert("복사에 실패했습니다. 브라우저 권한을 확인하세요.");
+            }
+        }
+
+        // --- File Backup System ---
+        function downloadBackup() {
+            prepareStateForSave();
             const backupData = {
-                version: "1.7",
+                version: "1.8",
                 date: new Date().toLocaleString(),
                 boardHTML: panelContainer.innerHTML,
                 originalText: originalView.value
             };
-
             const jsonString = JSON.stringify(backupData);
             const blob = new Blob([jsonString], { type: "application/json" });
             const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Dragon_Project_${new Date().toISOString().slice(0,10)}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            const a = document.createElement('a'); a.href = url; a.download = `Dragon_Project_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
         }
 
         function loadBackup(input) {
-            const file = input.files[0];
-            if (!file) return;
-
+            const file = input.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
-                    
-                    if (data.boardHTML !== undefined && data.originalText !== undefined) {
-                        // 현재 상태 저장 (Undo 가능하도록)
+                    if (data.boardHTML !== undefined) {
                         saveState();
-                        
-                        // 데이터 복원
                         panelContainer.innerHTML = data.boardHTML;
-                        originalView.value = data.originalText;
-                        
-                        // 기능 복구
-                        reattachEvents();
-                        updateStats();
-                        
-                        // Input 값 복구
-                        const inputs = panelContainer.querySelectorAll('input.memo-input');
-                        inputs.forEach(input => input.value = input.getAttribute('value'));
-                        const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
-                        checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
-
-                        alert("프로젝트를 성공적으로 불러왔습니다!");
-                    } else {
-                        alert("올바르지 않은 파일 형식입니다.");
-                    }
-                } catch (err) {
-                    console.error(err);
-                    alert("파일을 읽는 중 오류가 발생했습니다.");
-                }
+                        if(data.originalText) originalView.value = data.originalText;
+                        reattachEvents(); updateStats();
+                        const inputs = panelContainer.querySelectorAll('input.memo-input'); inputs.forEach(input => input.value = input.getAttribute('value'));
+                        const checks = panelContainer.querySelectorAll('input[type="checkbox"]'); checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
+                        alert("프로젝트 복원 완료!");
+                    } else { alert("올바르지 않은 파일입니다."); }
+                } catch (err) { alert("파일 오류 발생"); }
             };
-            reader.readAsText(file);
-            input.value = ''; // 같은 파일 다시 선택 가능하도록 초기화
+            reader.readAsText(file); input.value = '';
         }
 
-        // --- Auto Save (Local Storage) ---
+        // --- Auto Save ---
         function saveToLocal() {
             prepareStateForSave();
             try {
-                localStorage.setItem('dragonAdapter_v17_board', panelContainer.innerHTML);
-                localStorage.setItem('dragonAdapter_v17_original', originalView.value);
+                localStorage.setItem('dragonAdapter_v18_board', panelContainer.innerHTML);
+                localStorage.setItem('dragonAdapter_v18_original', originalView.value);
             } catch (e) { }
         }
 
@@ -389,6 +390,8 @@
         function imgContainerDragOver(e) { if (dragType === 'image') { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('img-drag-over'); } }
         function imgContainerDrop(e, container) { e.stopPropagation(); e.preventDefault(); container.classList.remove('img-drag-over'); if (dragType === 'image' && dragImgEl) { const sourceContainer = dragImgEl.parentElement; if (sourceContainer !== container && container.children.length >= MAX_IMAGES) { alert(`이동 불가 (최대 ${MAX_IMAGES}장)`); return; } const targetWrapper = e.target.closest('.group\\/img'); if (targetWrapper && container.contains(targetWrapper)) container.insertBefore(dragImgEl, targetWrapper); else container.appendChild(dragImgEl); updateStats(); } }
         function addCardDragEvents(card) { card.addEventListener('dragstart', function(e) { if (dragType === 'image') { e.preventDefault(); return; } dragType = 'card'; saveState(); dragCardSrc = this; e.dataTransfer.effectAllowed = 'move'; this.classList.add('card-dragging'); }); card.addEventListener('dragover', function(e) { if (dragType === 'card') e.preventDefault(); return false; }); card.addEventListener('dragenter', function() { if (dragType === 'card') this.classList.add('border-blue-500'); }); card.addEventListener('dragleave', function() { if (dragType === 'card') this.classList.remove('border-blue-500'); }); card.addEventListener('drop', function(e) { if (dragType === 'card') { e.stopPropagation(); if (dragCardSrc !== this) { const allCards = [...panelContainer.children]; if (allCards.indexOf(dragCardSrc) < allCards.indexOf(this)) this.after(dragCardSrc); else this.before(dragCardSrc); updateStats(); } } return false; }); card.addEventListener('dragend', function() { dragType = null; this.classList.remove('card-dragging'); panelContainer.querySelectorAll('.group').forEach(c => c.classList.remove('border-blue-500')); }); }
+        
+        // Export to Notion (Legacy - kept for optional file download)
         function exportToNotion() { let markdown = `# 각색 원고 (${new Date().toLocaleDateString()})\n\n`; panelContainer.querySelectorAll('.group').forEach(card => { const cut = card.querySelector('.cut-num').innerText; const text = card.querySelector('.content-area').innerText; const memos = Array.from(card.querySelectorAll('.memo-input')).map(i => `[${i.dataset.type}: ${i.value}]`).join(' '); markdown += `### ${cut} ${memos}\n${text}\n\n`; }); const blob = new Blob([markdown], { type: 'text/markdown' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Dragon_Cut_Export_${Date.now()}.md`; a.click(); }
     </script>
 </body>
