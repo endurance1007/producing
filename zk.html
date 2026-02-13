@@ -2,37 +2,34 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Zettelkasten Indexer - Custom Filename</title>
+    <title>Zettelkasten Pro - iPad Compatible</title>
     <style>
         :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f4f7f6; --link: #3498db; }
-        body { font-family: 'Pretendard', sans-serif; background: var(--bg); padding: 20px; color: var(--primary); }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); padding: 20px; color: var(--primary); -webkit-tap-highlight-color: transparent; }
         .container { max-width: 900px; margin: 0 auto; }
         
-        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; }
-        .search-box { flex: 1; padding: 12px; border: 2px solid var(--primary); border-radius: 8px; font-size: 1rem; }
-        .btn-util { padding: 8px 15px; border-radius: 6px; cursor: pointer; border: 1px solid #ccc; background: white; font-size: 0.85rem; font-weight: bold; }
-        .btn-util:hover { background: #eee; }
+        .top-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; }
+        .search-box { flex: 1; min-width: 250px; padding: 12px; border: 2px solid var(--primary); border-radius: 8px; font-size: 1rem; }
+        .btn-util { padding: 10px 15px; border-radius: 6px; cursor: pointer; border: 1px solid #ccc; background: white; font-size: 0.85rem; font-weight: bold; }
 
         .tag-index { background: white; padding: 15px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .index-item { display: inline-block; padding: 4px 12px; background: #e8ecef; margin: 3px; border-radius: 20px; font-size: 0.85rem; cursor: pointer; text-decoration: none; color: inherit; }
+        .index-item { display: inline-block; padding: 6px 14px; background: #e8ecef; margin: 4px; border-radius: 20px; font-size: 0.9rem; text-decoration: none; color: inherit; }
 
         .card-panel { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 25px; }
-        .input-grid { display: grid; grid-template-columns: 150px 250px 1fr auto; gap: 10px; }
-        textarea { grid-column: span 3; height: 60px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; resize: none; }
-        .add-btn { background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; padding: 0 20px; }
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .input-grid input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+        textarea { grid-column: span 2; height: 80px; padding: 12px; border-radius: 8px; border: 1px solid #ddd; resize: none; font-size: 1rem; }
+        .add-btn { grid-column: span 2; background: var(--primary); color: white; border: none; border-radius: 8px; padding: 15px; font-weight: bold; cursor: pointer; }
 
         .random-box { background: #2c3e50; color: white; text-align: center; padding: 25px; border-radius: 15px; margin-bottom: 30px; }
-        .random-btn { background: var(--accent); color: white; border: none; padding: 10px 25px; border-radius: 25px; cursor: pointer; font-weight: bold; margin-bottom: 15px; }
-        .random-display { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
-        .r-card { background: white; color: #333; width: 140px; padding: 15px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); text-align: center; }
+        .random-btn { background: var(--accent); color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+        .random-display { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 20px; }
+        .r-card { background: white; color: #333; width: 140px; padding: 15px; border-radius: 10px; text-align: center; font-size: 0.9rem; }
 
-        .category-group { margin-bottom: 40px; scroll-margin-top: 20px; }
-        .category-header { border-bottom: 2px solid var(--primary); padding-bottom: 5px; margin-bottom: 15px; }
-        .z-card { background: white; border: 1px solid #e1e4e8; padding: 15px; border-radius: 10px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 15px; }
-        .num-tag { background: #edf2f7; color: var(--primary); padding: 5px 10px; border-radius: 6px; font-weight: bold; min-width: 80px; text-align: center; }
-        .content { flex: 1; }
-        .actions { display: flex; gap: 5px; }
-        .btn-sm { font-size: 0.75rem; padding: 5px 10px; border-radius: 4px; border: 1px solid #ddd; cursor: pointer; background: white; }
+        .z-card { background: white; border: 1px solid #e1e4e8; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
+        .num-tag { color: var(--accent); font-weight: bold; margin-bottom: 8px; display: block; }
+        .actions { margin-top: 10px; display: flex; gap: 10px; }
+        .btn-sm { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 0.8rem; }
     </style>
 </head>
 <body>
@@ -40,17 +37,18 @@
 <div class="container">
     <div class="top-bar">
         <input type="text" id="searchBar" class="search-box" placeholder="검색 (번호, 내용, 태그...)" oninput="renderList()">
-        <button class="btn-util" onclick="exportToFile()">📂 이름 지정하여 백업</button>
-        <button class="btn-util" onclick="importFromFile()">📥 파일 불러오기</button>
+        <button class="btn-util" onclick="exportData()">📤 백업 (파일 저장)</button>
+        <button class="btn-util" onclick="document.getElementById('fileInput').click()">📥 불러오기</button>
+        <input type="file" id="fileInput" style="display:none" onchange="importData(event)" accept=".json">
     </div>
 
     <div class="tag-index">
-        <h4>🔖 태그 색인 (클릭 시 이동)</h4>
+        <h4>🔖 태그 색인</h4>
         <div id="indexContainer"></div>
     </div>
 
     <div class="random-box">
-        <button class="random-btn" onclick="drawCards()">🎲 무작위 카드 3~5장 추출</button>
+        <button class="random-btn" onclick="drawCards()">🎲 무작위 믹스 추출</button>
         <div id="randomDisplay" class="random-display"></div>
     </div>
 
@@ -58,8 +56,8 @@
         <div class="input-grid">
             <input type="text" id="cardNumber" placeholder="번호 (필수)">
             <input type="text" id="tags" placeholder="태그 (쉼표 구분)">
-            <button class="add-btn" onclick="addCard()">등록</button>
-            <textarea id="summary" placeholder="요약 내용... [[번호]]를 쓰면 링크가 강조됩니다."></textarea>
+            <textarea id="summary" placeholder="요약 내용... [[번호]] 입력 시 강조"></textarea>
+            <button class="add-btn" onclick="addCard()">카드 등록</button>
         </div>
     </div>
 
@@ -67,7 +65,7 @@
 </div>
 
 <script>
-    let cards = JSON.parse(localStorage.getItem('zettel_v_final')) || [];
+    let cards = JSON.parse(localStorage.getItem('zettel_v_ipad')) || [];
 
     function addCard() {
         const num = document.getElementById('cardNumber').value.trim();
@@ -82,41 +80,47 @@
     }
 
     function saveAndRender() {
-        localStorage.setItem('zettel_v_final', JSON.stringify(cards));
+        localStorage.setItem('zettel_v_ipad', JSON.stringify(cards));
         renderList();
     }
 
-    // [개선된 저장 기능] 파일 이름 수정 프로세스
-    async function exportToFile() {
-        if (!window.showSaveFilePicker) return alert("지원하지 않는 브라우저입니다.");
+    // [아이패드 호환 백업]
+    function exportData() {
+        if (cards.length === 0) return alert("저장할 데이터가 없습니다.");
         
         const today = new Date().toISOString().slice(0,10).replace(/-/g, '');
-        // 기본 파일명 제안 (날짜_카드개수)
-        const defaultName = `zettel_${today}_${cards.length}cards.json`;
-        
-        // 브라우저 프롬프트로 파일명 수정 기회 제공
-        const customName = prompt("저장할 파일 이름을 입력하세요:", defaultName);
-        if (!customName) return; // 취소 시 중단
+        const defaultName = `zettel_${today}.json`;
+        const fileName = prompt("파일 이름을 입력하세요:", defaultName);
+        if (!fileName) return;
 
-        try {
-            const handle = await window.showSaveFilePicker({
-                suggestedName: customName.endsWith('.json') ? customName : customName + '.json',
-                types: [{ description: 'JSON File', accept: {'application/json': ['.json']} }]
-            });
-            const writable = await handle.createWritable();
-            await writable.write(JSON.stringify(cards, null, 2));
-            await writable.close();
-            alert("백업 완료!");
-        } catch (err) { console.error(err); }
+        const dataStr = JSON.stringify(cards, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName.endsWith('.json') ? fileName : fileName + '.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 
-    async function importFromFile() {
-        try {
-            const [handle] = await window.showOpenFilePicker();
-            const file = await handle.getFile();
-            cards = JSON.parse(await file.text());
-            saveAndRender();
-        } catch (err) { console.error(err); }
+    // [아이패드 호환 불러오기]
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                cards = JSON.parse(e.target.result);
+                saveAndRender();
+                alert("불러오기 완료!");
+            } catch (err) {
+                alert("파일 형식이 잘못되었습니다.");
+            }
+        };
+        reader.readAsText(file);
     }
 
     function renderList() {
@@ -141,12 +145,13 @@
             a.href = `#tag-${tag}`;
             indexDiv.appendChild(a);
 
-            let section = `<div class="category-group" id="tag-${tag}"><div class="category-header"><h3># ${tag}</h3></div>`;
+            let section = `<div class="category-group" id="tag-${tag}"><h3># ${tag}</h3>`;
             tagGroups[tag].forEach(card => {
+                const displaySummary = card.summary.replace(/\[\[(.*?)\]\]/g, '<b style="color:var(--link)">[[ $1 ]]</b>');
                 section += `
                     <div class="z-card">
-                        <div class="num-tag">${card.num}</div>
-                        <div class="content"><div>${card.summary.replace(/\[\[(.*?)\]\]/g, '<b style="color:var(--link)">[[ $1 ]]</b>')}</div></div>
+                        <span class="num-tag">${card.num}</span>
+                        <div>${displaySummary}</div>
                         <div class="actions">
                             <button class="btn-sm" onclick="editCard(${card.id})">수정</button>
                             <button class="btn-sm" onclick="deleteCard(${card.id})">삭제</button>
@@ -160,19 +165,20 @@
     function editCard(id) {
         const card = cards.find(c => c.id === id);
         const n = prompt("번호:", card.num); if(!n) return;
-        card.num = n;
-        card.tags = prompt("태그:", card.tags.join(', ')).split(',').map(t => t.trim());
-        card.summary = prompt("내용:", card.summary);
+        const t = prompt("태그 (쉼표 구분):", card.tags.join(', '));
+        const s = prompt("내용:", card.summary);
+        card.num = n; card.tags = t.split(',').map(i => i.trim()); card.summary = s;
         saveAndRender();
     }
 
-    function deleteCard(id) { if(confirm("삭제?")) { cards = cards.filter(c => c.id !== id); saveAndRender(); } }
-    
+    function deleteCard(id) { if(confirm("삭제하시겠습니까?")) { cards = cards.filter(c => c.id !== id); saveAndRender(); } }
+
     function drawCards() {
         const display = document.getElementById('randomDisplay');
         display.innerHTML = '';
-        [...cards].sort(() => 0.5 - Math.random()).slice(0, Math.floor(Math.random()*3)+3).forEach(c => {
-            display.innerHTML += `<div class="r-card"><b>${c.num}</b><br><small>${c.summary.slice(0,20)}...</small></div>`;
+        const count = Math.floor(Math.random() * 3) + 3;
+        [...cards].sort(() => 0.5 - Math.random()).slice(0, count).forEach(c => {
+            display.innerHTML += `<div class="r-card"><b>${c.num}</b><br><small>${c.summary.substring(0,20)}...</small></div>`;
         });
     }
 
