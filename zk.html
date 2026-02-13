@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zettelkasten Pro - Dark Mode Edition</title>
+    <title>Zettelkasten Pro - Comfortable Dark Mode</title>
     <style>
         :root {
-            /* 라이트 모드 변수 */
+            /* 라이트 모드 (기존 유지) */
             --primary: #2c3e50;
-            --accent: #e67e22;
+            --accent: #e67e22; /* 주황색 */
             --bg: #f4f7f6;
             --card-bg: #ffffff;
             --text: #2c3e50;
@@ -18,11 +18,11 @@
             --tag-bg: #e8ecef;
         }
 
-        /* 다크 모드 스타일 (수동 클래스 혹은 시스템 설정 대응) */
+        /* 다크 모드 (회색 계열로 변경) */
         @media (prefers-color-scheme: dark) {
             body.auto-dark {
                 --primary: #ecf0f1;
-                --accent: #f39c12;
+                --accent: #7f8c8d; /* 눈이 편한 회색 */
                 --bg: #1a1a1a;
                 --card-bg: #2d2d2d;
                 --text: #e0e0e0;
@@ -36,7 +36,7 @@
         /* 강제 다크모드 클래스 */
         body.dark-mode {
             --primary: #ecf0f1;
-            --accent: #f39c12;
+            --accent: #7f8c8d; /* 눈이 편한 회색 */
             --bg: #1a1a1a;
             --card-bg: #2d2d2d;
             --text: #e0e0e0;
@@ -55,7 +55,7 @@
             transition: background 0.3s, color 0.3s;
         }
         
-        .container { max-width: 800px; margin: 0 auto; }
+        .container { max-width: 800px; margin: 0 auto; padding-bottom: 60px; }
         
         .top-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; }
         .search-box { flex: 1; min-width: 200px; padding: 12px; border: 2px solid var(--primary); border-radius: 8px; font-size: 1rem; background: var(--input-bg); color: var(--text); }
@@ -68,10 +68,14 @@
         .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .input-grid input { padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; background: var(--input-bg); color: var(--text); }
         textarea { grid-column: span 2; height: 100px; padding: 12px; border-radius: 8px; border: 1px solid var(--border); resize: none; font-size: 1rem; background: var(--input-bg); color: var(--text); }
-        .add-btn { grid-column: span 2; background: var(--accent); color: white; border: none; border-radius: 8px; padding: 15px; font-weight: bold; cursor: pointer; font-size: 1.1rem; }
+        /* 카드 등록 버튼: 회색 계열 적용 */
+        .add-btn { grid-column: span 2; background: var(--accent); color: white; border: none; border-radius: 8px; padding: 15px; font-weight: bold; cursor: pointer; font-size: 1.1rem; transition: background 0.2s; }
+        .add-btn:hover { background: var(--primary); color: var(--bg); }
 
         .random-box { background: var(--primary); color: var(--bg); text-align: center; padding: 25px; border-radius: 15px; margin-bottom: 30px; }
-        .random-btn { background: var(--accent); color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+        /* 랜덤 믹스 버튼: 회색 계열 적용 */
+        .random-btn { background: var(--accent); color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        .random-btn:hover { background: var(--bg); color: var(--primary); }
         .random-display { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 20px; }
         .r-card { background: var(--card-bg); color: var(--text); width: 130px; padding: 15px; border-radius: 10px; text-align: center; font-size: 0.85rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 1px solid var(--border); }
 
@@ -82,7 +86,6 @@
         .actions { margin-top: 12px; display: flex; gap: 10px; }
         .btn-sm { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; font-size: 0.85rem; }
         
-        /* 다크모드 토글 버튼 */
         .mode-toggle { position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px; border-radius: 25px; background: var(--primary); color: var(--bg); border: none; cursor: pointer; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 1000; }
     </style>
 </head>
@@ -120,14 +123,12 @@
 </div>
 
 <script>
-    // [다크모드 토글 스크립트]
     function toggleDarkMode() {
         document.body.classList.toggle('dark-mode');
         const isDark = document.body.classList.contains('dark-mode');
         localStorage.setItem('zettel_theme', isDark ? 'dark' : 'light');
     }
 
-    // 테마 설정 불러오기
     if (localStorage.getItem('zettel_theme') === 'dark') {
         document.body.classList.add('dark-mode');
     }
