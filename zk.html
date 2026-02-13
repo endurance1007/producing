@@ -2,34 +2,45 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Zettelkasten Pro - iPad Compatible</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zettelkasten Pro - iPad Optimized</title>
     <style>
         :root { --primary: #2c3e50; --accent: #e67e22; --bg: #f4f7f6; --link: #3498db; }
-        body { font-family: 'Pretendard', sans-serif; background: var(--bg); padding: 20px; color: var(--primary); -webkit-tap-highlight-color: transparent; }
-        .container { max-width: 900px; margin: 0 auto; }
+        body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--bg); padding: 15px; color: var(--primary); -webkit-tap-highlight-color: transparent; line-height: 1.5; }
+        .container { max-width: 800px; margin: 0 auto; }
         
+        /* 상단 바 및 검색 */
         .top-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; }
-        .search-box { flex: 1; min-width: 250px; padding: 12px; border: 2px solid var(--primary); border-radius: 8px; font-size: 1rem; }
+        .search-box { flex: 1; min-width: 200px; padding: 12px; border: 2px solid var(--primary); border-radius: 8px; font-size: 1rem; }
         .btn-util { padding: 10px 15px; border-radius: 6px; cursor: pointer; border: 1px solid #ccc; background: white; font-size: 0.85rem; font-weight: bold; }
 
-        .tag-index { background: white; padding: 15px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        /* 태그 색인 */
+        .tag-index { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .tag-index h4 { margin: 0 0 10px 0; font-size: 0.9rem; color: #666; }
         .index-item { display: inline-block; padding: 6px 14px; background: #e8ecef; margin: 4px; border-radius: 20px; font-size: 0.9rem; text-decoration: none; color: inherit; }
 
-        .card-panel { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        /* 입력 섹션 */
+        .card-panel { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .input-grid input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
-        textarea { grid-column: span 2; height: 80px; padding: 12px; border-radius: 8px; border: 1px solid #ddd; resize: none; font-size: 1rem; }
-        .add-btn { grid-column: span 2; background: var(--primary); color: white; border: none; border-radius: 8px; padding: 15px; font-weight: bold; cursor: pointer; }
+        .input-grid input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }
+        textarea { grid-column: span 2; height: 100px; padding: 12px; border-radius: 8px; border: 1px solid #ddd; resize: none; font-size: 1rem; }
+        .add-btn { grid-column: span 2; background: var(--primary); color: white; border: none; border-radius: 8px; padding: 15px; font-weight: bold; cursor: pointer; font-size: 1.1rem; }
 
+        /* 랜덤 믹스 */
         .random-box { background: #2c3e50; color: white; text-align: center; padding: 25px; border-radius: 15px; margin-bottom: 30px; }
-        .random-btn { background: var(--accent); color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-weight: bold; }
+        .random-btn { background: var(--accent); color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-weight: bold; font-size: 1rem; }
         .random-display { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 20px; }
-        .r-card { background: white; color: #333; width: 140px; padding: 15px; border-radius: 10px; text-align: center; font-size: 0.9rem; }
+        .r-card { background: white; color: #333; width: 130px; padding: 15px; border-radius: 10px; text-align: center; font-size: 0.85rem; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
 
-        .z-card { background: white; border: 1px solid #e1e4e8; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
-        .num-tag { color: var(--accent); font-weight: bold; margin-bottom: 8px; display: block; }
-        .actions { margin-top: 10px; display: flex; gap: 10px; }
-        .btn-sm { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 0.8rem; }
+        /* 카드 리스트 */
+        .category-group { margin-bottom: 35px; scroll-margin-top: 20px; }
+        .category-group h3 { border-bottom: 2px solid var(--primary); padding-bottom: 5px; margin-bottom: 15px; }
+        .z-card { background: white; border: 1px solid #e1e4e8; padding: 15px; border-radius: 10px; margin-bottom: 10px; display: block; }
+        .num-tag { color: var(--accent); font-weight: 900; font-size: 1.1rem; margin-bottom: 8px; display: block; }
+        .wiki-link { color: var(--link); font-weight: bold; }
+        .actions { margin-top: 12px; display: flex; gap: 10px; }
+        .btn-sm { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #ddd; background: white; cursor: pointer; font-size: 0.85rem; }
+        .btn-del { color: #e74c3c; }
     </style>
 </head>
 <body>
@@ -37,24 +48,24 @@
 <div class="container">
     <div class="top-bar">
         <input type="text" id="searchBar" class="search-box" placeholder="검색 (번호, 내용, 태그...)" oninput="renderList()">
-        <button class="btn-util" onclick="exportData()">📤 백업 (파일 저장)</button>
+        <button class="btn-util" onclick="exportData()">📤 폴더 지정 백업</button>
         <button class="btn-util" onclick="document.getElementById('fileInput').click()">📥 불러오기</button>
         <input type="file" id="fileInput" style="display:none" onchange="importData(event)" accept=".json">
     </div>
 
     <div class="tag-index">
-        <h4>🔖 태그 색인</h4>
+        <h4>🔖 태그 색인 (클릭 시 이동)</h4>
         <div id="indexContainer"></div>
     </div>
 
     <div class="random-box">
-        <button class="random-btn" onclick="drawCards()">🎲 무작위 믹스 추출</button>
+        <button class="random-btn" onclick="drawCards()">🎲 무작위 카드 추출</button>
         <div id="randomDisplay" class="random-display"></div>
     </div>
 
     <div class="card-panel">
         <div class="input-grid">
-            <input type="text" id="cardNumber" placeholder="번호 (필수)">
+            <input type="text" id="cardNumber" placeholder="카드 번호">
             <input type="text" id="tags" placeholder="태그 (쉼표 구분)">
             <textarea id="summary" placeholder="요약 내용... [[번호]] 입력 시 강조"></textarea>
             <button class="add-btn" onclick="addCard()">카드 등록</button>
@@ -65,13 +76,14 @@
 </div>
 
 <script>
-    let cards = JSON.parse(localStorage.getItem('zettel_v_ipad')) || [];
+    let cards = JSON.parse(localStorage.getItem('zettel_v_ipad_final')) || [];
 
     function addCard() {
         const num = document.getElementById('cardNumber').value.trim();
         const tagInput = document.getElementById('tags').value.trim();
         const summary = document.getElementById('summary').value.trim();
         if(!num) return alert("번호를 입력하세요.");
+        
         cards.push({ id: Date.now(), num, tags: tagInput ? tagInput.split(',').map(t => t.trim()) : ['미분류'], summary });
         saveAndRender();
         document.getElementById('cardNumber').value = '';
@@ -80,33 +92,50 @@
     }
 
     function saveAndRender() {
-        localStorage.setItem('zettel_v_ipad', JSON.stringify(cards));
+        localStorage.setItem('zettel_v_ipad_final', JSON.stringify(cards));
         renderList();
     }
 
-    // [아이패드 호환 백업]
-    function exportData() {
+    // [아이패드 폴더 지정 가능 백업 기능]
+    async function exportData() {
         if (cards.length === 0) return alert("저장할 데이터가 없습니다.");
         
         const today = new Date().toISOString().slice(0,10).replace(/-/g, '');
         const defaultName = `zettel_${today}.json`;
-        const fileName = prompt("파일 이름을 입력하세요:", defaultName);
+        const fileName = prompt("저장할 파일 이름을 입력하세요:", defaultName);
         if (!fileName) return;
 
+        const finalFileName = fileName.endsWith('.json') ? fileName : fileName + '.json';
         const dataStr = JSON.stringify(cards, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
+
+        // Web Share API를 이용한 폴더 지정 저장 방식 (아이패드 최적화)
+        if (navigator.canShare && navigator.share) {
+            try {
+                const file = new File([blob], finalFileName, { type: "application/json" });
+                await navigator.share({
+                    files: [file],
+                    title: '제텔카스텐 백업',
+                });
+            } catch (err) {
+                if (err.name !== 'AbortError') fallbackDownload(blob, finalFileName);
+            }
+        } else {
+            fallbackDownload(blob, finalFileName);
+        }
+    }
+
+    function fallbackDownload(blob, fileName) {
         const url = URL.createObjectURL(blob);
-        
         const link = document.createElement("a");
         link.href = url;
-        link.download = fileName.endsWith('.json') ? fileName : fileName + '.json';
+        link.download = fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
     }
 
-    // [아이패드 호환 불러오기]
     function importData(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -147,14 +176,14 @@
 
             let section = `<div class="category-group" id="tag-${tag}"><h3># ${tag}</h3>`;
             tagGroups[tag].forEach(card => {
-                const displaySummary = card.summary.replace(/\[\[(.*?)\]\]/g, '<b style="color:var(--link)">[[ $1 ]]</b>');
+                const displaySummary = card.summary.replace(/\[\[(.*?)\]\]/g, '<b class="wiki-link">[[ $1 ]]</b>');
                 section += `
                     <div class="z-card">
                         <span class="num-tag">${card.num}</span>
                         <div>${displaySummary}</div>
                         <div class="actions">
                             <button class="btn-sm" onclick="editCard(${card.id})">수정</button>
-                            <button class="btn-sm" onclick="deleteCard(${card.id})">삭제</button>
+                            <button class="btn-sm btn-del" onclick="deleteCard(${card.id})">삭제</button>
                         </div>
                     </div>`;
             });
@@ -171,18 +200,19 @@
         saveAndRender();
     }
 
-    function deleteCard(id) { if(confirm("삭제하시겠습니까?")) { cards = cards.filter(c => c.id !== id); saveAndRender(); } }
+    function deleteCard(id) { if(confirm("정말 삭제할까요?")) { cards = cards.filter(c => c.id !== id); saveAndRender(); } }
 
     function drawCards() {
         const display = document.getElementById('randomDisplay');
         display.innerHTML = '';
         const count = Math.floor(Math.random() * 3) + 3;
         [...cards].sort(() => 0.5 - Math.random()).slice(0, count).forEach(c => {
-            display.innerHTML += `<div class="r-card"><b>${c.num}</b><br><small>${c.summary.substring(0,20)}...</small></div>`;
+            display.innerHTML += `<div class="r-card"><b>${c.num}</b><br><small>${c.summary.substring(0,25)}...</small></div>`;
         });
     }
 
     renderList();
 </script>
+
 </body>
 </html>
