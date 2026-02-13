@@ -72,7 +72,18 @@
         .add-btn { grid-column: span 2; background: var(--accent); color: white; border: none; border-radius: 8px; padding: 15px; font-weight: bold; cursor: pointer; font-size: 1.1rem; transition: background 0.2s; }
         .add-btn:hover { background: var(--primary); color: var(--bg); }
 
-        .random-box { background: var(--primary); color: var(--bg); text-align: center; padding: 25px; border-radius: 15px; margin-bottom: 30px; }
+.random-box { 
+    /* 배경을 어두운 무채색 회색(#252525)으로 변경 */
+    background: #252525; 
+    /* 글자색을 연한 회색으로 변경하여 가독성 확보 */
+    color: #e0e0e0; 
+    text-align: center; 
+    padding: 25px; 
+    border-radius: 15px; 
+    margin-bottom: 30px;
+    /* 박스 경계선을 살짝 주어 입체감 부여 */
+    border: 1px solid #404040; 
+}
         /* 랜덤 믹스 버튼: 회색 계열 적용 */
         .random-btn { background: var(--accent); color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
         .random-btn:hover { background: var(--bg); color: var(--primary); }
