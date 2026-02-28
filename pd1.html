@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 각색 워크스테이션 v1.8</title>
+    <title>지혜의 용 | 각색 워크스테이션 v1.9</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 4px; }
@@ -29,7 +29,7 @@
     <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0">
         <div class="flex items-center gap-3">
             <span class="text-2xl">🐲</span>
-            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v1.8 Copy</span></h1>
+            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v1.9 Final</span></h1>
         </div>
         <div class="flex gap-4 items-center">
             <div class="flex gap-2 mr-4 border-r border-white/10 pr-4">
@@ -131,8 +131,8 @@
         let dragImgEl = null;
 
         window.onload = () => {
-            const savedData = localStorage.getItem('dragonAdapter_v18_board');
-            const savedOriginal = localStorage.getItem('dragonAdapter_v18_original');
+            const savedData = localStorage.getItem('dragonAdapter_v19_board');
+            const savedOriginal = localStorage.getItem('dragonAdapter_v19_original');
             if (savedOriginal) originalView.value = savedOriginal;
             if (savedData) {
                 panelContainer.innerHTML = savedData;
@@ -146,23 +146,17 @@
             }
         };
 
-        // --- NEW: Copy to Clipboard ---
+        // --- Copy to Clipboard ---
         async function copyToClipboard() {
             let markdown = `# 각색 원고 (${new Date().toLocaleDateString()})\n\n`;
-            
             panelContainer.querySelectorAll('.group').forEach(card => {
                 const cut = card.querySelector('.cut-num').innerText;
                 const text = card.querySelector('.content-area').innerText.trim();
-                
-                // 메모 수집
                 const memos = [];
                 card.querySelectorAll('.memo-input').forEach(input => {
                     if (input.value) memos.push(`[${input.dataset.type}: ${input.value}]`);
                 });
-                
                 const memoString = memos.length > 0 ? ` ${memos.join(' ')}` : "";
-                
-                // 노션이 좋아하는 마크다운 포맷
                 markdown += `### ${cut}${memoString}\n${text}\n\n`;
             });
 
@@ -175,19 +169,39 @@
             }
         }
 
-        // --- File Backup System ---
+        // --- File Backup System (NEW: 다른 이름으로 저장) ---
         function downloadBackup() {
+            // 기본 파일명 제안 (오늘 날짜)
+            const defaultName = `Dragon_Project_${new Date().toISOString().slice(0,10)}`;
+            
+            // 사용자에게 파일명 입력받기
+            const fileName = prompt("저장할 파일 이름을 입력하세요 (확장자는 자동으로 붙습니다):", defaultName);
+            
+            // 사용자가 '취소'를 누르거나 빈 칸으로 두면 저장 중단
+            if (!fileName) return;
+            
+            // 사용자가 .json을 안 붙였다면 붙여주기
+            const finalFileName = fileName.endsWith('.json') ? fileName : fileName + '.json';
+
             prepareStateForSave();
             const backupData = {
-                version: "1.8",
+                version: "1.9",
                 date: new Date().toLocaleString(),
                 boardHTML: panelContainer.innerHTML,
                 originalText: originalView.value
             };
+            
             const jsonString = JSON.stringify(backupData);
             const blob = new Blob([jsonString], { type: "application/json" });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `Dragon_Project_${new Date().toISOString().slice(0,10)}.json`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = finalFileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         function loadBackup(input) {
@@ -214,8 +228,8 @@
         function saveToLocal() {
             prepareStateForSave();
             try {
-                localStorage.setItem('dragonAdapter_v18_board', panelContainer.innerHTML);
-                localStorage.setItem('dragonAdapter_v18_original', originalView.value);
+                localStorage.setItem('dragonAdapter_v19_board', panelContainer.innerHTML);
+                localStorage.setItem('dragonAdapter_v19_original', originalView.value);
             } catch (e) { }
         }
 
@@ -390,9 +404,6 @@
         function imgContainerDragOver(e) { if (dragType === 'image') { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('img-drag-over'); } }
         function imgContainerDrop(e, container) { e.stopPropagation(); e.preventDefault(); container.classList.remove('img-drag-over'); if (dragType === 'image' && dragImgEl) { const sourceContainer = dragImgEl.parentElement; if (sourceContainer !== container && container.children.length >= MAX_IMAGES) { alert(`이동 불가 (최대 ${MAX_IMAGES}장)`); return; } const targetWrapper = e.target.closest('.group\\/img'); if (targetWrapper && container.contains(targetWrapper)) container.insertBefore(dragImgEl, targetWrapper); else container.appendChild(dragImgEl); updateStats(); } }
         function addCardDragEvents(card) { card.addEventListener('dragstart', function(e) { if (dragType === 'image') { e.preventDefault(); return; } dragType = 'card'; saveState(); dragCardSrc = this; e.dataTransfer.effectAllowed = 'move'; this.classList.add('card-dragging'); }); card.addEventListener('dragover', function(e) { if (dragType === 'card') e.preventDefault(); return false; }); card.addEventListener('dragenter', function() { if (dragType === 'card') this.classList.add('border-blue-500'); }); card.addEventListener('dragleave', function() { if (dragType === 'card') this.classList.remove('border-blue-500'); }); card.addEventListener('drop', function(e) { if (dragType === 'card') { e.stopPropagation(); if (dragCardSrc !== this) { const allCards = [...panelContainer.children]; if (allCards.indexOf(dragCardSrc) < allCards.indexOf(this)) this.after(dragCardSrc); else this.before(dragCardSrc); updateStats(); } } return false; }); card.addEventListener('dragend', function() { dragType = null; this.classList.remove('card-dragging'); panelContainer.querySelectorAll('.group').forEach(c => c.classList.remove('border-blue-500')); }); }
-        
-        // Export to Notion (Legacy - kept for optional file download)
-        function exportToNotion() { let markdown = `# 각색 원고 (${new Date().toLocaleDateString()})\n\n`; panelContainer.querySelectorAll('.group').forEach(card => { const cut = card.querySelector('.cut-num').innerText; const text = card.querySelector('.content-area').innerText; const memos = Array.from(card.querySelectorAll('.memo-input')).map(i => `[${i.dataset.type}: ${i.value}]`).join(' '); markdown += `### ${cut} ${memos}\n${text}\n\n`; }); const blob = new Blob([markdown], { type: 'text/markdown' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Dragon_Cut_Export_${Date.now()}.md`; a.click(); }
     </script>
 </body>
 </html>
