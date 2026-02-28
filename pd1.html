@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 각색 워크스테이션 v1.9</title>
+    <title>지혜의 용 | 각색 워크스테이션 v2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         ::-webkit-scrollbar { width: 4px; }
@@ -26,10 +26,10 @@
 </head>
 <body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
 
-    <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0">
+    <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0 z-20">
         <div class="flex items-center gap-3">
             <span class="text-2xl">🐲</span>
-            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v1.9 Pro</span></h1>
+            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v2.0 Title</span></h1>
         </div>
         <div class="flex gap-4 items-center">
             <div class="flex gap-2 mr-4 border-r border-white/10 pr-4">
@@ -56,7 +56,7 @@
 
     <main class="flex flex-1 overflow-hidden">
         
-        <section class="w-1/4 flex flex-col border-r border-white/5 bg-[#080808]">
+        <section class="w-1/4 flex flex-col border-r border-white/5 bg-[#080808] z-10">
             <div class="h-1/2 flex flex-col border-b border-white/10">
                 <div class="p-2 bg-white/5 text-[9px] uppercase tracking-widest text-gray-500 font-bold flex justify-between">
                     <span>Original History</span>
@@ -86,8 +86,9 @@
             </div>
         </section>
 
-        <section class="flex-1 flex flex-col" onclick="clearSelection(event)">
-            <div class="p-3 bg-black/40 text-[9px] uppercase tracking-widest text-blue-500 font-bold flex justify-between items-center">
+        <section class="flex-1 flex flex-col relative" onclick="clearSelection(event)">
+            
+            <div class="p-3 bg-black/40 text-[9px] uppercase tracking-widest text-blue-500 font-bold flex justify-between items-center shrink-0 border-b border-white/5">
                 <div class="flex items-center gap-4">
                     <span>Adapter Board <span id="selectionMsg" class="ml-2 text-gray-500 normal-case font-normal hidden">선택 컷 뒤 삽입 대기</span></span>
                     
@@ -102,9 +103,17 @@
                 </div>
                 <span id="panelCount">0 Cuts</span>
             </div>
+
+            <div class="shrink-0 px-10 py-5 bg-[#0a0a0a] border-b border-white/5 shadow-md flex items-center gap-4 z-10">
+                <span class="text-xl opacity-80">📖</span>
+                <input type="text" id="episodeTitle" placeholder="여기에 회차 제목을 적어주세요 (예: 1화. 악마의 등장)" 
+                       class="w-full bg-transparent text-2xl font-black text-gray-100 outline-none placeholder-gray-800 tracking-tight"
+                       oninput="saveToLocal()">
+            </div>
             
             <div id="panelContainer" class="flex-1 overflow-y-auto p-10 space-y-6 max-w-4xl mx-auto w-full">
                 </div>
+
         </section>
     </main>
 
@@ -120,6 +129,7 @@
         const selectionMsg = document.getElementById('selectionMsg');
         const boardSearchInput = document.getElementById('boardSearchInput');
         const searchStatus = document.getElementById('searchStatus');
+        const episodeTitleInput = document.getElementById('episodeTitle'); // 회차 제목
         
         let searchMatches = [];
         let currentMatchIndex = -1;
@@ -131,9 +141,13 @@
         let dragImgEl = null;
 
         window.onload = () => {
-            const savedData = localStorage.getItem('dragonAdapter_v19_board');
-            const savedOriginal = localStorage.getItem('dragonAdapter_v19_original');
+            const savedData = localStorage.getItem('dragonAdapter_v20_board');
+            const savedOriginal = localStorage.getItem('dragonAdapter_v20_original');
+            const savedTitle = localStorage.getItem('dragonAdapter_v20_title'); // 회차 제목 로드
+
             if (savedOriginal) originalView.value = savedOriginal;
+            if (savedTitle) episodeTitleInput.value = savedTitle;
+
             if (savedData) {
                 panelContainer.innerHTML = savedData;
                 reattachEvents(); 
@@ -146,53 +160,42 @@
             }
         };
 
-        // --- NEW: Advanced Save As (File System Access API) ---
+        // --- Save As (File System) ---
         async function downloadBackup() {
             prepareStateForSave();
             
             const backupData = {
-                version: "1.9",
+                version: "2.0",
                 date: new Date().toLocaleString(),
+                episodeTitle: episodeTitleInput.value, // 회차 제목 백업 추가
                 boardHTML: panelContainer.innerHTML,
                 originalText: originalView.value
             };
 
             const jsonString = JSON.stringify(backupData, null, 2);
-            const defaultFileName = `Dragon_Project_${new Date().toISOString().slice(0,10)}.json`;
+            // 제안하는 파일 이름에 회차 제목 반영
+            const safeTitle = episodeTitleInput.value.replace(/[^a-z0-9가-힣]/gi, '_') || `Project_${new Date().toISOString().slice(0,10)}`;
+            const defaultFileName = `Dragon_${safeTitle}.json`;
 
             try {
-                // 크롬, 엣지 등 최신 브라우저용 '다른 이름으로 저장' 창 띄우기
                 if (window.showSaveFilePicker) {
                     const handle = await window.showSaveFilePicker({
                         suggestedName: defaultFileName,
-                        types: [{
-                            description: 'JSON 프로젝트 파일',
-                            accept: { 'application/json': ['.json'] },
-                        }],
+                        types: [{ description: 'JSON 프로젝트 파일', accept: { 'application/json': ['.json'] } }],
                     });
                     const writable = await handle.createWritable();
                     await writable.write(jsonString);
                     await writable.close();
                     alert("프로젝트가 성공적으로 저장되었습니다!");
                 } else {
-                    // 구형 브라우저 또는 모바일용 예외 처리 (기본 다운로드)
                     const blob = new Blob([jsonString], { type: "application/json" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
-                    a.href = url;
-                    a.download = defaultFileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    alert("브라우저 설정에 따라 기본 폴더에 저장되었습니다.");
+                    a.href = url; a.download = defaultFileName; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+                    alert("기본 폴더에 저장되었습니다.");
                 }
             } catch (err) {
-                // 사용자가 저장 창에서 '취소'를 누른 경우는 에러 메시지를 띄우지 않음
-                if (err.name !== 'AbortError') {
-                    console.error('Save failed:', err);
-                    alert("파일 저장 중 오류가 발생했습니다.");
-                }
+                if (err.name !== 'AbortError') { alert("파일 저장 중 오류가 발생했습니다."); }
             }
         }
 
@@ -206,7 +209,9 @@
                     if (data.boardHTML !== undefined) {
                         saveState();
                         panelContainer.innerHTML = data.boardHTML;
-                        if(data.originalText) originalView.value = data.originalText;
+                        if(data.originalText !== undefined) originalView.value = data.originalText;
+                        if(data.episodeTitle !== undefined) episodeTitleInput.value = data.episodeTitle; // 회차 제목 복원
+                        
                         reattachEvents(); updateStats();
                         const inputs = panelContainer.querySelectorAll('input.memo-input'); inputs.forEach(input => input.value = input.getAttribute('value'));
                         const checks = panelContainer.querySelectorAll('input[type="checkbox"]'); checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
@@ -218,7 +223,12 @@
         }
 
         async function copyToClipboard() {
-            let markdown = `# 각색 원고 (${new Date().toLocaleDateString()})\n\n`;
+            // 복사할 때 회차 제목을 최상단에 배치
+            let title = episodeTitleInput.value.trim();
+            if (!title) title = `각색 원고 (${new Date().toLocaleDateString()})`;
+            
+            let markdown = `# ${title}\n\n`;
+
             panelContainer.querySelectorAll('.group').forEach(card => {
                 const cut = card.querySelector('.cut-num').innerText;
                 const text = card.querySelector('.content-area').innerText.trim();
@@ -241,15 +251,21 @@
             checks.forEach(chk => chk.checked ? chk.setAttribute('checked', 'true') : chk.removeAttribute('checked'));
         }
 
+        function saveToLocal() {
+            prepareStateForSave();
+            try {
+                localStorage.setItem('dragonAdapter_v20_board', panelContainer.innerHTML);
+                localStorage.setItem('dragonAdapter_v20_original', originalView.value);
+                localStorage.setItem('dragonAdapter_v20_title', episodeTitleInput.value); // 제목 자동저장
+            } catch (e) { }
+        }
+
         function saveState() {
             if (historyIndex < historyStack.length - 1) historyStack.splice(historyIndex + 1);
             prepareStateForSave();
             historyStack.push(panelContainer.innerHTML);
             historyIndex++;
-            try {
-                localStorage.setItem('dragonAdapter_v19_board', panelContainer.innerHTML);
-                localStorage.setItem('dragonAdapter_v19_original', originalView.value);
-            } catch (e) { }
+            saveToLocal();
         }
 
         function restoreState(index) {
@@ -278,8 +294,17 @@
         }
 
         document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); restoreState(historyIndex - 1); }
-            if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); restoreState(historyIndex + 1); }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { 
+                // input 필드 내부에서 ctrl+z 누를 때는 자체 undo가 작동하도록 방어
+                if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault(); restoreState(historyIndex - 1); 
+                }
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'y') { 
+                if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                    e.preventDefault(); restoreState(historyIndex + 1); 
+                }
+            }
         });
 
         // --- Core Functions ---
@@ -371,7 +396,6 @@
                 }
             }
         }
-
         function addImageToCard(card, src) {
             const container = card.querySelector('.img-container'); if (!container || container.children.length >= MAX_IMAGES) return false;
             const wrapper = document.createElement('div'); wrapper.className = "relative aspect-square bg-gray-900 rounded overflow-hidden group/img cursor-pointer";
@@ -380,16 +404,13 @@
             wrapper.innerHTML = ` <img src="${src}" class="w-full h-full object-cover hover:opacity-80 transition pointer-events-none"> <button onclick="removeImage(event, this)" class="absolute top-0 right-0 bg-red-600 text-white w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover/img:opacity-100 transition">×</button> `;
             container.appendChild(wrapper); return true;
         }
-
         function triggerImageUpload(btn) {
             const card = btn.closest('.group'); const container = card.querySelector('.img-container'); if (container.children.length >= MAX_IMAGES) { alert(`최대 ${MAX_IMAGES}장까지입니다.`); return; }
             const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = e => { const file = e.target.files[0]; if (file) { compressImage(file, (compressedSrc) => { saveState(); addImageToCard(card, compressedSrc); }); } }; input.click();
         }
-
         function handlePaste(e, element) {
             const items = (e.clipboardData || e.originalEvent.clipboardData).items; for (let item of items) { if (item.kind === 'file' && item.type.startsWith('image/')) { e.preventDefault(); const card = element.closest('.group'); const container = card.querySelector('.img-container'); if (container.children.length >= MAX_IMAGES) { alert("이미지 개수 초과!"); return; } const blob = item.getAsFile(); compressImage(blob, (compressedSrc) => { saveState(); addImageToCard(card, compressedSrc); }); } }
         }
-
         function removeImage(e, btn) { e.stopPropagation(); saveState(); btn.parentElement.remove(); }
         
         // --- Search ---
