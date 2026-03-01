@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지혜의 용 | 각색 워크스테이션 v2.3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .hl-dialog { color: #60a5fa; font-weight: 600; }
+        .hl-sfx { color: #fbbf24; font-style: italic; }
+        .card-anim { animation: fadeIn 0.15s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        [contenteditable]:focus { outline: none; background: rgba(59, 130, 246, 0.05); }
+        .memo-input { background: transparent; border-bottom: 1px solid #333; font-size: 11px; padding: 2px 0; color: #888; width: 120px; outline: none; transition: all 0.2s; }
+        .memo-input:focus { border-bottom-color: #3b82f6; color: #fff; }
+        .overlay-active { overflow: hidden; }
+        .card-selected { border-color: #3b82f6 !important; background-color: #111 !important; }
+        .dragging { opacity: 0.5; border: 2px dashed #555; }
+        .img-dragging { opacity: 0.4; transform: scale(0.9); border: 2px solid #3b82f6; }
+        .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 4px; }
+        .img-drag-over { background-color: rgba(59, 130, 246, 0.2) !important; border-color: #3b82f6 !important; }
+        ::selection { background: #2563eb; color: white; }
+        .tab-active { background-color: #0a0a0a !important; color: #60a5fa !important; border-color: rgba(255,255,255,0.1) !important; border-bottom-color: transparent !important; z-index: 10; }
+        .tab-btn { max-width: 120px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+    </style>
+</head>
+<body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
+
+    <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">🐲</span>
+            <div class="flex flex-col">
+                <h1 class="font-black tracking-tighter text-blue-500 uppercase leading-none">Dragon Adapter <span class="text-gray-600 font-light ml-1 text-[10px]">v2.3</span></h1>
+                <span id="currentFileNameDisplay" class="text-[9px] text-gray-500 mt-1 font-mono uppercase tracking-tighter">No file loaded</span>
+            </div>
+        </div>
+        <div class="flex gap-4 items-center">
+            <div class="flex gap-2 mr-4 border-r border-white/10 pr-4">
+                <button onclick="downloadActiveProject()" class="px-3 py-1.5 rounded bg-blue-900/30 text-blue-400 border border-blue-900/50 text-[10px] font-bold hover:bg-blue-900/50 transition flex items-center gap-1">
+                    💾 프로젝트 저장
+                </button>
+                <button onclick="document.getElementById('fileInput').click()" class="px-3 py-1.5 rounded bg-gray-800 text-gray-300 border border-gray-700 text-[10px] font-bold hover:bg-gray-700 transition flex items-center gap-1">
+                    📂 불러오기
+                </button>
+                <input type="file" id="fileInput" class="hidden" accept=".json" onchange="loadProjectFile(this)">
+            </div>
+
+            <div class="text-[10px] text-gray-600 flex gap-2">
+                <span>Undo: Ctrl+Z</span>
+                <span>Redo: Ctrl+Y</span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="copyToClipboard()" class="px-4 py-1.5 rounded-full bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-500 transition shadow-lg shadow-blue-900/20 flex items-center gap-2">
+                    <span>📋</span> 노션용 복사
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="h-10 bg-[#080808] border-b border-white/5 flex items-end px-6 gap-1 shrink-0 z-10 pt-2">
+        <button id="tabBtn1" onclick="switchTab(1)" class="tab-btn px-4 py-2 text-[10px] font-bold rounded-t-lg bg-[#050505] text-gray-500 border border-transparent border-b-0 translate-y-[1px] hover:text-gray-300 transition tab-active">Workspace 1</button>
+        <button id="tabBtn2" onclick="switchTab(2)" class="tab-btn px-4 py-2 text-[10px] font-bold rounded-t-lg bg-[#050505] text-gray-500 border border-transparent border-b-0 translate-y-[1px] hover:text-gray-300 transition">Workspace 2</button>
+        <button id="tabBtn3" onclick="switchTab(3)" class="tab-btn px-4 py-2 text-[10px] font-bold rounded-t-lg bg-[#050505] text-gray-500 border border-transparent border-b-0 translate-y-[1px] hover:text-gray-300 transition">Workspace 3</button>
+        <button id="tabBtn4" onclick="switchTab(4)" class="tab-btn px-4 py-2 text-[10px] font-bold rounded-t-lg bg-[#050505] text-gray-500 border border-transparent border-b-0 translate-y-[1px] hover:text-gray-300 transition">Workspace 4</button>
+        <button id="tabBtn5" onclick="switchTab(5)" class="tab-btn px-4 py-2 text-[10px] font-bold rounded-t-lg bg-[#050505] text-gray-500 border border-transparent border-b-0 translate-y-[1px] hover:text-gray-300 transition">Workspace 5</button>
+        <button id="tabBtn6" onclick="switchTab(6)" class="tab-btn px-4 py-2 text-[10px] font-bold rounded-t-lg bg-[#050505] text-gray-500 border border-transparent border-b-0 translate-y-[1px] hover:text-gray-300 transition">Workspace 6</button>
+        <button id="tabBtn7" onclick="switchTab(7)" class="tab-btn px-4 py-2 text-[10px] font-bold rounded-t-lg bg-[#050505] text-gray-500 border border-transparent border-b-0 translate-y-[1px] hover:text-gray-300 transition">Workspace 7</button>
+    </div>
+
+    <main class="flex flex-1 overflow-hidden">
+        <section class="w-1/4 flex flex-col border-r border-white/5 bg-[#080808] z-10">
+            <div class="h-1/2 flex flex-col border-b border-white/10">
+                <div class="p-2 bg-white/5 text-[9px] uppercase tracking-widest text-gray-500 font-bold flex justify-between italic">
+                    <span>Original History</span>
+                    <span class="text-xs">🔒</span>
+                </div>
+                <textarea id="originalView" class="flex-1 bg-[#0a0a0a] p-4 outline-none resize-none leading-relaxed text-gray-500 text-xs border-none select-text" readonly placeholder="작업 히스토리 보관함"></textarea>
+            </div>
+            <div class="h-1/2 flex flex-col">
+                <div class="p-2 bg-blue-900/10 text-[9px] uppercase tracking-widest text-blue-400 font-bold">Active Input</div>
+                <textarea id="sourceInput" class="flex-1 bg-transparent p-4 outline-none resize-none leading-relaxed text-gray-300 focus:text-white text-sm border-none placeholder-gray-700" placeholder="추가할 텍스트..."></textarea>
+                <div class="p-3 grid grid-cols-1 gap-2 border-t border-white/5 bg-[#0a0a0a]">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="processSource('append')" class="py-2 bg-gray-800 hover:bg-blue-900 rounded text-[11px] font-bold transition text-blue-100">맨 뒤에 추가</button>
+                        <button onclick="processSource('insert')" class="py-2 bg-gray-800 hover:bg-yellow-900 rounded text-[11px] font-bold transition text-yellow-100">선택 컷 뒤 삽입</button>
+                    </div>
+                    <button onclick="processSource('overwrite')" class="py-2 bg-red-900/20 hover:bg-red-900 text-red-500 hover:text-white rounded text-[11px] font-bold transition">⚠️ 전체 초기화</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="flex-1 flex flex-col relative" onclick="clearSelection(event)">
+            <div class="p-3 bg-black/40 text-[9px] uppercase tracking-widest text-blue-500 font-bold flex justify-between items-center shrink-0 border-b border-white/5">
+                <div class="flex items-center gap-4">
+                    <span>Adapter Board <span id="selectionMsg" class="ml-2 text-gray-500 normal-case font-normal hidden">선택 컷 뒤 삽입 대기</span></span>
+                    <div class="flex items-center gap-1 bg-gray-900 rounded-md border border-gray-800 px-2 py-0.5 ml-4" onclick="event.stopPropagation()">
+                        <input id="boardSearchInput" type="text" placeholder="검색..." class="bg-transparent border-none text-xs text-white w-24 outline-none placeholder-gray-600" onkeydown="if(event.key === 'Enter') findNext()">
+                        <button onclick="findPrev()" class="text-gray-500 hover:text-white px-1 text-xs">▲</button>
+                        <button onclick="findNext()" class="text-gray-500 hover:text-white px-1 text-xs">▼</button>
+                        <span id="searchStatus" class="text-[9px] text-gray-600 w-8 text-center ml-1">0/0</span>
+                    </div>
+                </div>
+                <span id="panelCount">0 Cuts</span>
+            </div>
+
+            <div class="shrink-0 px-10 py-5 bg-[#0a0a0a] border-b border-white/5 shadow-md flex items-center gap-4 z-10">
+                <span class="text-xl opacity-80">📖</span>
+                <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-2xl font-black text-gray-100 outline-none placeholder-gray-800 tracking-tight" oninput="updateTabTitle(); saveToLocal();">
+            </div>
+            
+            <div id="panelContainer" class="flex-1 overflow-y-auto p-10 space-y-6 max-w-4xl mx-auto w-full"></div>
+        </section>
+    </main>
+
+    <div id="imgOverlay" class="fixed inset-0 z-50 bg-black/95 hidden items-center justify-center p-4 cursor-zoom-out" onclick="closeImgFS()">
+        <img id="fsImg" src="" class="max-w-full max-h-full object-contain shadow-2xl">
+    </div>
+
+    <script>
+        const originalView = document.getElementById('originalView');
+        const sourceInput = document.getElementById('sourceInput');
+        const panelContainer = document.getElementById('panelContainer');
+        const panelCountDisplay = document.getElementById('panelCount');
+        const selectionMsg = document.getElementById('selectionMsg');
+        const boardSearchInput = document.getElementById('boardSearchInput');
+        const searchStatus = document.getElementById('searchStatus');
+        const episodeTitleInput = document.getElementById('episodeTitle'); 
+        const currentFileNameDisplay = document.getElementById('currentFileNameDisplay');
+        
+        let searchMatches = [];
+        let currentMatchIndex = -1;
+        const MAX_IMAGES = 10;
+        let activeCard = null;
+        let dragType = null;
+        let dragImgEl = null;
+
+        let currentTabId = 1;
+        let tabsData = Array.from({ length: 7 }, (_, i) => ({
+            id: i + 1, title: "", originalText: "", boardHTML: "", loadedFileName: "No file", historyStack: [], historyIndex: -1
+        }));
+
+        let historyStack = tabsData[0].historyStack;
+        let historyIndex = tabsData[0].historyIndex;
+
+        window.onload = () => {
+            const savedTabs = localStorage.getItem('dragonAdapter_v23_tabs');
+            const savedActiveTab = localStorage.getItem('dragonAdapter_v23_activeTab');
+
+            if (savedTabs) {
+                try {
+                    const parsedTabs = JSON.parse(savedTabs);
+                    tabsData = parsedTabs.map((t, idx) => ({
+                        ...t,
+                        loadedFileName: t.loadedFileName || "Untitled",
+                        historyStack: [], 
+                        historyIndex: -1
+                    }));
+                } catch(e) { console.error("Restore failed", e); }
+            }
+
+            if (savedActiveTab) currentTabId = parseInt(savedActiveTab);
+            renderTab(currentTabId);
+        };
+
+        function switchTab(tabId) {
+            if (currentTabId === tabId) return;
+            saveToLocal();
+            currentTabId = tabId;
+            renderTab(tabId);
+            saveToLocal();
+        }
+
+        function renderTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active'));
+            document.getElementById(`tabBtn${tabId}`).classList.add('tab-active');
+
+            const tab = tabsData[tabId - 1];
+            panelContainer.innerHTML = tab.boardHTML || '';
+            originalView.value = tab.originalText || '';
+            episodeTitleInput.value = tab.title || '';
+            currentFileNameDisplay.innerText = `Current File: ${tab.loadedFileName || 'No file'}`;
+            
+            updateTabTitle();
+
+            const inputs = panelContainer.querySelectorAll('input.memo-input');
+            inputs.forEach(input => input.value = input.getAttribute('value') || '');
+            const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
+            checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
+
+            historyStack = tab.historyStack || [];
+            historyIndex = tab.historyIndex || -1;
+
+            activeCard = null;
+            selectionMsg.classList.add('hidden');
+            searchMatches = []; searchStatus.innerText = "0/0";
+            reattachEvents(); updateStats();
+        }
+
+        function updateTabTitle() {
+            const title = episodeTitleInput.value.trim() || `Workspace ${currentTabId}`;
+            document.getElementById(`tabBtn${currentTabId}`).innerText = title;
+            tabsData[currentTabId - 1].title = episodeTitleInput.value;
+        }
+
+        async function downloadActiveProject() {
+            prepareStateForSave();
+            const activeProject = {
+                version: "2.3",
+                episodeTitle: episodeTitleInput.value,
+                boardHTML: panelContainer.innerHTML,
+                originalText: originalView.value
+            };
+            const jsonString = JSON.stringify(activeProject, null, 2);
+            const safeTitle = episodeTitleInput.value.replace(/[^a-z0-9가-힣]/gi, '_') || `Project_${currentTabId}`;
+            const defaultFileName = `Dragon_${safeTitle}.json`;
+
+            try {
+                if (window.showSaveFilePicker) {
+                    const handle = await window.showSaveFilePicker({ suggestedName: defaultFileName, types: [{ description: 'JSON 프로젝트 파일', accept: { 'application/json': ['.json'] } }] });
+                    const writable = await handle.createWritable(); await writable.write(jsonString); await writable.close();
+                    tabsData[currentTabId - 1].loadedFileName = handle.name;
+                    currentFileNameDisplay.innerText = `Current File: ${handle.name}`;
+                } else {
+                    const blob = new Blob([jsonString], { type: "application/json" }); const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = defaultFileName; a.click();
+                    tabsData[currentTabId - 1].loadedFileName = defaultFileName;
+                    currentFileNameDisplay.innerText = `Current File: ${defaultFileName}`;
+                }
+                alert("현재 워크스페이스가 저장되었습니다!");
+            } catch (err) { if (err.name !== 'AbortError') alert("저장 중 오류 발생"); }
+            saveToLocal();
+        }
+
+        function loadProjectFile(input) {
+            const file = input.files[0]; if (!file) return;
+            const fileName = file.name;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.boardHTML !== undefined) {
+                        saveState();
+                        panelContainer.innerHTML = data.boardHTML;
+                        originalView.value = data.originalText || "";
+                        episodeTitleInput.value = data.episodeTitle || "";
+                    } else if (data.tabs) {
+                        if(!confirm("전체 백업 파일입니다. 첫 번째 워크스페이스를 현재 탭으로 불러올까요?")) return;
+                        const firstTab = data.tabs[0];
+                        panelContainer.innerHTML = firstTab.boardHTML;
+                        originalView.value = firstTab.originalText;
+                        episodeTitleInput.value = firstTab.title || "";
+                    }
+                    tabsData[currentTabId - 1].loadedFileName = fileName;
+                    currentFileNameDisplay.innerText = `Current File: ${fileName}`;
+                    updateTabTitle(); reattachEvents(); updateStats();
+                    const inputs = panelContainer.querySelectorAll('input.memo-input'); inputs.forEach(input => input.value = input.getAttribute('value') || '');
+                    const checks = panelContainer.querySelectorAll('input[type="checkbox"]'); checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
+                    saveToLocal();
+                } catch (err) { alert("파일 읽기 오류"); }
+            };
+            reader.readAsText(file); input.value = '';
+        }
+
+        function saveToLocal() {
+            prepareStateForSave();
+            tabsData[currentTabId - 1].boardHTML = panelContainer.innerHTML;
+            tabsData[currentTabId - 1].originalText = originalView.value;
+            tabsData[currentTabId - 1].title = episodeTitleInput.value;
+            try {
+                const dataToSave = tabsData.map(t => ({ id: t.id, title: t.title, originalText: t.originalText, boardHTML: t.boardHTML, loadedFileName: t.loadedFileName }));
+                localStorage.setItem('dragonAdapter_v23_tabs', JSON.stringify(dataToSave));
+                localStorage.setItem('dragonAdapter_v23_activeTab', currentTabId);
+            } catch (e) { }
+        }
+
+        function saveState() {
+            if (historyIndex < historyStack.length - 1) historyStack.splice(historyIndex + 1);
+            prepareStateForSave();
+            historyStack.push(panelContainer.innerHTML);
+            historyIndex++;
+            tabsData[currentTabId - 1].historyIndex = historyIndex;
+            saveToLocal();
+        }
+
+        function restoreState(index) {
+            if (index < 0 || index >= historyStack.length) return;
+            panelContainer.innerHTML = historyStack[index];
+            historyIndex = index;
+            tabsData[currentTabId - 1].historyIndex = historyIndex;
+            const inputs = panelContainer.querySelectorAll('input.memo-input'); inputs.forEach(input => input.value = input.getAttribute('value') || '');
+            const checks = panelContainer.querySelectorAll('input[type="checkbox"]'); checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
+            reattachEvents(); updateStats(); saveToLocal();
+        }
+
+        function prepareStateForSave() {
+            const inputs = panelContainer.querySelectorAll('input.memo-input');
+            inputs.forEach(input => input.setAttribute('value', input.value));
+            const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
+            checks.forEach(chk => chk.checked ? chk.setAttribute('checked', 'true') : chk.removeAttribute('checked'));
+        }
+
+        function reattachEvents() {
+            const cards = panelContainer.querySelectorAll('.group');
+            cards.forEach(card => {
+                card.onclick = (e) => selectCard(e, card);
+                addCardDragEvents(card);
+                const imgWrappers = card.querySelectorAll('.group\\/img');
+                imgWrappers.forEach(wrapper => {
+                     const img = wrapper.querySelector('img');
+                     if (img) wrapper.onclick = (e) => { e.stopPropagation(); openImgFS(img.src); };
+                });
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); restoreState(historyIndex - 1); } }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'y') { if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); restoreState(historyIndex + 1); } }
+        });
+
+        function highlightText(text) {
+            if (!text) return "";
+            text = text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>');
+            text = text.replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
+            return text;
+        }
+
+        function processSource(mode) {
+            const text = sourceInput.value.trim();
+            if (!text && mode !== 'overwrite') return;
+            saveState();
+            if (mode === 'overwrite') {
+                if (panelContainer.children.length > 0 && !confirm("이 작업을 초기화하시겠습니까?")) return;
+                originalView.value = text; panelContainer.innerHTML = ''; activeCard = null;
+            } else {
+                originalView.value += `\n\n--- Added [${new Date().toLocaleTimeString()}] ---\n` + text;
+                originalView.scrollTop = originalView.scrollHeight;
+            }
+            const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
+            if (mode === 'insert' && activeCard) {
+                let refNode = activeCard; sentences.forEach(s => { const newCard = createCardElement(s); panelContainer.insertBefore(newCard, refNode.nextSibling); refNode = newCard; });
+            } else {
+                sentences.forEach(s => { panelContainer.appendChild(createCardElement(s)); });
+            }
+            updateStats(); if (mode !== 'overwrite') sourceInput.value = ''; saveToLocal();
+        }
+
+        function createCardElement(text) {
+            const card = document.createElement('div');
+            card.className = 'card-anim bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all group relative cursor-move';
+            card.draggable = true; card.onclick = (e) => selectCard(e, card); addCardDragEvents(card);
+            card.innerHTML = `
+                <div class="flex flex-col gap-3 pointer-events-none">
+                    <div class="flex justify-between items-center pointer-events-auto">
+                        <div class="flex items-center gap-2 cursor-grab active:cursor-grabbing">
+                            <span class="text-gray-600">☰</span>
+                            <span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span>
+                        </div>
+                        <div class="flex gap-3 opacity-40 group-hover:opacity-100 transition-opacity">
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '앵글/샷')" class="hidden"> 앵글/샷</label>
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '배경')" class="hidden"> 배경</label>
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '참고')" class="hidden"> 참고</label>
+                        </div>
+                    </div>
+                    <div class="flex gap-5 pointer-events-auto">
+                        <div class="w-32 shrink-0 flex flex-col gap-2">
+                             <div class="img-container img-grid bg-black/50 rounded border border-white/5 min-h-[60px] p-1 transition-colors" ondragover="imgContainerDragOver(event)" ondrop="imgContainerDrop(event, this)"></div>
+                             <button onclick="event.stopPropagation(); triggerImageUpload(this)" class="text-[9px] bg-gray-800 hover:bg-gray-700 w-full py-1 rounded text-gray-400 hover:text-white transition">+ Add Image</button>
+                        </div>
+                        <div class="flex-1 space-y-3">
+                            <div class="memo-area flex flex-wrap gap-x-4 gap-y-1"></div>
+                            <div class="content-area text-[15px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="handlePaste(event, this)" onblur="this.innerHTML = highlightText(this.innerText); saveToLocal();" onfocus="saveState()" onclick="event.stopPropagation()">${highlightText(text)}</div>
+                            <div class="flex justify-between items-center pt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div class="flex gap-4">
+                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase transition-colors">Merge Up</button>
+                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase transition-colors">Split at Cursor</button>
+                                </div>
+                                <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); deleteCard(this)" class="text-[9px] text-red-900 hover:text-red-500 font-bold transition-colors">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            return card;
+        }
+
+        function compressImage(file, callback) {
+            const reader = new FileReader(); reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image(); img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas'); const MAX_WIDTH = 600; const scaleSize = MAX_WIDTH / img.width; canvas.width = MAX_WIDTH; canvas.height = img.height * scaleSize;
+                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, canvas.width, canvas.height); const dataUrl = canvas.toDataURL('image/jpeg', 0.7); callback(dataUrl);
+                }
+            }
+        }
+        function addImageToCard(card, src) {
+            const container = card.querySelector('.img-container'); if (!container || container.children.length >= MAX_IMAGES) return false;
+            const wrapper = document.createElement('div'); wrapper.className = "relative aspect-square bg-gray-900 rounded overflow-hidden group/img cursor-pointer";
+            wrapper.setAttribute('draggable', 'true'); wrapper.setAttribute('ondragstart', 'imgDragStart(event, this)'); wrapper.setAttribute('ondragend', 'imgDragEnd(event, this)');
+            wrapper.setAttribute('onclick', "event.stopPropagation(); openImgFS(this.querySelector('img').src)");
+            wrapper.innerHTML = ` <img src="${src}" class="w-full h-full object-cover hover:opacity-80 transition pointer-events-none"> <button onclick="removeImage(event, this)" class="absolute top-0 right-0 bg-red-600 text-white w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover/img:opacity-100 transition">×</button> `;
+            container.appendChild(wrapper); saveToLocal(); return true;
+        }
+        function triggerImageUpload(btn) {
+            const card = btn.closest('.group'); const container = card.querySelector('.img-container'); if (container.children.length >= MAX_IMAGES) { alert(`최대 ${MAX_IMAGES}장`); return; }
+            const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
+            input.onchange = e => { const file = e.target.files[0]; if (file) compressImage(file, (src) => { saveState(); addImageToCard(card, src); }); }; input.click();
+        }
+        function handlePaste(e, el) { const items = (e.clipboardData || e.originalEvent.clipboardData).items; for (let item of items) { if (item.kind === 'file' && item.type.startsWith('image/')) { e.preventDefault(); const container = el.closest('.group').querySelector('.img-container'); if (container.children.length >= MAX_IMAGES) { alert("이미지 초과"); return; } compressImage(item.getAsFile(), (src) => { saveState(); addImageToCard(el.closest('.group'), src); }); } } }
+        function removeImage(e, btn) { e.stopPropagation(); saveState(); btn.parentElement.remove(); saveToLocal(); }
+        
+        function splitAtCursor(btn) {
+            saveState(); const card = btn.closest('.group'); const area = card.querySelector('.content-area'); const sel = window.getSelection(); if (!sel.rangeCount || !area.contains(sel.getRangeAt(0).commonAncestorContainer)) return;
+            const r = sel.getRangeAt(0); const rE = document.createRange(); rE.setStart(r.endContainer, r.endOffset); rE.setEnd(area, area.childNodes.length);
+            const pT = rE.toString(); rE.deleteContents(); area.innerHTML = highlightText(area.innerText);
+            panelContainer.insertBefore(createCardElement(pT), card.nextSibling); updateStats(); saveToLocal();
+        }
+        function mergeUp(btn) {
+            const cur = btn.closest('.group'); const prev = cur.previousElementSibling; if (prev) {
+                const pC = prev.querySelector('.img-container').children.length; const cC = cur.querySelector('.img-container').children.length; if (pC + cC > MAX_IMAGES) { alert("이미지 10장 초과"); return; }
+                saveState(); prev.querySelector('.content-area').innerText += " " + cur.querySelector('.content-area').innerText;
+                prev.querySelector('.content-area').innerHTML = highlightText(prev.querySelector('.content-area').innerText);
+                cur.querySelectorAll('.img-container .group\\/img').forEach(w => prev.querySelector('.img-container').appendChild(w));
+                cur.remove(); updateStats(); saveToLocal();
+            }
+        }
+        function deleteCard(btn) { saveState(); btn.closest('.group').remove(); updateStats(); saveToLocal(); }
+        function selectCard(e, c) { if (activeCard) activeCard.classList.remove('card-selected'); activeCard = c; activeCard.classList.add('card-selected'); selectionMsg.classList.remove('hidden'); selectionMsg.innerText = `${c.querySelector('.cut-num').innerText} 뒤 삽입 대기`; }
+        function clearSelection(e) { if (e.target.id === 'panelContainer' || e.target.tagName === 'SECTION') { if (activeCard) activeCard.classList.remove('card-selected'); activeCard = null; selectionMsg.classList.add('hidden'); } }
+        function toggleMemo(cb, L) { saveState(); const mA = cb.closest('.group').querySelector('.memo-area'); if (cb.checked) { const i = document.createElement('input'); i.className = 'memo-input'; i.placeholder = `${L}...`; i.dataset.type = L; i.onclick = (e) => e.stopPropagation(); i.onfocus = () => saveState(); i.oninput = () => saveToLocal(); mA.appendChild(i); cb.parentElement.classList.add('text-blue-500', 'opacity-100'); i.focus(); } else { const i = mA.querySelector(`input[data-type="${L}"]`); if (i) i.remove(); cb.parentElement.classList.remove('text-blue-500'); saveToLocal(); } }
+        function updateStats() { const cards = panelContainer.querySelectorAll('.group'); panelCountDisplay.innerText = `${cards.length} Cuts`; cards.forEach((c, i) => { c.querySelector('.cut-num').innerText = `Cut ${String(i + 1).padStart(2, '0')}`; }); }
+        function openImgFS(s) { document.getElementById('fsImg').src = s; document.getElementById('imgOverlay').classList.replace('hidden', 'flex'); document.body.classList.add('overlay-active'); }
+        function closeImgFS() { document.getElementById('imgOverlay').classList.replace('flex', 'hidden'); document.body.classList.remove('overlay-active'); }
+        function buildSearchIndex(term) { searchMatches = []; if (!term) return; const cards = panelContainer.querySelectorAll('.content-area'); cards.forEach((area) => { const walker = document.createTreeWalker(area, NodeFilter.SHOW_TEXT, null, false); let node; while (node = walker.nextNode()) { const text = node.nodeValue; const regex = new RegExp(term, 'gi'); let match; while ((match = regex.exec(text)) !== null) { searchMatches.push({ node: node, start: match.index, end: match.index + term.length, card: area.closest('.group') }); } } }); }
+        function findNext() { const term = boardSearchInput.value.trim(); if (!term) return; if (searchMatches.length === 0 || !searchMatches[0].node.nodeValue.toLowerCase().includes(term.toLowerCase())) { buildSearchIndex(term); currentMatchIndex = -1; } if (searchMatches.length === 0) { alert("결과 없음"); return; } if (currentMatchIndex >= searchMatches.length - 1) { alert("다음 없음"); return; } currentMatchIndex++; highlightMatch(currentMatchIndex); }
+        function findPrev() { const term = boardSearchInput.value.trim(); if (!term) return; if (searchMatches.length === 0) { buildSearchIndex(term); currentMatchIndex = searchMatches.length; } if (searchMatches.length === 0) { alert("결과 없음"); return; } if (currentMatchIndex <= 0) { alert("이전 없음"); return; } currentMatchIndex--; highlightMatch(currentMatchIndex); }
+        function highlightMatch(index) { const match = searchMatches[index]; if (!match) return; match.card.scrollIntoView({ behavior: 'smooth', block: 'center' }); const selection = window.getSelection(); const range = document.createRange(); try { range.setStart(match.node, match.start); range.setEnd(match.node, match.end); selection.removeAllRanges(); selection.addRange(range); } catch (e) { buildSearchIndex(boardSearchInput.value); currentMatchIndex = -1; } updateSearchStatus(index + 1, searchMatches.length); }
+        function updateSearchStatus(current, total) { searchStatus.innerText = `${current}/${total}`; }
+        function imgDragStart(e, w) { e.stopPropagation(); saveState(); dragType = 'image'; dragImgEl = w; e.dataTransfer.effectAllowed = 'move'; w.classList.add('img-dragging'); }
+        function imgDragEnd(e, w) { e.stopPropagation(); dragType = null; dragImgEl = null; w.classList.remove('img-dragging'); document.querySelectorAll('.img-container').forEach(el => el.classList.remove('img-drag-over')); saveToLocal(); }
+        function imgContainerDragOver(e) { if (dragType === 'image') { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('img-drag-over'); } }
+        function imgContainerDrop(e, c) { e.stopPropagation(); e.preventDefault(); c.classList.remove('img-drag-over'); if (dragType === 'image' && dragImgEl) { if (dragImgEl.parentElement !== c && c.children.length >= MAX_IMAGES) { alert("이동 불가"); return; } const tW = e.target.closest('.group\\/img'); if (tW && c.contains(tW)) c.insertBefore(dragImgEl, tW); else c.appendChild(dragImgEl); updateStats(); saveToLocal(); } }
+        function addCardDragEvents(c) { c.addEventListener('dragstart', function(e) { if (dragType === 'image') { e.preventDefault(); return; } dragType = 'card'; saveState(); dragCardSrc = this; this.classList.add('card-dragging'); }); c.addEventListener('dragover', function(e) { if (dragType === 'card') e.preventDefault(); return false; }); c.addEventListener('dragenter', function() { if (dragType === 'card') this.classList.add('border-blue-500'); }); c.addEventListener('dragleave', function() { if (dragType === 'card') this.classList.remove('border-blue-500'); }); c.addEventListener('drop', function(e) { if (dragType === 'card') { e.stopPropagation(); if (dragCardSrc !== this) { const aC = [...panelContainer.children]; if (aC.indexOf(dragCardSrc) < aC.indexOf(this)) this.after(dragCardSrc); else this.before(dragCardSrc); updateStats(); saveToLocal(); } } return false; }); c.addEventListener('dragend', function() { dragType = null; this.classList.remove('card-dragging'); panelContainer.querySelectorAll('.group').forEach(el => el.classList.remove('border-blue-500')); }); }
+        async function copyToClipboard() {
+            let title = episodeTitleInput.value.trim() || `각색 원고 (${new Date().toLocaleDateString()})`;
+            let md = `# ${title}\n\n`;
+            panelContainer.querySelectorAll('.group').forEach(card => {
+                const cut = card.querySelector('.cut-num').innerText;
+                const text = card.querySelector('.content-area').innerText.trim();
+                const ms = []; card.querySelectorAll('.memo-input').forEach(i => { if (i.value) ms.push(`[${i.dataset.type}: ${i.value}]`); });
+                md += `### ${cut}${ms.length>0?' '+ms.join(' '):''}\n${text}\n\n`;
+            });
+            try { await navigator.clipboard.writeText(md); alert("✅ [현재 탭] 노션용 복사 완료!"); } catch (err) { alert("복사 실패"); }
+        }
+    </script>
+</body>
+</html>
