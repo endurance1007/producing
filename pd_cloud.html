@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 다이나믹 워크스테이션 v5.0</title>
+    <title>지혜의 용 | 다이나믹 워크스테이션 v5.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        // 작가님이 보내주신 최신 Firebase 설정값 적용
         const firebaseConfig = {
-            apiKey: "AIzaSyDIPM-V52irW0N0Em8qAItvi6L5LYJg8Ik",
+            apiKey: "AIzaSyDIpM-V52irW0N0Em8qAItvI6L5LYJg8Ik",
             authDomain: "wisdomdragonadapter.firebaseapp.com",
             projectId: "wisdomdragonadapter",
             storageBucket: "wisdomdragonadapter.firebasestorage.app",
@@ -27,8 +28,7 @@
         let currentUser = null;
         let currentProjectId = null;
         let currentTabId = null;
-        
-        let projectsMetadata = []; // {id, name, order, tabs: [{id, order}]}
+        let projectsMetadata = [];
 
         window.onload = () => {
             onAuthStateChanged(auth, async (user) => {
@@ -44,14 +44,12 @@
             });
         };
 
-        // 전체 구조 실시간 동기화
         async function syncGlobalConfig() {
             const metaRef = doc(db, "users", currentUser.uid, "config", "metadata");
             onSnapshot(metaRef, (docSnap) => {
                 if (docSnap.exists()) {
                     projectsMetadata = docSnap.data().projects || [];
                 } else {
-                    // 초기 데이터 생성
                     projectsMetadata = [{ id: Date.now(), name: "새 작품", order: 0, tabs: [{ id: Date.now() + 1, order: 0 }] }];
                     saveMetadata();
                 }
@@ -71,7 +69,6 @@
             await setDoc(doc(db, "users", currentUser.uid, "config", "metadata"), { projects: projectsMetadata });
         }
 
-        // 컨텐츠 로드
         let contentUnsub = null;
         function loadContent() {
             if (contentUnsub) contentUnsub();
@@ -107,7 +104,6 @@
             }, { merge: true });
         };
 
-        // 작품 관리
         window.addProject = () => {
             const newId = Date.now();
             projectsMetadata.push({ id: newId, name: "새 작품", order: projectsMetadata.length, tabs: [{ id: newId + 1, order: 0 }] });
@@ -124,7 +120,6 @@
             saveMetadata();
         };
 
-        // 탭 관리
         window.addTab = () => {
             const p = projectsMetadata.find(x => x.id === currentProjectId);
             if (p) {
@@ -142,19 +137,15 @@
                 p.tabs = p.tabs.filter(t => t.id !== id);
                 if (currentTabId === id) currentTabId = p.tabs[0].id;
                 saveMetadata();
-            } else {
-                alert("최소 하나의 탭은 있어야 합니다.");
-            }
+            } else { alert("최소 하나의 탭은 있어야 합니다."); }
         };
 
-        // UI 렌더링
         function renderProjectTabs() {
             const container = document.getElementById('projectTabContainer');
             container.innerHTML = "";
             projectsMetadata.sort((a, b) => a.order - b.order).forEach(p => {
                 const div = document.createElement('div');
                 div.className = `group flex items-center h-full px-4 border-r border-white/5 cursor-pointer transition ${currentProjectId === p.id ? 'bg-[#1a1a1a] text-blue-400' : 'text-gray-500 hover:bg-white/5'}`;
-                div.draggable = true;
                 div.innerHTML = `
                     <input value="${p.name}" class="bg-transparent border-none outline-none w-24 text-xs font-bold pointer-events-auto focus:text-white" onchange="renameProject(${p.id}, this.value)" onclick="event.stopPropagation()">
                     <button onclick="event.stopPropagation(); deleteProject(${p.id})" class="ml-2 opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 text-[10px]">×</button>
@@ -169,15 +160,10 @@
             container.innerHTML = "";
             const p = projectsMetadata.find(x => x.id === currentProjectId);
             if (!p) return;
-
             p.tabs.sort((a, b) => a.order - b.order).forEach(t => {
                 const btn = document.createElement('div');
                 btn.className = `group flex items-center px-6 h-full text-[10px] font-bold border-r border-white/5 cursor-pointer transition ${currentTabId === t.id ? 'bg-[#0a0a0a] text-blue-400 border-t-2 border-t-blue-500' : 'text-gray-600 bg-[#080808] hover:text-gray-400'}`;
-                btn.draggable = true;
-                btn.innerHTML = `
-                    <span>SLOT ${p.tabs.indexOf(t) + 1}</span>
-                    <button onclick="event.stopPropagation(); deleteTab(${t.id})" class="ml-3 opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500">×</button>
-                `;
+                btn.innerHTML = `<span>SLOT ${p.tabs.indexOf(t) + 1}</span><button onclick="event.stopPropagation(); deleteTab(${t.id})" class="ml-3 opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500">×</button>`;
                 btn.onclick = () => { currentTabId = t.id; renderWorkspaceTabs(); loadContent(); };
                 container.appendChild(btn);
             });
@@ -188,14 +174,8 @@
             if (p) { p.name = val; saveMetadata(); }
         }
 
-        // 백업 시스템
         window.backupTab = () => {
-            const data = {
-                type: "tab_backup",
-                title: document.getElementById('episodeTitle').value,
-                originalText: document.getElementById('originalView').value,
-                boardHTML: document.getElementById('panelContainer').innerHTML
-            };
+            const data = { type: "tab_backup", title: document.getElementById('episodeTitle').value, originalText: document.getElementById('originalView').value, boardHTML: document.getElementById('panelContainer').innerHTML };
             downloadJSON(data, `Slot_Backup_${data.title || 'Untitled'}.json`);
         };
 
@@ -206,8 +186,7 @@
                 const docSnap = await getDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${t.id}`));
                 if (docSnap.exists()) allTabsData.push(docSnap.data());
             }
-            const data = { type: "project_backup", projectName: p.name, tabs: allTabsData };
-            downloadJSON(data, `Project_Full_Backup_${p.name}.json`);
+            downloadJSON({ type: "project_backup", projectName: p.name, tabs: allTabsData }, `Project_Full_Backup_${p.name}.json`);
         };
 
         function downloadJSON(data, filename) {
@@ -216,7 +195,11 @@
             const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
         }
 
-        window.signIn = () => signInWithPopup(auth, provider);
+        window.signIn = () => signInWithPopup(auth, provider).catch(err => {
+            if(err.code === 'auth/unauthorized-domain') {
+                alert("로그인 실패: 깃허브 주소가 파이어베이스 '승인된 도메인'에 등록되지 않았습니다.");
+            } else { alert("오류 발생: " + err.message); }
+        });
         window.logOut = () => { signOut(auth); location.reload(); };
 
     </script>
@@ -237,7 +220,7 @@
 
     <div id="loginOverlay" class="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center gap-6">
         <span class="text-6xl">🐲</span>
-        <h2 class="text-2xl font-black tracking-tighter">Dragon Adapter v5.0 Cloud</h2>
+        <h2 class="text-2xl font-black tracking-tighter">Dragon Adapter v5.1 Cloud</h2>
         <button onclick="signIn()" class="px-8 py-3 rounded-full bg-white text-black font-bold hover:bg-blue-500 hover:text-white transition flex items-center gap-3 shadow-2xl">
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"> 구글 계정으로 시작하기
         </button>
@@ -308,7 +291,6 @@
     </div>
 
     <script>
-        // [기존의 v4.0 핵심 로직 유지 및 v5.0 연동]
         const panelContainer = document.getElementById('panelContainer');
         const originalView = document.getElementById('originalView');
         const sourceInput = document.getElementById('sourceInput');
@@ -361,34 +343,7 @@
             const card = document.createElement('div');
             card.className = 'card-anim bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all group relative cursor-move';
             card.draggable = true; card.onclick = (e) => selectCard(e, card); addCardDragEvents(card);
-            card.innerHTML = `
-                <div class="flex flex-col gap-3 pointer-events-none">
-                    <div class="flex justify-between items-center pointer-events-auto">
-                        <div class="flex items-center gap-2 cursor-grab active:cursor-grabbing"><span class="text-gray-600">☰</span><span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span></div>
-                        <div class="flex gap-3 opacity-40 group-hover:opacity-100 transition-opacity">
-                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '앵글/샷')" class="hidden"> 앵글/샷</label>
-                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '배경')" class="hidden"> 배경</label>
-                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '참고')" class="hidden"> 참고</label>
-                        </div>
-                    </div>
-                    <div class="flex gap-5 pointer-events-auto">
-                        <div class="w-32 shrink-0 flex flex-col gap-2">
-                             <div class="img-container img-grid bg-black/50 rounded border border-white/5 min-h-[60px] p-1 transition-colors" ondragover="imgContainerDragOver(event)" ondrop="imgContainerDrop(event, this)"></div>
-                             <button onclick="event.stopPropagation(); triggerImageUpload(this)" class="text-[9px] bg-gray-800 hover:bg-gray-700 w-full py-1 rounded text-gray-400 hover:text-white transition">+ Add Image</button>
-                        </div>
-                        <div class="flex-1 space-y-3">
-                            <div class="memo-area flex flex-wrap gap-x-4 gap-y-1"></div>
-                            <div class="content-area text-[15px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="handlePaste(event, this)" onblur="this.innerHTML = highlightText(this.innerText); saveToCloud();" onclick="event.stopPropagation()">${highlightText(text)}</div>
-                            <div class="flex justify-between items-center pt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <div class="flex gap-4">
-                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase transition-colors">Merge Up</button>
-                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase transition-colors">Split at Cursor</button>
-                                </div>
-                                <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); deleteCard(this)" class="text-[9px] text-red-900 hover:text-red-500 font-bold transition-colors">Delete</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
+            card.innerHTML = `<div class="flex flex-col gap-3 pointer-events-none"><div class="flex justify-between items-center pointer-events-auto"><div class="flex items-center gap-2 cursor-grab active:cursor-grabbing"><span class="text-gray-600">☰</span><span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span></div><div class="flex gap-3 opacity-40 group-hover:opacity-100 transition-opacity"><label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '앵글/샷')" class="hidden"> 앵글/샷</label><label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '배경')" class="hidden"> 배경</label><label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '참고')" class="hidden"> 참고</label></div></div><div class="flex gap-5 pointer-events-auto"><div class="w-32 shrink-0 flex flex-col gap-2"><div class="img-container img-grid bg-black/50 rounded border border-white/5 min-h-[60px] p-1 transition-colors" ondragover="imgContainerDragOver(event)" ondrop="imgContainerDrop(event, this)"></div><button onclick="event.stopPropagation(); triggerImageUpload(this)" class="text-[9px] bg-gray-800 hover:bg-gray-700 w-full py-1 rounded text-gray-400 hover:text-white transition">+ Add Image</button></div><div class="flex-1 space-y-3"><div class="memo-area flex flex-wrap gap-x-4 gap-y-1"></div><div class="content-area text-[15px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="handlePaste(event, this)" onblur="this.innerHTML = highlightText(this.innerText); saveToCloud();" onclick="event.stopPropagation()">${highlightText(text)}</div><div class="flex justify-between items-center pt-3 opacity-0 group-hover:opacity-100 transition-opacity"><div class="flex gap-4"><button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase transition-colors">Merge Up</button><button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase transition-colors">Split at Cursor</button></div><button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); deleteCard(this)" class="text-[9px] text-red-900 hover:text-red-500 font-bold transition-colors">Delete</button></div></div></div></div>`;
             return card;
         }
 
