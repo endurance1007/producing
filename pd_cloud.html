@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 워크스테이션 v6.7</title>
+    <title>지혜의 용 | 워크스테이션 v6.8</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -31,7 +31,6 @@
         let memos = [];
         let activeCard = null;
         
-        // Undo/Redo 시스템 최적화
         let undoStack = [];
         let redoStack = [];
         const MAX_HISTORY = 40;
@@ -51,16 +50,14 @@
             initHotkeys();
         };
 
-        // --- 히스토리 관리 (완전 수리) ---
+        // --- 히스토리 관리 ---
         window.saveHistory = () => {
             const state = {
                 title: document.getElementById('episodeTitle').value,
                 originalText: document.getElementById('originalView').value,
                 boardHTML: document.getElementById('panelContainer').innerHTML
             };
-            // 현재 상태와 마지막 기록이 다를 때만 저장
             if (undoStack.length > 0 && undoStack[undoStack.length-1].boardHTML === state.boardHTML && undoStack[undoStack.length-1].title === state.title) return;
-            
             undoStack.push(state);
             if (undoStack.length > MAX_HISTORY) undoStack.shift();
             redoStack = []; 
@@ -99,7 +96,7 @@
             });
         }
 
-        // --- Core Firebase ---
+        // --- Firebase Core ---
         async function syncGlobalConfig() {
             const metaRef = doc(db, "users", currentUser.uid, "config", "metadata");
             onSnapshot(metaRef, (docSnap) => {
@@ -150,15 +147,14 @@
             setSyncIndicator('synced');
         };
 
-        // --- 편집 핵심 로직 (히스토리 반영 완료) ---
+        // --- 편집 로직 ---
         window.processSource = (mode) => {
             const input = document.getElementById('sourceInput');
             const text = input.value.trim();
             if (!text && mode !== 'overwrite') return;
             if (mode === 'overwrite' && !confirm("전체 초기화하시겠습니까?")) return;
             
-            saveHistory(); // 동작 전 상태 저장
-            
+            saveHistory();
             const originalHistory = document.getElementById('originalView');
             if (mode === 'overwrite') { 
                 originalHistory.value = text;
@@ -175,7 +171,7 @@
             });
             
             updateStats(); if(mode !== 'overwrite') input.value = '';
-            saveToCloud(); saveHistory(); // 동작 후 상태 저장
+            saveToCloud(); saveHistory();
         };
 
         function createCardElement(text) {
@@ -214,7 +210,6 @@
             return card;
         }
 
-        // --- 상세 동작 함수들 ---
         window.deleteCard = (btn) => {
             saveHistory();
             btn.closest('.card-anim').remove();
@@ -250,24 +245,20 @@
             const mA = cb.closest('.card-anim').querySelector('.memo-area');
             if (cb.checked) {
                 const i = document.createElement('input');
-                i.className = 'memo-input bg-transparent border-b border-white/10 text-[11px] text-gray-500 outline-none w-24';
+                i.className = 'memo-input bg-transparent border-b border-white/10 text-[11px] text-gray-500 outline-none focus:border-blue-500 w-24';
                 i.placeholder = label + "..."; i.dataset.type = label; i.onblur = () => { saveHistory(); saveToCloud(); };
                 mA.appendChild(i); i.focus();
             } else { const i = mA.querySelector(`input[data-type="${label}"]`); if (i) i.remove(); }
             saveToCloud(); saveHistory();
         };
 
-        // --- 드래그 앤 드롭 완벽 수리 ---
-        let dragType = null;
-        let dragCardSrc = null;
-        let dragImgEl = null;
+        // --- 드래그앤드롭 ---
+        let dragType = null; let dragCardSrc = null; let dragImgEl = null;
 
         function addCardDragEvents(c) {
             c.addEventListener('dragstart', (e) => {
                 if (e.target.tagName === 'IMG' || dragType === 'image') return;
-                dragType = 'card';
-                dragCardSrc = c;
-                e.dataTransfer.effectAllowed = 'move';
+                dragType = 'card'; dragCardSrc = c;
                 setTimeout(() => c.classList.add('opacity-20'), 0);
             });
             c.addEventListener('dragover', (e) => e.preventDefault());
@@ -283,17 +274,14 @@
                     updateStats(); saveToCloud(); saveHistory();
                 }
             });
-            c.addEventListener('dragend', () => {
-                dragType = null;
-                c.classList.remove('opacity-20');
-            });
+            c.addEventListener('dragend', () => { dragType = null; c.classList.remove('opacity-20'); });
         }
 
         window.imgDragStart = (e, w) => { dragType = 'image'; dragImgEl = w; e.stopPropagation(); };
         window.imgContainerDragOver = (e) => { if (dragType === 'image') e.preventDefault(); };
         window.imgContainerDrop = (e, c) => { e.preventDefault(); if (dragType === 'image') { saveHistory(); c.appendChild(dragImgEl); saveToCloud(); saveHistory(); } };
 
-        // --- 이미지 업로드 ---
+        // --- 기타 유틸 ---
         window.triggerImageUpload = (btn) => {
             const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
             input.onchange = e => { if (e.target.files[0]) compressImage(e.target.files[0], (src) => { saveHistory(); addImageToCard(btn.closest('.card-anim'), src); saveHistory(); }); };
@@ -326,7 +314,6 @@
             for (let item of items) { if (item.kind === 'file') { e.preventDefault(); compressImage(item.getAsFile(), (src) => addImageToCard(el.closest('.card-anim'), src)); } }
         };
 
-        // --- UI 및 탭 기능 ---
         function selectCard(c) { 
             document.querySelectorAll('.card-anim').forEach(card => card.classList.remove('card-selected'));
             activeCard = c; activeCard.classList.add('card-selected'); 
@@ -343,9 +330,12 @@
         }
 
         function updateStats() {
-            document.getElementById('panelContainer').querySelectorAll('.card-anim').forEach((c, i) => {
+            const cards = document.getElementById('panelContainer').querySelectorAll('.card-anim');
+            cards.forEach((c, i) => {
                 const num = c.querySelector('.cut-num'); if(num) num.innerText = `Cut ${String(i+1).padStart(2, '0')}`;
             });
+            const counter = document.getElementById('panelCount');
+            if(counter) counter.innerText = `${cards.length} Cuts Synchronized`;
         }
 
         function renderProjectTabs() {
@@ -396,11 +386,11 @@
             });
         }
 
-        // --- 유틸 ---
         function setSyncIndicator(status) {
             const dot = document.querySelector(`.sync-dot-${currentTabId}`);
             if (dot) { dot.style.backgroundColor = (status === 'saving' ? '#eab308' : '#22c55e'); status === 'saving' ? dot.classList.add('animate-pulse') : dot.classList.remove('animate-pulse'); }
         }
+
         function highlightText(text) { return text ? text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>') : ""; }
         function prepareStateForSave() { document.querySelectorAll('.card-anim').forEach(c => { c.querySelectorAll('input.memo-input').forEach(i => i.setAttribute('value', i.value)); c.querySelectorAll('input[type="checkbox"]').forEach(ch => ch.checked ? ch.setAttribute('checked', 'true') : ch.removeAttribute('checked')); }); }
         window.renameProject = async (id, val) => { const p=projectsMetadata.find(x=>x.id===id); if(p){p.name=val; await saveMetadata();} };
@@ -414,7 +404,6 @@
         window.signIn = () => signInWithPopup(auth, provider);
         window.updateMemo = async (id, field, val) => { await setDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id), { [field]: val }, { merge: true }); };
         window.deleteMemo = async (id) => { if(confirm("삭제?")) await deleteDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id)); };
-        function clearEditor() { document.getElementById('episodeTitle').value = ""; document.getElementById('originalView').value = ""; document.getElementById('panelContainer').innerHTML = ""; updateStats(); }
         window.saveSnapshot = async () => { const title = prompt("백업 이름?", document.getElementById('episodeTitle').value); if(!title) return; await addDoc(collection(db, "users", currentUser.uid, "archives"), { title, originalText: document.getElementById('originalView').value, boardHTML: document.getElementById('panelContainer').innerHTML, timestamp: new Date(), projectName: projectsMetadata.find(p => p.id === currentProjectId)?.name }); alert("저장됨"); };
     </script>
     <style>
@@ -426,28 +415,58 @@
 </head>
 <body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans" onclick="window.clearActiveCard()">
     <div id="loginOverlay" class="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center gap-6">
-        <span class="text-6xl">🐲</span>
-        <h1 class="text-2xl font-black italic uppercase tracking-tighter">Dragon Adapter v6.7 Fixed</h1>
+        <span class="text-6xl animate-bounce">🐲</span>
+        <h1 class="text-2xl font-black italic uppercase tracking-tighter">Dragon Adapter v6.8</h1>
         <button onclick="signIn()" class="px-10 py-4 bg-white text-black font-black rounded-full shadow-2xl">Google Workspace 로그인</button>
     </div>
-    <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-black/20 shrink-0 overflow-x-auto no-scrollbar"><div id="projectTabContainer" class="flex h-full items-center"></div><button onclick="addProject()" class="px-5 text-blue-500 font-black text-lg">+</button><div class="ml-auto flex items-center gap-4 shrink-0"><span id="userName" class="text-[9px] font-bold text-gray-600 uppercase tracking-widest"></span><button onclick="logOut()" class="text-[9px] text-red-900 font-bold hover:text-red-500">LOGOUT</button></div></nav>
-    <nav class="h-9 border-b border-white/5 bg-black/40 flex items-center shrink-0 overflow-x-auto no-scrollbar"><div id="workspaceTabContainer" class="flex h-full items-center"></div><button onclick="addTab()" class="px-6 text-gray-600 font-bold hover:text-white">+</button><div class="ml-auto flex h-full items-center shrink-0"><button onclick="saveSnapshot()" class="px-5 h-full bg-blue-600/10 text-blue-400 text-[9px] font-black border-l border-white/5 hover:bg-blue-600 shadow-inner uppercase tracking-tighter">스냅샷 저장</button></div></nav>
-    <main class="flex flex-1 overflow-hidden">
+    <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-black/20 shrink-0 overflow-x-auto no-scrollbar">
+        <div id="projectTabContainer" class="flex h-full items-center"></div>
+        <button onclick="addProject()" class="px-5 text-blue-500 font-black text-lg">+</button>
+        <div class="ml-auto flex items-center gap-4 shrink-0">
+            <span id="userName" class="text-[9px] font-bold text-gray-600 uppercase tracking-widest"></span>
+            <button onclick="logOut()" class="text-[9px] text-red-900 font-bold hover:text-red-500">LOGOUT</button>
+        </div>
+    </nav>
+    <nav class="h-9 border-b border-white/5 bg-black/40 flex items-center shrink-0 overflow-x-auto no-scrollbar">
+        <div id="workspaceTabContainer" class="flex h-full items-center"></div>
+        <button onclick="addTab()" class="px-6 text-gray-600 font-bold hover:text-white">+</button>
+        <div class="ml-auto flex h-full items-center shrink-0">
+            <button onclick="saveSnapshot()" class="px-5 h-full bg-blue-600/10 text-blue-400 text-[9px] font-black border-l border-white/5 hover:bg-blue-600 shadow-inner uppercase tracking-tighter">스냅샷 저장</button>
+        </div>
+    </nav>
+    <main class="flex flex-1 overflow-hidden relative">
         <section class="w-1/4 flex flex-col border-r border-white/5 bg-black/10">
-            <div class="h-1/2 flex flex-col border-b border-white/5"><div class="p-2 text-[9px] font-black text-gray-500 flex justify-between bg-white/5 italic">ORIGINAL HISTORY <button onclick="clipCopy('originalView')">📋</button></div><textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500" readonly></textarea></div>
+            <div class="h-1/2 flex flex-col border-b border-white/5">
+                <div class="p-2 text-[9px] font-black text-gray-500 flex justify-between bg-white/5 italic">ORIGINAL HISTORY <button onclick="clipCopy('originalView')">📋</button></div>
+                <textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500" readonly></textarea>
+            </div>
             <div class="h-1/2 flex flex-col p-4 gap-3">
                 <div class="text-[9px] font-black text-blue-500 uppercase tracking-widest flex justify-between">ACTIVE INPUT <button onclick="clipCopy('sourceInput')">📋</button></div>
                 <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-xl p-4 outline-none text-sm placeholder-gray-800 focus:ring-1 ring-blue-500 transition-all" placeholder="여기에 텍스트를 입력하세요..."></textarea>
-                <div class="grid grid-cols-2 gap-2"><button onclick="window.processSource('append')" class="py-2.5 bg-blue-600 text-[10px] font-black rounded-lg uppercase shadow-lg">맨 뒤에 추가</button><button onclick="window.processSource('insert')" class="py-2.5 bg-yellow-600 text-[10px] font-black rounded-lg uppercase text-black shadow-lg">선택 컷 뒤 삽입</button></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="window.processSource('append')" class="py-2.5 bg-blue-600 text-[10px] font-black rounded-lg uppercase shadow-lg shadow-blue-900/20">맨 뒤에 추가</button>
+                    <button onclick="window.processSource('insert')" class="py-2.5 bg-yellow-600 text-[10px] font-black rounded-lg uppercase text-black shadow-lg shadow-yellow-900/10">선택 컷 뒤 삽입</button>
+                </div>
                 <button onclick="window.processSource('overwrite')" class="py-2 bg-red-900/10 text-red-700 text-[10px] font-black rounded-lg uppercase hover:bg-red-900 hover:text-white transition border border-red-900/20">⚠️ 보드 초기화</button>
             </div>
         </section>
-        <section class="flex-1 flex flex-col overflow-hidden bg-black/5">
-            <div class="p-8 flex items-center gap-6"><input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-4xl font-black outline-none tracking-tighter" oninput="saveToCloud()"><div class="flex items-center gap-2 bg-black/40 p-2.5 rounded-xl border border-white/5 shadow-inner"><input id="boardSearchInput" type="text" placeholder="검색..." class="bg-transparent border-none text-xs w-24 outline-none"></div></div>
+        <section class="flex-1 flex flex-col overflow-hidden bg-black/5 relative" onclick="window.clearActiveCard()">
+            <div class="p-8 flex items-center gap-6">
+                <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-4xl font-black outline-none tracking-tighter" oninput="saveToCloud()">
+                <div class="flex items-center gap-2 bg-black/40 p-2.5 rounded-xl border border-white/5 shadow-inner">
+                    <input id="boardSearchInput" type="text" placeholder="검색..." class="bg-transparent border-none text-xs w-24 outline-none">
+                </div>
+            </div>
             <div id="panelContainer" class="flex-1 overflow-y-auto p-10 pt-0 space-y-6 no-scrollbar"></div>
+            <div id="panelCount" class="absolute bottom-6 right-10 text-[10px] text-gray-700 font-mono tracking-tighter z-20 pointer-events-none">0 Cuts Synchronized</div>
         </section>
-        <section class="w-1/5 flex flex-col border-l border-white/5 bg-black/20 p-5"><div class="flex justify-between items-center mb-6"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Shared Memos</h4><button onclick="addMemo()" class="w-6 h-6 flex items-center justify-center bg-blue-600 text-white rounded-full font-bold shadow-lg shadow-blue-900/20">+</button></div><div id="memoContainer" class="flex-1 overflow-y-auto no-scrollbar space-y-4"></div></section>
+        <section class="w-1/5 flex flex-col border-l border-white/5 bg-black/20 p-5">
+            <div class="flex justify-between items-center mb-6">
+                <h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Shared Memos</h4>
+                <button onclick="addMemo()" class="w-6 h-6 flex items-center justify-center bg-blue-600 text-white rounded-full font-bold shadow-lg shadow-blue-900/20">+</button>
+            </div>
+            <div id="memoContainer" class="flex-1 overflow-y-auto no-scrollbar space-y-4"></div>
+        </section>
     </main>
-    <div id="toast" class="hidden"></div>
 </body>
 </html>
