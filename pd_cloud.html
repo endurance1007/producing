@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지혜의 용 | 프로젝트 워크스테이션 v4.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDIPM-V52irW0N0Em8qAItvi6L5LYJg8Ik",
+            authDomain: "wisdomdragonadapter.firebaseapp.com",
+            projectId: "wisdomdragonadapter",
+            storageBucket: "wisdomdragonadapter.firebasestorage.app",
+            messagingSenderId: "691167217335",
+            appId: "1:691167217335:web:0e916f224557bd2c7faf32"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        // 상태 관리
+        let currentUser = null;
+        let currentProjectId = 1; 
+        let currentTabId = 1;
+        
+        // 데이터 구조 (5 프로젝트 x 7 탭)
+        let projectsMetadata = Array.from({ length: 5 }, (_, i) => ({ id: i + 1, name: `작품 ${i + 1}`, order: i }));
+        let tabsMetadata = Array.from({ length: 7 }, (_, i) => ({ id: i + 1, order: i }));
+
+        window.onload = () => {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    currentUser = user;
+                    document.getElementById('loginOverlay').classList.add('hidden');
+                    document.getElementById('userName').innerText = user.displayName;
+                    await syncMetadata();
+                    switchProject(currentProjectId);
+                } else {
+                    currentUser = null;
+                    document.getElementById('loginOverlay').classList.remove('hidden');
+                }
+            });
+        };
+
+        // 메타데이터(순서, 이름) 동기화
+        async function syncMetadata() {
+            const metaRef = doc(db, "users", currentUser.uid, "config", "metadata");
+            onSnapshot(metaRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.projects) projectsMetadata = data.projects;
+                    renderProjectTabs();
+                } else {
+                    saveMetadata();
+                }
+            });
+        }
+
+        async function saveMetadata() {
+            if (!currentUser) return;
+            const metaRef = doc(db, "users", currentUser.uid, "config", "metadata");
+            await setDoc(metaRef, { projects: projectsMetadata }, { merge: true });
+        }
+
+        // 실시간 원고 동기화 구독
+        let currentUnsub = null;
+        function switchProject(pId) {
+            currentProjectId = pId;
+            switchTab(1);
+            renderProjectTabs();
+        }
+
+        function switchTab(tId) {
+            currentTabId = tId;
+            if (currentUnsub) currentUnsub();
+            
+            const docRef = doc(db, "users", currentUser.uid, "projects", `p${currentProjectId}`, "tabs", `t${currentTabId}`);
+            currentUnsub = onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('episodeTitle').value = data.title || "";
+                    document.getElementById('originalView').value = data.originalText || "";
+                    document.getElementById('panelContainer').innerHTML = data.boardHTML || "";
+                    reattachEvents();
+                    updateStats();
+                } else {
+                    clearEditor();
+                }
+                renderTabButtons();
+            });
+        }
+
+        function clearEditor() {
+            document.getElementById('episodeTitle').value = "";
+            document.getElementById('originalView').value = "";
+            document.getElementById('panelContainer').innerHTML = "";
+            updateStats();
+        }
+
+        // 클라우드 저장
+        window.saveToCloud = async () => {
+            if (!currentUser) return;
+            prepareStateForSave();
+            const docRef = doc(db, "users", currentUser.uid, "projects", `p${currentProjectId}`, "tabs", `t${currentTabId}`);
+            await setDoc(docRef, {
+                title: document.getElementById('episodeTitle').value,
+                originalText: document.getElementById('originalView').value,
+                boardHTML: document.getElementById('panelContainer').innerHTML,
+                lastUpdated: new Date()
+            }, { merge: true });
+            
+            // 작품 이름 자동 업데이트 (첫 번째 탭의 제목을 작품명으로 제안하는 로직 등 추가 가능)
+        };
+
+        // 탭 렌더링 및 드래그앤드롭
+        function renderProjectTabs() {
+            const container = document.getElementById('projectTabContainer');
+            container.innerHTML = "";
+            projectsMetadata.sort((a, b) => a.order - b.order).forEach(p => {
+                const btn = document.createElement('div');
+                btn.className = `project-tab px-4 py-2 text-xs font-bold cursor-pointer transition flex items-center gap-2 border-r border-white/5 ${currentProjectId === p.id ? 'bg-[#1a1a1a] text-blue-400' : 'text-gray-500 hover:bg-white/5'}`;
+                btn.draggable = true;
+                btn.innerHTML = `<span class="opacity-50">📁</span> <input value="${p.name}" class="bg-transparent border-none outline-none w-20 pointer-events-auto cursor-text focus:text-white" onchange="renameProject(${p.id}, this.value)" onclick="event.stopPropagation()">`;
+                btn.onclick = () => switchProject(p.id);
+                
+                btn.ondragstart = (e) => { e.dataTransfer.setData("pId", p.id); btn.classList.add('opacity-50'); };
+                btn.ondragend = () => btn.classList.remove('opacity-50');
+                btn.ondragover = (e) => e.preventDefault();
+                btn.ondrop = (e) => {
+                    e.preventDefault();
+                    const draggedId = parseInt(e.dataTransfer.getData("pId"));
+                    reorderProjects(draggedId, p.id);
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderTabButtons() {
+            const container = document.getElementById('workspaceTabContainer');
+            container.innerHTML = "";
+            tabsMetadata.sort((a, b) => a.order - b.order).forEach(t => {
+                const btn = document.createElement('button');
+                btn.className = `px-6 py-2 text-[10px] font-bold border-r border-white/5 transition ${currentTabId === t.id ? 'bg-[#0a0a0a] text-blue-400 border-t-2 border-t-blue-500' : 'text-gray-600 bg-[#080808] hover:text-gray-400'}`;
+                btn.draggable = true;
+                btn.innerText = `SLOT ${t.id}`;
+                btn.onclick = () => switchTab(t.id);
+                
+                btn.ondragstart = (e) => e.dataTransfer.setData("tId", t.id);
+                btn.ondragover = (e) => e.preventDefault();
+                btn.ondrop = (e) => {
+                    const draggedId = parseInt(e.dataTransfer.getData("tId"));
+                    reorderTabs(draggedId, t.id);
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function renameProject(id, newName) {
+            const p = projectsMetadata.find(x => x.id === id);
+            if (p) { p.name = newName; saveMetadata(); }
+        }
+
+        function reorderProjects(fromId, toId) {
+            const fromIdx = projectsMetadata.findIndex(p => p.id === fromId);
+            const toIdx = projectsMetadata.findIndex(p => p.id === toId);
+            const tempOrder = projectsMetadata[fromIdx].order;
+            projectsMetadata[fromIdx].order = projectsMetadata[toIdx].order;
+            projectsMetadata[toIdx].order = tempOrder;
+            saveMetadata();
+        }
+
+        function reorderTabs(fromId, toId) {
+            const fromIdx = tabsMetadata.findIndex(t => t.id === fromId);
+            const toIdx = tabsMetadata.findIndex(t => t.id === toId);
+            const tempOrder = tabsMetadata[fromIdx].order;
+            tabsMetadata[fromIdx].order = tabsMetadata[toIdx].order;
+            tabsMetadata[toIdx].order = tempOrder;
+            renderTabButtons();
+            // 탭 순서는 현재 세션에서만 유지하거나 필요시 DB 저장 가능
+        }
+
+        window.signIn = () => signInWithPopup(auth, provider);
+        window.logOut = () => { signOut(auth); location.reload(); };
+        window.getCurrentProjectId = () => currentProjectId;
+        window.getCurrentTabId = () => currentTabId;
+
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .hl-dialog { color: #60a5fa; font-weight: 600; }
+        .hl-sfx { color: #fbbf24; font-style: italic; }
+        [contenteditable]:focus { outline: none; background: rgba(59, 130, 246, 0.05); }
+        .memo-input { background: transparent; border-bottom: 1px solid #333; font-size: 11px; padding: 2px 0; color: #888; width: 120px; outline: none; transition: all 0.2s; }
+        .memo-input:focus { border-bottom-color: #3b82f6; color: #fff; }
+        .card-selected { border-color: #3b82f6 !important; background-color: #111 !important; }
+        .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 4px; }
+    </style>
+</head>
+<body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
+
+    <div id="loginOverlay" class="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center gap-6">
+        <span class="text-6xl">🐲</span>
+        <h2 class="text-2xl font-black tracking-tighter">Dragon Adapter v4.0 Cloud</h2>
+        <button onclick="signIn()" class="px-8 py-3 rounded-full bg-white text-black font-bold hover:bg-blue-500 hover:text-white transition flex items-center gap-3">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"> 구글 계정으로 시작하기
+        </button>
+    </div>
+
+    <nav class="h-10 bg-[#0c0c0c] border-b border-white/10 flex items-center px-4 shrink-0 overflow-x-auto no-scrollbar">
+        <div id="projectTabContainer" class="flex h-full"></div>
+        <div class="ml-auto flex items-center gap-4 pr-4">
+             <span id="userName" class="text-[10px] text-gray-500 font-bold"></span>
+             <button onclick="logOut()" class="text-[9px] text-red-900 hover:text-red-500 transition">LOGOUT</button>
+        </div>
+    </nav>
+
+    <nav id="workspaceTabContainer" class="h-9 bg-[#080808] border-b border-white/5 flex shrink-0 overflow-x-auto no-scrollbar"></nav>
+
+    <main class="flex flex-1 overflow-hidden">
+        <section class="w-1/4 flex flex-col border-r border-white/5 bg-[#080808] z-10">
+            <div class="h-1/2 flex flex-col border-b border-white/10">
+                <div class="p-2 bg-white/5 text-[9px] uppercase tracking-widest text-gray-500 font-bold flex justify-between italic"><span>Original History</span><span class="text-xs">🔒</span></div>
+                <textarea id="originalView" class="flex-1 bg-[#0a0a0a] p-4 outline-none resize-none leading-relaxed text-gray-500 text-xs border-none select-text" readonly></textarea>
+            </div>
+            <div class="h-1/2 flex flex-col">
+                <div class="p-2 bg-blue-900/10 text-[9px] uppercase tracking-widest text-blue-400 font-bold">Active Input</div>
+                <textarea id="sourceInput" class="flex-1 bg-transparent p-4 outline-none resize-none leading-relaxed text-gray-300 focus:text-white text-sm border-none placeholder-gray-700" placeholder="추가할 텍스트..."></textarea>
+                <div class="p-3 grid grid-cols-1 gap-2 border-t border-white/5 bg-[#0a0a0a]">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="processSource('append')" class="py-2 bg-gray-800 hover:bg-blue-900 rounded text-[11px] font-bold transition text-blue-100">맨 뒤에 추가</button>
+                        <button onclick="processSource('insert')" class="py-2 bg-gray-800 hover:bg-yellow-900 rounded text-[11px] font-bold transition text-yellow-100">선택 컷 뒤 삽입</button>
+                    </div>
+                    <button onclick="processSource('overwrite')" class="py-2 bg-red-900/20 hover:bg-red-900 text-red-500 hover:text-white rounded text-[11px] font-bold transition">⚠️ 전체 초기화</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="flex-1 flex flex-col relative" onclick="clearSelection(event)">
+            <div class="p-3 bg-black/40 text-[9px] uppercase tracking-widest text-blue-500 font-bold flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-4">
+                    <span>Adapter Board <span id="selectionMsg" class="ml-2 text-gray-500 normal-case font-normal hidden">선택 컷 뒤 삽입 대기</span></span>
+                    <div class="flex items-center gap-1 bg-gray-900 rounded-md border border-gray-800 px-2 py-0.5 ml-4" onclick="event.stopPropagation()">
+                        <input id="boardSearchInput" type="text" placeholder="검색..." class="bg-transparent border-none text-xs text-white w-24 outline-none placeholder-gray-600" onkeydown="if(event.key === 'Enter') findNext()">
+                        <button onclick="findPrev()" class="text-gray-500 hover:text-white px-1 text-xs">▲</button>
+                        <button onclick="findNext()" class="text-gray-500 hover:text-white px-1 text-xs">▼</button>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <button onclick="downloadActiveProject()" class="text-blue-500 hover:text-blue-300 transition text-[9px] font-bold uppercase">Backup JSON</button>
+                    <button onclick="copyToClipboard()" class="bg-blue-600 px-3 py-1 rounded text-white hover:bg-blue-500 transition text-[9px] font-bold uppercase">Copy Notion</button>
+                </div>
+            </div>
+
+            <div class="shrink-0 px-10 py-5 bg-[#0a0a0a] border-b border-white/5 shadow-md flex items-center gap-4 z-10">
+                <span class="text-xl opacity-80">📖</span>
+                <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-2xl font-black text-gray-100 outline-none placeholder-gray-800 tracking-tight" oninput="saveToCloud()">
+            </div>
+            
+            <div id="panelContainer" class="flex-1 overflow-y-auto p-10 space-y-6 max-w-4xl mx-auto w-full"></div>
+        </section>
+    </main>
+
+    <div id="imgOverlay" class="fixed inset-0 z-50 bg-black/95 hidden items-center justify-center p-4 cursor-zoom-out" onclick="closeImgFS()">
+        <img id="fsImg" src="" class="max-w-full max-h-full object-contain shadow-2xl">
+    </div>
+
+    <script>
+        // [기존의 v2.3 핵심 로직 유지 및 v4.0 연동]
+        const panelContainer = document.getElementById('panelContainer');
+        const originalView = document.getElementById('originalView');
+        const sourceInput = document.getElementById('sourceInput');
+        const episodeTitleInput = document.getElementById('episodeTitle');
+        const selectionMsg = document.getElementById('selectionMsg');
+        const boardSearchInput = document.getElementById('boardSearchInput');
+        
+        let activeCard = null; let searchMatches = []; let currentMatchIndex = -1;
+        let dragType = null; let dragCardSrc = null;
+
+        function prepareStateForSave() {
+            const inputs = panelContainer.querySelectorAll('input.memo-input');
+            inputs.forEach(input => input.setAttribute('value', input.value));
+            const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
+            checks.forEach(chk => chk.checked ? chk.setAttribute('checked', 'true') : chk.removeAttribute('checked'));
+        }
+
+        function reattachEvents() {
+            const cards = panelContainer.querySelectorAll('.group');
+            cards.forEach(card => {
+                card.onclick = (e) => selectCard(e, card);
+                addCardDragEvents(card);
+                const imgWrappers = card.querySelectorAll('.group\\/img');
+                imgWrappers.forEach(wrapper => {
+                     const img = wrapper.querySelector('img');
+                     if (img) wrapper.onclick = (e) => { e.stopPropagation(); openImgFS(img.src); };
+                });
+            });
+        }
+
+        function processSource(mode) {
+            const text = sourceInput.value.trim();
+            if (!text && mode !== 'overwrite') return;
+            if (mode === 'overwrite') {
+                if (panelContainer.children.length > 0 && !confirm("이 작업을 초기화하시겠습니까?")) return;
+                originalView.value = text; panelContainer.innerHTML = '';
+            } else {
+                originalView.value += `\n\n--- Added [${new Date().toLocaleTimeString()}] ---\n` + text;
+            }
+            const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
+            if (mode === 'insert' && activeCard) {
+                let refNode = activeCard; sentences.forEach(s => { const newCard = createCardElement(s); panelContainer.insertBefore(newCard, refNode.nextSibling); refNode = newCard; });
+            } else {
+                sentences.forEach(s => { panelContainer.appendChild(createCardElement(s)); });
+            }
+            updateStats(); if (mode !== 'overwrite') sourceInput.value = ''; saveToCloud();
+        }
+
+        function createCardElement(text) {
+            const card = document.createElement('div');
+            card.className = 'card-anim bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all group relative cursor-move';
+            card.draggable = true; card.onclick = (e) => selectCard(e, card); addCardDragEvents(card);
+            card.innerHTML = `
+                <div class="flex flex-col gap-3 pointer-events-none">
+                    <div class="flex justify-between items-center pointer-events-auto">
+                        <div class="flex items-center gap-2 cursor-grab active:cursor-grabbing"><span class="text-gray-600">☰</span><span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span></div>
+                        <div class="flex gap-3 opacity-40 group-hover:opacity-100 transition-opacity">
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '앵글/샷')" class="hidden"> 앵글/샷</label>
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '배경')" class="hidden"> 배경</label>
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '참고')" class="hidden"> 참고</label>
+                        </div>
+                    </div>
+                    <div class="flex gap-5 pointer-events-auto">
+                        <div class="w-32 shrink-0 flex flex-col gap-2">
+                             <div class="img-container img-grid bg-black/50 rounded border border-white/5 min-h-[60px] p-1 transition-colors" ondragover="imgContainerDragOver(event)" ondrop="imgContainerDrop(event, this)"></div>
+                             <button onclick="event.stopPropagation(); triggerImageUpload(this)" class="text-[9px] bg-gray-800 hover:bg-gray-700 w-full py-1 rounded text-gray-400 hover:text-white transition">+ Add Image</button>
+                        </div>
+                        <div class="flex-1 space-y-3">
+                            <div class="memo-area flex flex-wrap gap-x-4 gap-y-1"></div>
+                            <div class="content-area text-[15px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="handlePaste(event, this)" onblur="this.innerHTML = highlightText(this.innerText); saveToCloud();" onclick="event.stopPropagation()">${highlightText(text)}</div>
+                            <div class="flex justify-between items-center pt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div class="flex gap-4">
+                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase transition-colors">Merge Up</button>
+                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase transition-colors">Split at Cursor</button>
+                                </div>
+                                <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); deleteCard(this)" class="text-[9px] text-red-900 hover:text-red-500 font-bold transition-colors">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            return card;
+        }
+
+        // [이미지 처리, 드래그앤드롭 등 기타 기능 함수들 v3.0과 동일하게 유지]
+        function compressImage(file, callback) { const r = new FileReader(); r.readAsDataURL(file); r.onload = (e) => { const img = new Image(); img.src = e.target.result; img.onload = () => { const cvs = document.createElement('canvas'); const MAX_W = 500; const sc = MAX_W / img.width; cvs.width = MAX_W; cvs.height = img.height * sc; const ctx = cvs.getContext('2d'); ctx.drawImage(img, 0, 0, cvs.width, cvs.height); callback(cvs.toDataURL('image/jpeg', 0.6)); } } }
+        function addImageToCard(card, src) { const container = card.querySelector('.img-container'); if (container.children.length >= 10) return; const w = document.createElement('div'); w.className = "relative aspect-square bg-gray-900 rounded overflow-hidden group/img cursor-pointer"; w.draggable = true; w.setAttribute('ondragstart', 'imgDragStart(event, this)'); w.innerHTML = `<img src="${src}" class="w-full h-full object-cover"><button onclick="this.parentElement.remove(); saveToCloud();" class="absolute top-0 right-0 bg-red-600 text-white w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover/img:opacity-100 transition">×</button>`; container.appendChild(w); saveToCloud(); }
+        function triggerImageUpload(btn) { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = e => { if (e.target.files[0]) compressImage(e.target.files[0], (src) => addImageToCard(btn.closest('.group'), src)); }; input.click(); }
+        function handlePaste(e, el) { const items = (e.clipboardData || e.originalEvent.clipboardData).items; for (let item of items) { if (item.kind === 'file' && item.type.startsWith('image/')) { e.preventDefault(); compressImage(item.getAsFile(), (src) => addImageToCard(el.closest('.group'), src)); } } }
+        function highlightText(text) { if (!text) return ""; return text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>'); }
+        function updateStats() { const cards = panelContainer.querySelectorAll('.group'); document.getElementById('panelCount').innerText = `${cards.length} Cuts`; cards.forEach((c, i) => { c.querySelector('.cut-num').innerText = `Cut ${String(i + 1).padStart(2, '0')}`; }); }
+        function selectCard(e, c) { if (activeCard) activeCard.classList.remove('card-selected'); activeCard = c; activeCard.classList.add('card-selected'); selectionMsg.classList.remove('hidden'); selectionMsg.innerText = `${c.querySelector('.cut-num').innerText} 뒤 삽입 대기`; }
+        function clearSelection(e) { if (e.target.id === 'panelContainer' || e.target.tagName === 'SECTION') { if (activeCard) activeCard.classList.remove('card-selected'); activeCard = null; selectionMsg.classList.add('hidden'); } }
+        function toggleMemo(cb, L) { const mA = cb.closest('.group').querySelector('.memo-area'); if (cb.checked) { const i = document.createElement('input'); i.className = 'memo-input'; i.placeholder = `${L}...`; i.dataset.type = L; i.oninput = () => saveToCloud(); mA.appendChild(i); i.focus(); } else { const i = mA.querySelector(`input[data-type="${L}"]`); if (i) i.remove(); saveToCloud(); } }
+        function splitAtCursor(btn) { const card = btn.closest('.group'); const area = card.querySelector('.content-area'); const sel = window.getSelection(); if (!sel.rangeCount || !area.contains(sel.getRangeAt(0).commonAncestorContainer)) return; const r = sel.getRangeAt(0); const rE = document.createRange(); rE.setStart(r.endContainer, r.endOffset); rE.setEnd(area, area.childNodes.length); const pT = rE.toString(); rE.deleteContents(); area.innerHTML = highlightText(area.innerText); panelContainer.insertBefore(createCardElement(pT), card.nextSibling); updateStats(); saveToCloud(); }
+        function mergeUp(btn) { const cur = btn.closest('.group'); const prev = cur.previousElementSibling; if (prev) { prev.querySelector('.content-area').innerText += " " + cur.querySelector('.content-area').innerText; prev.querySelector('.content-area').innerHTML = highlightText(prev.querySelector('.content-area').innerText); cur.querySelectorAll('.img-container .group\\/img').forEach(w => prev.querySelector('.img-container').appendChild(w)); cur.remove(); updateStats(); saveToCloud(); } }
+        function deleteCard(btn) { btn.closest('.group').remove(); updateStats(); saveToCloud(); }
+        function openImgFS(s) { document.getElementById('fsImg').src = s; document.getElementById('imgOverlay').classList.replace('hidden', 'flex'); }
+        function closeImgFS() { document.getElementById('imgOverlay').classList.replace('flex', 'hidden'); }
+        function imgDragStart(e, w) { dragType = 'image'; dragImgEl = w; e.dataTransfer.setData("type", "image"); }
+        function imgContainerDragOver(e) { if (dragType === 'image') e.preventDefault(); }
+        function imgContainerDrop(e, c) { e.preventDefault(); if (dragType === 'image') { c.appendChild(dragImgEl); updateStats(); saveToCloud(); } }
+        function addCardDragEvents(c) { c.ondragstart = (e) => { if (dragType === 'image') { e.preventDefault(); return; } dragType = 'card'; dragCardSrc = c; c.classList.add('opacity-50'); }; c.ondragover = (e) => e.preventDefault(); c.ondrop = (e) => { if (dragType === 'card' && dragCardSrc !== c) { const all = [...panelContainer.children]; if (all.indexOf(dragCardSrc) < all.indexOf(c)) c.after(dragCardSrc); else c.before(dragCardSrc); updateStats(); saveToCloud(); } }; c.ondragend = () => { dragType = null; c.classList.remove('opacity-50'); }; }
+        async function copyToClipboard() { let title = episodeTitleInput.value || `각색 원고`; let md = `# ${title}\n\n`; panelContainer.querySelectorAll('.group').forEach(c => { const n = c.querySelector('.cut-num').innerText; const t = c.querySelector('.content-area').innerText.trim(); const ms = []; c.querySelectorAll('.memo-input').forEach(i => { if (i.value) ms.push(`[${i.dataset.type}: ${i.value}]`); }); md += `### ${n}${ms.length>0?' '+ms.join(' '):''}\n${t}\n\n`; }); await navigator.clipboard.writeText(md); alert("✅ 노션용 복사 완료!"); }
+        function downloadActiveProject() { prepareStateForSave(); const data = { version: "4.0", title: episodeTitleInput.value, boardHTML: panelContainer.innerHTML, originalText: originalView.value }; const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Dragon_${episodeTitleInput.value || 'Backup'}.json`; a.click(); }
+        function loadProjectFile(input) { const f = input.files[0]; if (!f) return; const r = new FileReader(); r.onload = (e) => { const d = JSON.parse(e.target.result); if (d.boardHTML) { panelContainer.innerHTML = d.boardHTML; originalView.value = d.originalText || ""; episodeTitleInput.value = d.title || ""; } reattachEvents(); updateStats(); saveToCloud(); }; r.readAsText(f); input.value = ''; }
+    </script>
+</body>
+</html>
