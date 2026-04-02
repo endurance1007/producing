@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 울트라 워크스테이션 v5.3</title>
+    <title>지혜의 용 | 울트라 워크스테이션 v5.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // 작가님의 정확한 Firebase 설정값
+        // 작가님의 정확한 Firebase 설정값 (대시 포함 확인 완료)
         const firebaseConfig = {
             apiKey: "AIzaSyDIpM-V52irW0N0Em8qAItvI6L5LYJg8Ik",
             authDomain: "wisdomdragonadapter.firebaseapp.com",
@@ -69,7 +69,7 @@
             setTimeout(() => toast.remove(), 2000);
         }
 
-        // --- Firebase 동기화 로직 ---
+        // --- Firebase Core ---
         async function syncGlobalConfig() {
             const metaRef = doc(db, "users", currentUser.uid, "config", "metadata");
             onSnapshot(metaRef, (docSnap) => {
@@ -100,13 +100,15 @@
                     document.getElementById('originalView').value = data.originalText || "";
                     document.getElementById('panelContainer').innerHTML = data.boardHTML || "";
                     reattachEvents(); updateStats();
-                } else {
-                    document.getElementById('episodeTitle').value = "";
-                    document.getElementById('originalView').value = "";
-                    document.getElementById('panelContainer').innerHTML = "";
-                    updateStats();
-                }
+                } else { clearEditor(); }
             });
+        }
+
+        function clearEditor() {
+            document.getElementById('episodeTitle').value = "";
+            document.getElementById('originalView').value = "";
+            document.getElementById('panelContainer').innerHTML = "";
+            updateStats();
         }
 
         window.saveToCloud = async () => {
@@ -121,7 +123,7 @@
             }, { merge: true });
         };
 
-        // --- 탭 및 프로젝트 관리 ---
+        // --- UI Rendering ---
         window.addProject = () => {
             const newId = Date.now();
             projectsMetadata.push({ id: newId, name: "새 작품", order: projectsMetadata.length, tabs: [{ id: newId + 1, order: 0 }] });
@@ -207,15 +209,15 @@
         .card-selected { border-color: #3b82f6 !important; background-color: #111 !important; }
         .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 4px; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .btn-copy { opacity: 0.4; transition: all 0.2s; cursor: pointer; }
-        .btn-copy:hover { opacity: 1; color: #60a5fa; transform: scale(1.1); }
+        .btn-copy { opacity: 0.6; transition: all 0.2s; cursor: pointer; }
+        .btn-copy:hover { opacity: 1; color: #60a5fa; }
     </style>
 </head>
 <body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
 
     <div id="loginOverlay" class="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center gap-6">
-        <span class="text-6xl animate-pulse">🐲</span>
-        <h2 class="text-2xl font-black tracking-tighter uppercase italic">Dragon Adapter v5.3</h2>
+        <span class="text-6xl">🐲</span>
+        <h2 class="text-2xl font-black tracking-tighter uppercase italic">Dragon Adapter v5.4</h2>
         <button onclick="signIn()" class="px-10 py-4 rounded-full bg-white text-black font-black hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3 shadow-2xl">
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"> Google Workspace 로그인
         </button>
@@ -244,14 +246,14 @@
             <div class="h-1/2 flex flex-col border-b border-white/10">
                 <div class="p-2 bg-white/5 text-[9px] uppercase tracking-widest text-gray-500 font-bold flex justify-between items-center italic">
                     <span>Original History</span>
-                    <button onclick="clipCopy('originalView')" class="btn-copy text-[10px]">📋 COPY</button>
+                    <button onclick="clipCopy('originalView')" class="btn-copy text-[10px] font-bold">📋 COPY</button>
                 </div>
                 <textarea id="originalView" class="flex-1 bg-[#0a0a0a] p-4 outline-none resize-none leading-relaxed text-gray-500 text-[11px] border-none select-text" readonly></textarea>
             </div>
             <div class="h-1/2 flex flex-col">
                 <div class="p-2 bg-blue-900/10 text-[9px] uppercase tracking-widest text-blue-400 font-bold flex justify-between items-center">
                     <span>Active Input</span>
-                    <button onclick="clipCopy('sourceInput')" class="btn-copy text-[10px]">📋 COPY</button>
+                    <button onclick="clipCopy('sourceInput')" class="btn-copy text-[10px] font-bold">📋 COPY</button>
                 </div>
                 <textarea id="sourceInput" class="flex-1 bg-transparent p-4 outline-none resize-none leading-relaxed text-gray-300 focus:text-white text-sm border-none placeholder-gray-700" placeholder="추가할 텍스트..."></textarea>
                 <div class="p-3 grid grid-cols-1 gap-2 border-t border-white/5 bg-[#0a0a0a]">
@@ -265,7 +267,7 @@
         </section>
 
         <section class="flex-1 flex flex-col relative" onclick="clearSelection(event)">
-            <div class="p-3 bg-black/40 text-[9px] uppercase tracking-widest text-blue-500 font-bold flex justify-between items-center shrink-0">
+            <div class="p-3 bg-black/40 text-[9px] uppercase tracking-widest text-blue-500 font-bold flex justify-between items-center shrink-0 border-b border-white/5">
                 <div class="flex items-center gap-4">
                     <span>Adapter Board <span id="selectionMsg" class="ml-2 text-gray-500 normal-case font-normal hidden">선택 컷 뒤 삽입 대기</span></span>
                     <div class="flex items-center gap-1 bg-gray-900 rounded-md border border-gray-800 px-2 py-0.5 ml-4" onclick="event.stopPropagation()">
@@ -280,7 +282,7 @@
             <div class="shrink-0 px-10 py-5 bg-[#0a0a0a] border-b border-white/5 shadow-md flex items-center gap-4 z-10 group">
                 <span class="text-xl opacity-80">📖</span>
                 <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-2xl font-black text-gray-100 outline-none placeholder-gray-800 tracking-tight" oninput="saveToCloud()">
-                <button onclick="clipCopy('episodeTitle')" class="btn-copy text-[10px] group-hover:opacity-100 opacity-0 transition-opacity">📋 COPY TITLE</button>
+                <button onclick="clipCopy('episodeTitle')" class="btn-copy text-[10px] font-bold transition-opacity">📋 COPY TITLE</button>
             </div>
             
             <div id="panelContainer" class="flex-1 overflow-y-auto p-10 space-y-6 max-w-4xl mx-auto w-full"></div>
@@ -310,9 +312,31 @@
             checks.forEach(chk => chk.checked ? chk.setAttribute('checked', 'true') : chk.removeAttribute('checked'));
         }
 
+        // --- 자동 복구 로직이 포함된 이벤트 부착 함수 ---
         function reattachEvents() {
             const cards = panelContainer.querySelectorAll('.group');
             cards.forEach(card => {
+                // 1. 아이패드 호환성을 위해 투명도 강제 제거
+                const btnContainer = card.querySelector('.flex.justify-between.items-center.pt-3');
+                if (btnContainer) {
+                    btnContainer.classList.remove('opacity-0', 'group-hover:opacity-100');
+                    btnContainer.classList.add('opacity-100');
+                }
+
+                // 2. 옛날 데이터에 복사 버튼이 없다면 강제 주입
+                const actionDiv = card.querySelector('.flex.gap-4');
+                if (actionDiv && !actionDiv.innerHTML.includes('Copy')) {
+                    const copyBtn = document.createElement('button');
+                    copyBtn.onclick = (e) => { 
+                        e.stopPropagation(); 
+                        const text = card.querySelector('.content-area').innerText;
+                        window.copyRawText(text); 
+                    };
+                    copyBtn.className = "text-[9px] text-blue-500 hover:text-blue-300 font-bold uppercase tracking-tighter transition-colors";
+                    copyBtn.innerText = "📋 Copy";
+                    actionDiv.prepend(copyBtn);
+                }
+
                 card.onclick = (e) => selectCard(e, card);
                 addCardDragEvents(card);
                 const imgWrappers = card.querySelectorAll('.group\\/img');
@@ -337,7 +361,6 @@
             updateStats(); if (mode !== 'overwrite') sourceInput.value = ''; saveToCloud();
         }
 
-        // --- 컷(카드) 생성부 (복사 버튼 추가됨) ---
         function createCardElement(text) {
             const card = document.createElement('div');
             card.className = 'card-anim bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all group relative cursor-move';
@@ -360,9 +383,9 @@
                         <div class="flex-1 space-y-3">
                             <div class="memo-area flex flex-wrap gap-x-4 gap-y-1"></div>
                             <div class="content-area text-[15px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="handlePaste(event, this)" onblur="this.innerHTML = highlightText(this.innerText); saveToCloud();" onclick="event.stopPropagation()">${highlightText(text)}</div>
-                            <div class="flex justify-between items-center pt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div class="flex justify-between items-center pt-3 opacity-100 transition-opacity">
                                 <div class="flex gap-4">
-                                    <button onclick="event.stopPropagation(); window.copyRawText(this.closest('.group').querySelector('.content-area').innerText)" class="text-[9px] text-blue-500 hover:text-blue-300 font-bold uppercase transition-colors">📋 Copy</button>
+                                    <button onclick="event.stopPropagation(); window.copyRawText(this.closest('.group').querySelector('.content-area').innerText)" class="text-[9px] text-blue-500 hover:text-blue-300 font-bold uppercase tracking-tighter transition-colors">📋 Copy</button>
                                     <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase transition-colors">Merge Up</button>
                                     <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase transition-colors">Split</button>
                                 </div>
