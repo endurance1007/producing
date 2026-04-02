@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 워크스테이션 v6.1</title>
+    <title>지혜의 용 | 워크스테이션 v6.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+        // 작가님의 정확한 Firebase 설정값
         const firebaseConfig = {
             apiKey: "AIzaSyDIpM-V52irW0N0Em8qAItvI6L5LYJg8Ik",
             authDomain: "wisdomdragonadapter.firebaseapp.com",
@@ -46,7 +47,7 @@
             initHotkeys();
         };
 
-        // --- 동기화 인디케이터 ---
+        // --- 동기화 인디케이터 상태 ---
         const setSyncStatus = (status) => {
             const dots = document.querySelectorAll(`.sync-dot`);
             dots.forEach(dot => {
@@ -56,7 +57,7 @@
             });
         };
 
-        // --- 단축키 ---
+        // --- 단축키 시스템 ---
         function initHotkeys() {
             window.addEventListener('keydown', (e) => {
                 if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); processSource('append'); }
@@ -110,7 +111,7 @@
             });
         }
 
-        // --- Core Logic ---
+        // --- Core Firebase Logic ---
         async function syncGlobalConfig() {
             const metaRef = doc(db, "users", currentUser.uid, "config", "metadata");
             onSnapshot(metaRef, (docSnap) => {
@@ -146,6 +147,17 @@
             }
         };
 
+        window.deleteTab = async (id) => {
+            const p = projectsMetadata.find(x => x.id === currentProjectId);
+            if (p && p.tabs.length > 1) {
+                if (!confirm("이 슬롯과 내부 원고가 삭제됩니다. 정말 삭제하시겠습니까?")) return;
+                p.tabs = p.tabs.filter(t => t.id !== id);
+                if (currentTabId === id) currentTabId = p.tabs[0].id;
+                await saveMetadata();
+                // 실제 데이터 삭제는 필요 시 추가 (보통 메타데이터에서 빼면 접근 불가)
+            } else { alert("작품에 최소 하나의 슬롯은 있어야 합니다."); }
+        };
+
         let contentUnsub = null;
         function loadContent() {
             if (contentUnsub) contentUnsub();
@@ -158,7 +170,7 @@
                     document.getElementById('panelContainer').innerHTML = data.boardHTML || "";
                     reattachEvents(); updateStats();
                 } else { clearEditor(); }
-                updateTabUI();
+                renderWorkspaceTabs(); // 탭 UI 갱신
             });
         }
 
@@ -186,11 +198,6 @@
             setSyncStatus('synced');
         };
 
-        function updateTabUI() {
-            const p = projectsMetadata.find(x => x.id === currentProjectId);
-            if(p) renderWorkspaceTabs();
-        }
-
         function clearEditor() {
             document.getElementById('episodeTitle').value = "";
             document.getElementById('originalView').value = "";
@@ -204,8 +211,8 @@
             container.innerHTML = "";
             projectsMetadata.forEach(p => {
                 const div = document.createElement('div');
-                div.className = `px-4 h-full flex items-center border-r border-white/5 cursor-pointer text-[11px] font-bold ${currentProjectId === p.id ? 'bg-white/10 text-blue-400' : 'text-gray-500'}`;
-                div.innerHTML = `<input value="${p.name}" class="bg-transparent border-none outline-none w-20" onchange="renameProject(${p.id}, this.value)" onclick="event.stopPropagation()">`;
+                div.className = `px-5 h-full flex items-center border-r border-white/5 cursor-pointer text-[11px] font-bold whitespace-nowrap transition ${currentProjectId === p.id ? 'bg-white/10 text-blue-400 shadow-inner' : 'text-gray-500'}`;
+                div.innerHTML = `<input value="${p.name}" class="bg-transparent border-none outline-none w-24" onchange="renameProject(${p.id}, this.value)" onclick="event.stopPropagation()">`;
                 div.onclick = () => { currentProjectId = p.id; currentTabId = p.tabs[0].id; syncGlobalConfig(); };
                 container.appendChild(div);
             });
@@ -215,11 +222,17 @@
             const container = document.getElementById('workspaceTabContainer');
             container.innerHTML = "";
             const p = projectsMetadata.find(x => x.id === currentProjectId);
+            if(!p) return;
             p.tabs.forEach(t => {
                 const active = currentTabId === t.id;
                 const div = document.createElement('div');
-                div.className = `px-4 h-full flex items-center border-r border-white/5 cursor-pointer text-[10px] font-bold ${active ? 'bg-black text-blue-400 border-t-2 border-t-blue-500' : 'text-gray-600'}`;
-                div.innerHTML = `<span class="sync-dot w-1.5 h-1.5 rounded-full bg-green-500 mr-2"></span>${t.title || 'SLOT ' + (p.tabs.indexOf(t)+1)}`;
+                // whitespace-nowrap과 flex-shrink-0을 사용하여 텍스트 길이에 맞춰 늘어나게 설정
+                div.className = `px-4 h-full flex items-center border-r border-white/5 cursor-pointer text-[10px] font-bold whitespace-nowrap transition-all duration-300 ${active ? 'bg-black text-blue-400 border-t-2 border-t-blue-500' : 'text-gray-600 bg-white/5'}`;
+                div.innerHTML = `
+                    <span class="sync-dot w-1.5 h-1.5 rounded-full bg-green-500 mr-2 flex-shrink-0"></span>
+                    <span class="mr-2">${t.title || 'SLOT ' + (p.tabs.indexOf(t)+1)}</span>
+                    <button onclick="event.stopPropagation(); deleteTab(${t.id})" class="ml-1 opacity-40 hover:opacity-100 hover:text-red-500 transition-opacity">×</button>
+                `;
                 div.onclick = () => { currentTabId = t.id; loadContent(); };
                 container.appendChild(div);
             });
@@ -241,77 +254,80 @@
         .hl-dialog { color: #60a5fa; font-weight: 600; }
         .hl-sfx { color: #fbbf24; font-style: italic; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+        [contenteditable]:focus { outline: none; background: rgba(59, 130, 246, 0.05); }
     </style>
 </head>
 <body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
 
     <div id="loginOverlay" class="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center gap-6">
         <span class="text-6xl">🐲</span>
-        <h1 class="text-2xl font-black italic">Dragon Adapter v6.1</h1>
-        <button onclick="signIn()" class="px-10 py-4 bg-white text-black font-black rounded-full">Google 로그인</button>
+        <h1 class="text-2xl font-black italic uppercase tracking-tighter">Dragon Adapter v6.2</h1>
+        <button onclick="signIn()" class="px-10 py-4 bg-white text-black font-black rounded-full hover:bg-blue-600 hover:text-white transition-all shadow-2xl">Google Workspace 로그인</button>
     </div>
 
-    <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-black/20">
+    <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-black/20 overflow-x-auto no-scrollbar shrink-0">
         <div id="projectTabContainer" class="flex h-full items-center"></div>
-        <button onclick="addProject()" class="px-4 text-blue-500 font-bold hover:text-white">+</button>
-        <div class="ml-auto flex items-center gap-4">
-            <span id="userName" class="text-[9px] font-bold text-gray-600 uppercase"></span>
-            <button onclick="logOut()" class="text-[9px] text-red-900 font-bold">LOGOUT</button>
+        <button onclick="addProject()" class="px-5 text-blue-500 font-black text-lg hover:text-white transition-colors">+</button>
+        <div class="ml-auto flex items-center gap-4 shrink-0">
+            <span id="userName" class="text-[9px] font-bold text-gray-600 uppercase tracking-widest"></span>
+            <button onclick="logOut()" class="text-[9px] text-red-900 font-bold hover:text-red-500">LOGOUT</button>
         </div>
     </nav>
 
-    <nav class="h-9 border-b border-white/5 bg-black/40 flex items-center">
+    <nav class="h-9 border-b border-white/5 bg-black/40 flex items-center overflow-x-auto no-scrollbar shrink-0">
         <div id="workspaceTabContainer" class="flex h-full items-center"></div>
-        <button onclick="addTab()" class="px-4 text-gray-600 font-bold hover:text-white">+</button>
-        <div class="ml-auto flex h-full">
-            <button onclick="toggleGrid()" class="px-4 text-[9px] font-bold border-l border-white/5 hover:text-blue-400">그리드 뷰</button>
-            <button onclick="saveSnapshot()" class="px-4 bg-blue-600/20 text-blue-400 text-[9px] font-bold border-l border-white/5">스냅샷</button>
+        <button onclick="addTab()" class="px-6 text-gray-600 font-bold hover:text-white transition-colors">+</button>
+        <div class="ml-auto flex h-full items-center shrink-0">
+            <button onclick="toggleGrid()" class="px-5 text-[9px] font-black border-l border-white/5 hover:text-blue-400 uppercase tracking-tighter">그리드 뷰</button>
+            <button onclick="saveSnapshot()" class="px-5 h-full bg-blue-600/10 text-blue-400 text-[9px] font-black border-l border-white/5 hover:bg-blue-600 hover:text-white transition shadow-inner uppercase tracking-tighter">스냅샷 저장</button>
         </div>
     </nav>
 
     <main class="flex flex-1 overflow-hidden">
         <section class="w-1/4 flex flex-col border-r border-white/5 bg-black/10">
             <div class="h-1/2 flex flex-col border-b border-white/5">
-                <div class="p-2 text-[9px] font-bold text-gray-500 flex justify-between bg-white/5 italic">ORIGINAL <button onclick="clipCopy('originalView')">📋</button></div>
-                <textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] text-gray-500" readonly></textarea>
+                <div class="p-2 text-[9px] font-black text-gray-500 flex justify-between bg-white/5 italic">ORIGINAL HISTORY <button onclick="clipCopy('originalView')">📋</button></div>
+                <textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500 selection:bg-blue-900/30" readonly></textarea>
             </div>
             <div class="h-1/2 flex flex-col p-4 gap-3">
-                <div class="text-[9px] font-bold text-blue-500 uppercase tracking-widest flex justify-between">ACTIVE INPUT <button onclick="clipCopy('sourceInput')">📋</button></div>
-                <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-lg p-3 outline-none text-sm focus:ring-1 ring-blue-500" placeholder="텍스트 입력..."></textarea>
+                <div class="text-[9px] font-black text-blue-500 uppercase tracking-widest flex justify-between">ACTIVE INPUT <button onclick="clipCopy('sourceInput')">📋</button></div>
+                <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-xl p-4 outline-none text-sm placeholder-gray-800 focus:ring-1 ring-blue-500 transition-all" placeholder="새로운 텍스트를 입력하세요..."></textarea>
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="processSource('append')" class="py-2 bg-blue-600 text-[10px] font-black rounded uppercase">맨 뒤에 추가</button>
-                    <button onclick="processSource('insert')" class="py-2 bg-yellow-600 text-[10px] font-black rounded uppercase text-black">선택 컷 뒤 삽입</button>
+                    <button onclick="processSource('append')" class="py-2.5 bg-blue-600 text-[10px] font-black rounded-lg uppercase shadow-lg shadow-blue-900/20">맨 뒤에 추가</button>
+                    <button onclick="processSource('insert')" class="py-2.5 bg-yellow-600 text-[10px] font-black rounded-lg uppercase text-black shadow-lg shadow-yellow-900/10">선택 컷 뒤 삽입</button>
                 </div>
-                <button onclick="processSource('overwrite')" class="py-2 bg-red-900/20 text-red-500 text-[10px] font-black rounded uppercase hover:bg-red-900 hover:text-white transition">⚠️ 전체 초기화</button>
+                <button onclick="processSource('overwrite')" class="py-2 bg-red-900/10 text-red-700 text-[10px] font-black rounded-lg uppercase hover:bg-red-900 hover:text-white transition border border-red-900/20">⚠️ 보드 전체 초기화</button>
             </div>
         </section>
 
         <section class="flex-1 flex flex-col overflow-hidden bg-black/5">
-            <div class="p-6 flex items-center gap-4">
-                <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-3xl font-black outline-none tracking-tighter" oninput="saveToCloud()">
-                <div class="flex items-center gap-2 bg-black/40 p-2 rounded-lg border border-white/5">
-                    <input id="boardSearchInput" type="text" placeholder="검색..." class="bg-transparent border-none text-xs w-20 outline-none">
+            <div class="p-8 flex items-center gap-6">
+                <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-4xl font-black outline-none tracking-tighter placeholder-gray-900 focus:placeholder-gray-800 transition-all" oninput="saveToCloud()">
+                <div class="flex items-center gap-2 bg-black/40 p-2.5 rounded-xl border border-white/5 shadow-inner">
+                    <input id="boardSearchInput" type="text" placeholder="검색..." class="bg-transparent border-none text-xs w-24 outline-none text-gray-400">
                 </div>
             </div>
-            <div id="panelContainer" class="flex-1 overflow-y-auto p-10 space-y-6 no-scrollbar"></div>
+            <div id="panelContainer" class="flex-1 overflow-y-auto p-10 pt-0 space-y-6 no-scrollbar"></div>
         </section>
 
-        <section class="w-1/5 flex flex-col border-l border-white/5 bg-black/20 p-4">
-            <div class="flex justify-between items-center mb-4">
-                <h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Project Memos</h4>
-                <button onclick="addMemo()" class="text-blue-500 font-bold hover:text-white">+</button>
+        <section class="w-1/5 flex flex-col border-l border-white/5 bg-black/20 p-5">
+            <div class="flex justify-between items-center mb-6">
+                <h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Shared Project Memos</h4>
+                <button onclick="addMemo()" class="w-6 h-6 flex items-center justify-center bg-blue-600 text-white rounded-full font-bold hover:bg-blue-500 transition shadow-lg shadow-blue-900/20">+</button>
             </div>
-            <div id="memoContainer" class="flex-1 overflow-y-auto no-scrollbar"></div>
+            <div id="memoContainer" class="flex-1 overflow-y-auto no-scrollbar space-y-4"></div>
         </section>
     </main>
 
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[300]"></div>
+
     <script>
-        // 핵심 로직 수동 연결
+        // 핵심 보드 로직
         function processSource(mode) {
             const input = document.getElementById('sourceInput');
             const text = input.value.trim();
             if (!text && mode !== 'overwrite') return;
-            if (mode === 'overwrite' && !confirm("전체 초기화하시겠습니까?")) return;
+            if (mode === 'overwrite' && !confirm("정말 전체 초기화하시겠습니까? (되돌릴 수 없습니다)")) return;
             
             if (mode === 'overwrite') { 
                 document.getElementById('originalView').value = text;
@@ -332,21 +348,21 @@
 
         function createCardElement(text) {
             const card = document.createElement('div');
-            card.className = 'bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/10 transition group relative cursor-move';
+            card.className = 'bg-[#0d0d0d] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-all duration-300 group relative cursor-move card-selected-border';
             card.draggable = true;
             card.onclick = (e) => { 
                 if(activeCard) activeCard.classList.remove('card-selected');
                 activeCard = card; activeCard.classList.add('card-selected');
             };
             card.innerHTML = `
-                <div class="flex flex-col gap-3 pointer-events-none">
+                <div class="flex flex-col gap-4 pointer-events-none">
                     <div class="flex justify-between items-center pointer-events-auto">
-                        <div class="flex items-center gap-2"><span class="text-gray-600">☰</span><span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span></div>
+                        <div class="flex items-center gap-2 text-gray-600"><span class="text-sm">☰</span><span class="text-[10px] font-black uppercase tracking-widest cut-num">Cut 00</span></div>
                     </div>
-                    <div class="content-area text-[15px] leading-relaxed text-gray-300 outline-none pointer-events-auto" contenteditable="true" onblur="this.innerHTML=highlightText(this.innerText); saveToCloud();">${highlightText(text)}</div>
-                    <div class="flex gap-4 pt-3 opacity-100 pointer-events-auto">
-                        <button onclick="window.copyRawText(this.closest('.group').querySelector('.content-area').innerText)" class="text-[9px] text-blue-500 font-bold uppercase">📋 Copy</button>
-                        <button onclick="this.closest('.group').remove(); updateStats(); saveToCloud();" class="text-[9px] text-red-900 font-bold uppercase ml-auto">Delete</button>
+                    <div class="content-area text-[16px] leading-relaxed text-gray-300 outline-none pointer-events-auto selection:bg-blue-900/50" contenteditable="true" onblur="this.innerHTML=highlightText(this.innerText); saveToCloud();">${highlightText(text)}</div>
+                    <div class="flex gap-4 pt-4 opacity-100 pointer-events-auto border-t border-white/5">
+                        <button onclick="window.copyRawText(this.closest('.group').querySelector('.content-area').innerText)" class="text-[9px] text-blue-500 font-black uppercase tracking-tighter">📋 Copy Cut</button>
+                        <button onclick="this.closest('.group').remove(); updateStats(); saveToCloud();" class="text-[9px] text-red-900 font-black uppercase ml-auto tracking-tighter">Delete Cut</button>
                     </div>
                 </div>`;
             return card;
@@ -378,6 +394,13 @@
         function updateStats() {
             const cards = document.getElementById('panelContainer').querySelectorAll('.group');
             cards.forEach((c, i) => c.querySelector('.cut-num').innerText = `Cut ${String(i+1).padStart(2, '0')}`);
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.className = "fixed bottom-10 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-2 rounded-full text-xs font-black z-[300] shadow-2xl animate-bounce";
+            t.innerText = msg;
+            setTimeout(() => t.className = "hidden", 2000);
         }
 
         let activeCard = null;
