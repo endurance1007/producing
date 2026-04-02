@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 파이널 워크스테이션 v6.6</title>
+    <title>지혜의 용 | 워크스테이션 v6.7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // 작가님의 정확한 Firebase 설정
         const firebaseConfig = {
             apiKey: "AIzaSyDIpM-V52irW0N0Em8qAItvI6L5LYJg8Ik",
             authDomain: "wisdomdragonadapter.firebaseapp.com",
@@ -31,9 +30,11 @@
         let projectsMetadata = [];
         let memos = [];
         let activeCard = null;
+        
+        // Undo/Redo 시스템 최적화
         let undoStack = [];
         let redoStack = [];
-        const MAX_HISTORY = 50;
+        const MAX_HISTORY = 40;
 
         window.onload = () => {
             onAuthStateChanged(auth, async (user) => {
@@ -50,14 +51,16 @@
             initHotkeys();
         };
 
-        // --- 히스토리 관리 (Undo/Redo) ---
+        // --- 히스토리 관리 (완전 수리) ---
         window.saveHistory = () => {
             const state = {
                 title: document.getElementById('episodeTitle').value,
                 originalText: document.getElementById('originalView').value,
                 boardHTML: document.getElementById('panelContainer').innerHTML
             };
-            if (undoStack.length > 0 && JSON.stringify(undoStack[undoStack.length - 1]) === JSON.stringify(state)) return;
+            // 현재 상태와 마지막 기록이 다를 때만 저장
+            if (undoStack.length > 0 && undoStack[undoStack.length-1].boardHTML === state.boardHTML && undoStack[undoStack.length-1].title === state.title) return;
+            
             undoStack.push(state);
             if (undoStack.length > MAX_HISTORY) undoStack.shift();
             redoStack = []; 
@@ -96,7 +99,7 @@
             });
         }
 
-        // --- Firebase Core ---
+        // --- Core Firebase ---
         async function syncGlobalConfig() {
             const metaRef = doc(db, "users", currentUser.uid, "config", "metadata");
             onSnapshot(metaRef, (docSnap) => {
@@ -115,44 +118,10 @@
             await setDoc(doc(db, "users", currentUser.uid, "config", "metadata"), { projects: projectsMetadata });
         }
 
-        window.addProject = async () => {
-            const newId = Date.now();
-            projectsMetadata.push({ id: newId, name: "새 작품", order: projectsMetadata.length, tabs: [{ id: newId + 1, order: 0, title: "" }] });
-            currentProjectId = newId; currentTabId = newId + 1;
-            await saveMetadata();
-        };
-
-        window.deleteProject = async (id) => {
-            if (projectsMetadata.length <= 1) return alert("최소 1개의 작품은 필요합니다.");
-            if (!confirm("작품 전체가 삭제됩니다. 정말 삭제할까요?")) return;
-            projectsMetadata = projectsMetadata.filter(p => p.id !== id);
-            if (currentProjectId === id) { currentProjectId = projectsMetadata[0].id; currentTabId = projectsMetadata[0].tabs[0].id; }
-            await saveMetadata();
-        };
-
-        window.addTab = async () => {
-            const p = projectsMetadata.find(x => x.id === currentProjectId);
-            if (p) {
-                const newId = Date.now();
-                p.tabs.push({ id: newId, order: p.tabs.length, title: "" });
-                currentTabId = newId; await saveMetadata();
-            }
-        };
-
-        window.deleteTab = async (id) => {
-            const p = projectsMetadata.find(x => x.id === currentProjectId);
-            if (p && p.tabs.length > 1) {
-                if (!confirm("슬롯을 삭제하시겠습니까?")) return;
-                p.tabs = p.tabs.filter(t => t.id !== id);
-                if (currentTabId === id) currentTabId = p.tabs[0].id;
-                await saveMetadata();
-            } else { alert("최소 한 개의 슬롯은 필수입니다."); }
-        };
-
         function loadContent() {
             if (!currentProjectId || !currentTabId) return;
             const docRef = doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${currentTabId}`);
-            onSnapshot(docRef, (docSnap) => {
+            getDoc(docRef).then((docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     document.getElementById('episodeTitle').value = data.title || "";
@@ -162,7 +131,7 @@
                 } else { clearEditor(); }
                 undoStack = []; redoStack = []; saveHistory();
                 renderWorkspaceTabs();
-            }, { onlyOnce: true });
+            });
         }
 
         window.saveToCloud = async () => {
@@ -176,57 +145,68 @@
                 boardHTML: document.getElementById('panelContainer').innerHTML, lastUpdated: new Date()
             }, { merge: true });
             const p = projectsMetadata.find(x => x.id === currentProjectId);
-            const t = p.tabs.find(x => x.id === currentTabId);
+            const t = p?.tabs.find(x => x.id === currentTabId);
             if (t && t.title !== titleVal) { t.title = titleVal; await saveMetadata(); }
             setSyncIndicator('synced');
         };
 
-        // --- 편집 핵심 로직 ---
+        // --- 편집 핵심 로직 (히스토리 반영 완료) ---
         window.processSource = (mode) => {
-            saveHistory();
             const input = document.getElementById('sourceInput');
             const text = input.value.trim();
             if (!text && mode !== 'overwrite') return;
             if (mode === 'overwrite' && !confirm("전체 초기화하시겠습니까?")) return;
-            if (mode === 'overwrite') { document.getElementById('originalView').value = text; document.getElementById('panelContainer').innerHTML = ''; }
+            
+            saveHistory(); // 동작 전 상태 저장
+            
+            const originalHistory = document.getElementById('originalView');
+            if (mode === 'overwrite') { 
+                originalHistory.value = text;
+                document.getElementById('panelContainer').innerHTML = '';
+            } else {
+                originalHistory.value += `\n[${new Date().toLocaleTimeString()}] 추가됨:\n${text}\n`;
+            }
+            
             const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
             sentences.forEach(s => {
                 const card = createCardElement(s);
                 if (mode === 'insert' && activeCard) activeCard.after(card);
                 else document.getElementById('panelContainer').appendChild(card);
             });
+            
             updateStats(); if(mode !== 'overwrite') input.value = '';
-            saveToCloud(); saveHistory();
+            saveToCloud(); saveHistory(); // 동작 후 상태 저장
         };
 
         function createCardElement(text) {
             const card = document.createElement('div');
             card.className = 'bg-[#0d0d0d] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition group relative cursor-move card-anim';
-            card.draggable = true; card.onclick = (e) => { e.stopPropagation(); selectCard(card); };
+            card.draggable = true; 
+            card.onclick = (e) => { e.stopPropagation(); selectCard(card); };
             addCardDragEvents(card);
             card.innerHTML = `
                 <div class="flex flex-col gap-3 pointer-events-none">
                     <div class="flex justify-between items-center pointer-events-auto">
                         <div class="flex items-center gap-2"><span class="text-gray-600">☰</span><span class="text-[10px] font-black uppercase tracking-widest cut-num">Cut 00</span></div>
                         <div class="flex gap-3">
-                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="toggleMemo(this, '앵글/샷')" class="hidden"> 앵글/샷</label>
-                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="toggleMemo(this, '배경')" class="hidden"> 배경</label>
-                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="toggleMemo(this, '참고')" class="hidden"> 참고</label>
+                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="window.toggleMemo(this, '앵글/샷')" class="hidden"> 앵글/샷</label>
+                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="window.toggleMemo(this, '배경')" class="hidden"> 배경</label>
+                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="window.toggleMemo(this, '참고')" class="hidden"> 참고</label>
                         </div>
                     </div>
                     <div class="flex gap-5 pointer-events-auto">
                         <div class="w-32 shrink-0 flex flex-col gap-2">
                              <div class="img-container grid grid-cols-2 gap-1 bg-black/50 rounded p-1 min-h-[60px]" ondragover="window.imgContainerDragOver(event)" ondrop="window.imgContainerDrop(event, this)"></div>
-                             <button onclick="event.stopPropagation(); triggerImageUpload(this)" class="text-[9px] bg-white/5 hover:bg-white/10 py-1 rounded text-gray-500 transition">+ Image</button>
+                             <button onclick="event.stopPropagation(); window.triggerImageUpload(this)" class="text-[9px] bg-white/5 hover:bg-white/10 py-1 rounded text-gray-500 transition">+ Image</button>
                         </div>
                         <div class="flex-1 space-y-3">
                             <div class="memo-area flex flex-wrap gap-2"></div>
-                            <div class="content-area text-[16px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="handlePaste(event, this)" onblur="saveHistory(); saveToCloud();">${highlightText(text)}</div>
+                            <div class="content-area text-[16px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="window.handlePaste(event, this)" onblur="window.saveHistory(); window.saveToCloud();">${highlightText(text)}</div>
                             <div class="flex gap-4 pt-3 border-t border-white/5">
-                                <button onclick="copyRawText(this.closest('.card-anim').querySelector('.content-area').innerText)" class="text-[9px] text-blue-500 font-bold uppercase">📋 Copy</button>
-                                <button onclick="mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase">Merge Up</button>
-                                <button onclick="splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase">Split</button>
-                                <button onclick="this.closest('.card-anim').remove(); updateStats(); saveToCloud(); saveHistory();" class="text-[9px] text-red-900 font-bold uppercase ml-auto">Delete</button>
+                                <button onclick="event.stopPropagation(); window.copyRawText(this.closest('.card-anim').querySelector('.content-area').innerText)" class="text-[9px] text-blue-500 font-bold uppercase">📋 Copy</button>
+                                <button onclick="event.stopPropagation(); window.mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase">Merge Up</button>
+                                <button onclick="event.stopPropagation(); window.splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase">Split</button>
+                                <button onclick="event.stopPropagation(); window.deleteCard(this)" class="text-[9px] text-red-900 font-bold uppercase ml-auto">Delete</button>
                             </div>
                         </div>
                     </div>
@@ -234,10 +214,17 @@
             return card;
         }
 
-        window.mergeUp = (btn) => {
+        // --- 상세 동작 함수들 ---
+        window.deleteCard = (btn) => {
             saveHistory();
+            btn.closest('.card-anim').remove();
+            updateStats(); saveToCloud(); saveHistory();
+        };
+
+        window.mergeUp = (btn) => {
             const cur = btn.closest('.card-anim'); const prev = cur.previousElementSibling;
             if (prev) {
+                saveHistory();
                 const prevArea = prev.querySelector('.content-area');
                 prevArea.innerText += " " + cur.querySelector('.content-area').innerText;
                 prevArea.innerHTML = highlightText(prevArea.innerText);
@@ -247,9 +234,9 @@
         };
 
         window.splitAtCursor = (btn) => {
-            saveHistory();
             const card = btn.closest('.card-anim'); const area = card.querySelector('.content-area');
             const sel = window.getSelection(); if (!sel.rangeCount || !area.contains(sel.getRangeAt(0).commonAncestorContainer)) return;
+            saveHistory();
             const r = sel.getRangeAt(0); const rE = document.createRange();
             rE.setStart(r.endContainer, r.endOffset); rE.setEnd(area, area.childNodes.length);
             const postText = rE.toString(); rE.deleteContents();
@@ -263,14 +250,50 @@
             const mA = cb.closest('.card-anim').querySelector('.memo-area');
             if (cb.checked) {
                 const i = document.createElement('input');
-                i.className = 'memo-input bg-transparent border-b border-white/10 text-[11px] text-gray-500 outline-none focus:border-blue-500 w-24';
+                i.className = 'memo-input bg-transparent border-b border-white/10 text-[11px] text-gray-500 outline-none w-24';
                 i.placeholder = label + "..."; i.dataset.type = label; i.onblur = () => { saveHistory(); saveToCloud(); };
                 mA.appendChild(i); i.focus();
             } else { const i = mA.querySelector(`input[data-type="${label}"]`); if (i) i.remove(); }
             saveToCloud(); saveHistory();
         };
 
-        // --- 이미지/D&D 유틸 ---
+        // --- 드래그 앤 드롭 완벽 수리 ---
+        let dragType = null;
+        let dragCardSrc = null;
+        let dragImgEl = null;
+
+        function addCardDragEvents(c) {
+            c.addEventListener('dragstart', (e) => {
+                if (e.target.tagName === 'IMG' || dragType === 'image') return;
+                dragType = 'card';
+                dragCardSrc = c;
+                e.dataTransfer.effectAllowed = 'move';
+                setTimeout(() => c.classList.add('opacity-20'), 0);
+            });
+            c.addEventListener('dragover', (e) => e.preventDefault());
+            c.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (dragType === 'card' && dragCardSrc !== c) {
+                    saveHistory();
+                    const container = document.getElementById('panelContainer');
+                    const allCards = [...container.children];
+                    const srcIdx = allCards.indexOf(dragCardSrc);
+                    const destIdx = allCards.indexOf(c);
+                    if (srcIdx < destIdx) c.after(dragCardSrc); else c.before(dragCardSrc);
+                    updateStats(); saveToCloud(); saveHistory();
+                }
+            });
+            c.addEventListener('dragend', () => {
+                dragType = null;
+                c.classList.remove('opacity-20');
+            });
+        }
+
+        window.imgDragStart = (e, w) => { dragType = 'image'; dragImgEl = w; e.stopPropagation(); };
+        window.imgContainerDragOver = (e) => { if (dragType === 'image') e.preventDefault(); };
+        window.imgContainerDrop = (e, c) => { e.preventDefault(); if (dragType === 'image') { saveHistory(); c.appendChild(dragImgEl); saveToCloud(); saveHistory(); } };
+
+        // --- 이미지 업로드 ---
         window.triggerImageUpload = (btn) => {
             const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
             input.onchange = e => { if (e.target.files[0]) compressImage(e.target.files[0], (src) => { saveHistory(); addImageToCard(btn.closest('.card-anim'), src); saveHistory(); }); };
@@ -282,7 +305,7 @@
             const w = document.createElement('div');
             w.className = "relative aspect-square bg-gray-900 rounded overflow-hidden cursor-pointer";
             w.draggable = true; w.setAttribute('ondragstart', 'window.imgDragStart(event, this)');
-            w.innerHTML = `<img src="${src}" class="w-full h-full object-cover"><button onclick="saveHistory(); this.parentElement.remove(); saveToCloud(); saveHistory();" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5">×</button>`;
+            w.innerHTML = `<img src="${src}" class="w-full h-full object-cover"><button onclick="window.saveHistory(); this.parentElement.remove(); window.saveToCloud(); window.saveHistory();" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5">×</button>`;
             container.appendChild(w); saveToCloud();
         }
 
@@ -300,78 +323,23 @@
 
         window.handlePaste = (e, el) => {
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-            for (let item of items) { if (item.kind === 'file') { saveHistory(); compressImage(item.getAsFile(), (src) => addImageToCard(el.closest('.card-anim'), src)); } }
+            for (let item of items) { if (item.kind === 'file') { e.preventDefault(); compressImage(item.getAsFile(), (src) => addImageToCard(el.closest('.card-anim'), src)); } }
         };
 
-        function addCardDragEvents(c) {
-            c.ondragstart = (e) => { if (dragType === 'image') return; saveHistory(); dragType = 'card'; dragCardSrc = c; c.classList.add('opacity-30'); };
-            c.ondragover = (e) => e.preventDefault();
-            c.ondrop = (e) => {
-                if (dragType === 'card' && dragCardSrc !== c) {
-                    const all = [...document.getElementById('panelContainer').children];
-                    if (all.indexOf(dragCardSrc) < all.indexOf(c)) c.after(dragCardSrc); else c.before(dragCardSrc);
-                    updateStats(); saveToCloud(); saveHistory();
-                }
-            };
-            c.ondragend = () => { dragType = null; c.classList.remove('opacity-30'); };
-        }
-
-        window.imgDragStart = (e, w) => { dragType = 'image'; dragImgEl = w; e.stopPropagation(); };
-        window.imgContainerDragOver = (e) => { if (dragType === 'image') e.preventDefault(); };
-        window.imgContainerDrop = (e, c) => { e.preventDefault(); if (dragType === 'image') { saveHistory(); c.appendChild(dragImgEl); saveToCloud(); saveHistory(); } };
-
-        // --- 공유 메모 ---
-        async function syncMemos() {
-            const q = query(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), orderBy("order", "asc"));
-            onSnapshot(q, (qs) => { memos = []; qs.forEach(doc => memos.push({id: doc.id, ...doc.data()})); renderMemos(); });
-        }
-
-        window.addMemo = async () => {
-            const tabTitle = document.getElementById('episodeTitle').value || "새 슬롯";
-            await addDoc(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), {
-                title: `[${tabTitle}] 메모`, content: "", order: memos.length, collapsed: false
-            });
-        };
-
-        function renderMemos() {
-            const container = document.getElementById('memoContainer'); container.innerHTML = "";
-            memos.forEach(m => {
-                const div = document.createElement('div'); div.className = "bg-white/5 border border-white/10 rounded-lg mb-3 overflow-hidden";
-                div.innerHTML = `
-                    <div class="flex items-center justify-between p-2 bg-white/5 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('hidden')">
-                        <input value="${m.title}" class="bg-transparent border-none outline-none text-[11px] font-bold w-full truncate" onchange="window.updateMemo('${m.id}', 'title', this.value)" onclick="event.stopPropagation()">
-                        <button onclick="event.stopPropagation(); window.deleteMemo('${m.id}')" class="text-xs text-red-500 ml-2">×</button>
-                    </div>
-                    <textarea class="w-full bg-transparent p-2 text-[11px] text-gray-400 outline-none h-24 ${m.collapsed ? 'hidden' : ''}" onchange="window.updateMemo('${m.id}', 'content', this.value)">${m.content}</textarea>`;
-                container.appendChild(div);
-            });
-        }
-
-        // --- 탭/렌더링 유틸 ---
+        // --- UI 및 탭 기능 ---
         function selectCard(c) { 
-            if (activeCard) activeCard.classList.remove('card-selected'); 
+            document.querySelectorAll('.card-anim').forEach(card => card.classList.remove('card-selected'));
             activeCard = c; activeCard.classList.add('card-selected'); 
         }
         
         window.clearActiveCard = () => {
-            if (activeCard) activeCard.classList.remove('card-selected');
+            document.querySelectorAll('.card-anim').forEach(card => card.classList.remove('card-selected'));
             activeCard = null;
         }
 
         function reattachEvents() {
             const cards = document.getElementById('panelContainer').querySelectorAll('.card-anim');
-            cards.forEach(card => { 
-                card.onclick = (e) => { e.stopPropagation(); selectCard(card); }; 
-                addCardDragEvents(card);
-                card.querySelectorAll('.img-container > div').forEach(w => w.setAttribute('ondragstart', 'window.imgDragStart(event, this)'));
-            });
-        }
-
-        function prepareStateForSave() {
-            document.getElementById('panelContainer').querySelectorAll('.card-anim').forEach(c => {
-                c.querySelectorAll('input.memo-input').forEach(i => i.setAttribute('value', i.value));
-                c.querySelectorAll('input[type="checkbox"]').forEach(ch => ch.checked ? ch.setAttribute('checked', 'true') : ch.removeAttribute('checked'));
-            });
+            cards.forEach(card => { addCardDragEvents(card); });
         }
 
         function updateStats() {
@@ -406,17 +374,41 @@
             });
         }
 
-        function setSyncIndicator(status) {
-            const dot = document.querySelector(`.sync-dot-${currentTabId}`);
-            if (dot) {
-                dot.style.backgroundColor = (status === 'saving' ? '#eab308' : '#22c55e');
-                status === 'saving' ? dot.classList.add('animate-pulse') : dot.classList.remove('animate-pulse');
-            }
+        async function syncMemos() {
+            const q = query(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), orderBy("order", "asc"));
+            onSnapshot(q, (qs) => { memos = []; qs.forEach(doc => memos.push({id: doc.id, ...doc.data()})); renderMemos(); });
         }
 
-        function highlightText(text) { return text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>'); }
+        window.addMemo = async () => {
+            const tabTitle = document.getElementById('episodeTitle').value || "새 슬롯";
+            await addDoc(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), { title: `[${tabTitle}] 메모`, content: "", order: memos.length });
+        };
+
+        function renderMemos() {
+            const container = document.getElementById('memoContainer'); container.innerHTML = "";
+            memos.forEach(m => {
+                const div = document.createElement('div'); div.className = "bg-white/5 border border-white/10 rounded-lg mb-3 overflow-hidden";
+                div.innerHTML = `<div class="flex items-center justify-between p-2 bg-white/5 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                        <input value="${m.title}" class="bg-transparent border-none outline-none text-[11px] font-bold w-full truncate" onchange="window.updateMemo('${m.id}', 'title', this.value)" onclick="event.stopPropagation()">
+                        <button onclick="event.stopPropagation(); window.deleteMemo('${m.id}')" class="text-xs text-red-500 ml-2">×</button>
+                    </div><textarea class="w-full bg-transparent p-2 text-[11px] text-gray-400 outline-none h-24" onchange="window.updateMemo('${m.id}', 'content', this.value)">${m.content}</textarea>`;
+                container.appendChild(div);
+            });
+        }
+
+        // --- 유틸 ---
+        function setSyncIndicator(status) {
+            const dot = document.querySelector(`.sync-dot-${currentTabId}`);
+            if (dot) { dot.style.backgroundColor = (status === 'saving' ? '#eab308' : '#22c55e'); status === 'saving' ? dot.classList.add('animate-pulse') : dot.classList.remove('animate-pulse'); }
+        }
+        function highlightText(text) { return text ? text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>') : ""; }
+        function prepareStateForSave() { document.querySelectorAll('.card-anim').forEach(c => { c.querySelectorAll('input.memo-input').forEach(i => i.setAttribute('value', i.value)); c.querySelectorAll('input[type="checkbox"]').forEach(ch => ch.checked ? ch.setAttribute('checked', 'true') : ch.removeAttribute('checked')); }); }
         window.renameProject = async (id, val) => { const p=projectsMetadata.find(x=>x.id===id); if(p){p.name=val; await saveMetadata();} };
-        window.clipCopy = async (id, isVal=true) => { const el=document.getElementById(id); await navigator.clipboard.writeText(isVal?el.value:el.innerText); alert("복사 완료"); };
+        window.deleteProject = async (id) => { if(projectsMetadata.length<=1) return; if(confirm("삭제?")){ projectsMetadata=projectsMetadata.filter(p=>p.id!==id); if(currentProjectId===id){currentProjectId=projectsMetadata[0].id; currentTabId=projectsMetadata[0].tabs[0].id;} await saveMetadata(); } };
+        window.addProject = async () => { const newId=Date.now(); projectsMetadata.push({id:newId, name:"새 작품", order:projectsMetadata.length, tabs:[{id:newId+1, order:0, title:""}]}); currentProjectId=newId; currentTabId=newId+1; await saveMetadata(); };
+        window.addTab = async () => { const p=projectsMetadata.find(x=>x.id===currentProjectId); if(p){ const newId=Date.now(); p.tabs.push({id:newId, order:p.tabs.length, title:""}); currentTabId=newId; await saveMetadata(); } };
+        window.deleteTab = async (id) => { const p=projectsMetadata.find(x=>x.id===currentProjectId); if(p&&p.tabs.length>1){ if(confirm("삭제?")){ p.tabs=p.tabs.filter(t=>t.id!==id); if(currentTabId===id) currentTabId=p.tabs[0].id; await saveMetadata(); } } };
+        window.clipCopy = async (id) => { const el=document.getElementById(id); await navigator.clipboard.writeText(el.value); alert("복사 완료"); };
         window.copyRawText = async (txt) => { await navigator.clipboard.writeText(txt); alert("복사 완료"); };
         window.logOut = () => { signOut(auth); location.reload(); };
         window.signIn = () => signInWithPopup(auth, provider);
@@ -427,15 +419,15 @@
     </script>
     <style>
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-        .card-selected { border-color: #3b82f6 !important; background: #111 !important; box-shadow: 0 0 15px rgba(59,130,246,0.1); }
+        .card-selected { border-color: #3b82f6 !important; background: #111 !important; box-shadow: 0 0 20px rgba(59,130,246,0.15); }
         .hl-dialog { color: #60a5fa; font-weight: 600; } .hl-sfx { color: #fbbf24; font-style: italic; }
         .no-scrollbar::-webkit-scrollbar { display: none; } [contenteditable]:focus { outline: none; background: rgba(59, 130, 246, 0.05); }
     </style>
 </head>
 <body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans" onclick="window.clearActiveCard()">
     <div id="loginOverlay" class="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center gap-6">
-        <span class="text-6xl animate-bounce">🐲</span>
-        <h1 class="text-2xl font-black italic uppercase tracking-tighter">Dragon Adapter v6.6 Final</h1>
+        <span class="text-6xl">🐲</span>
+        <h1 class="text-2xl font-black italic uppercase tracking-tighter">Dragon Adapter v6.7 Fixed</h1>
         <button onclick="signIn()" class="px-10 py-4 bg-white text-black font-black rounded-full shadow-2xl">Google Workspace 로그인</button>
     </div>
     <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-black/20 shrink-0 overflow-x-auto no-scrollbar"><div id="projectTabContainer" class="flex h-full items-center"></div><button onclick="addProject()" class="px-5 text-blue-500 font-black text-lg">+</button><div class="ml-auto flex items-center gap-4 shrink-0"><span id="userName" class="text-[9px] font-bold text-gray-600 uppercase tracking-widest"></span><button onclick="logOut()" class="text-[9px] text-red-900 font-bold hover:text-red-500">LOGOUT</button></div></nav>
@@ -445,16 +437,17 @@
             <div class="h-1/2 flex flex-col border-b border-white/5"><div class="p-2 text-[9px] font-black text-gray-500 flex justify-between bg-white/5 italic">ORIGINAL HISTORY <button onclick="clipCopy('originalView')">📋</button></div><textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500" readonly></textarea></div>
             <div class="h-1/2 flex flex-col p-4 gap-3">
                 <div class="text-[9px] font-black text-blue-500 uppercase tracking-widest flex justify-between">ACTIVE INPUT <button onclick="clipCopy('sourceInput')">📋</button></div>
-                <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-xl p-4 outline-none text-sm placeholder-gray-800 focus:ring-1 ring-blue-500" placeholder="새로운 텍스트를 입력하세요..."></textarea>
+                <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-xl p-4 outline-none text-sm placeholder-gray-800 focus:ring-1 ring-blue-500 transition-all" placeholder="여기에 텍스트를 입력하세요..."></textarea>
                 <div class="grid grid-cols-2 gap-2"><button onclick="window.processSource('append')" class="py-2.5 bg-blue-600 text-[10px] font-black rounded-lg uppercase shadow-lg">맨 뒤에 추가</button><button onclick="window.processSource('insert')" class="py-2.5 bg-yellow-600 text-[10px] font-black rounded-lg uppercase text-black shadow-lg">선택 컷 뒤 삽입</button></div>
                 <button onclick="window.processSource('overwrite')" class="py-2 bg-red-900/10 text-red-700 text-[10px] font-black rounded-lg uppercase hover:bg-red-900 hover:text-white transition border border-red-900/20">⚠️ 보드 초기화</button>
             </div>
         </section>
-        <section class="flex-1 flex flex-col overflow-hidden bg-black/5" onclick="window.clearActiveCard()">
+        <section class="flex-1 flex flex-col overflow-hidden bg-black/5">
             <div class="p-8 flex items-center gap-6"><input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-4xl font-black outline-none tracking-tighter" oninput="saveToCloud()"><div class="flex items-center gap-2 bg-black/40 p-2.5 rounded-xl border border-white/5 shadow-inner"><input id="boardSearchInput" type="text" placeholder="검색..." class="bg-transparent border-none text-xs w-24 outline-none"></div></div>
             <div id="panelContainer" class="flex-1 overflow-y-auto p-10 pt-0 space-y-6 no-scrollbar"></div>
         </section>
         <section class="w-1/5 flex flex-col border-l border-white/5 bg-black/20 p-5"><div class="flex justify-between items-center mb-6"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Shared Memos</h4><button onclick="addMemo()" class="w-6 h-6 flex items-center justify-center bg-blue-600 text-white rounded-full font-bold shadow-lg shadow-blue-900/20">+</button></div><div id="memoContainer" class="flex-1 overflow-y-auto no-scrollbar space-y-4"></div></section>
     </main>
+    <div id="toast" class="hidden"></div>
 </body>
 </html>
