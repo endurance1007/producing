@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 다이나믹 워크스테이션 v5.1</title>
+    <title>지혜의 용 | 울트라 워크스테이션 v5.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, getDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // 작가님이 보내주신 최신 Firebase 설정값 적용
         const firebaseConfig = {
-            apiKey: "AIzaSyDIpM-V52irW0N0Em8qAItvI6L5LYJg8Ik",
+            apiKey: "AIzaSyDIPM-V52irW0N0Em8qAItvI6L5LYJg8Ik",
             authDomain: "wisdomdragonadapter.firebaseapp.com",
             projectId: "wisdomdragonadapter",
             storageBucket: "wisdomdragonadapter.firebasestorage.app",
@@ -44,23 +43,42 @@
             });
         };
 
+        // --- 공통 복사 함수 ---
+        window.clipCopy = async (elementId, isValue = true) => {
+            const el = document.getElementById(elementId);
+            const text = isValue ? el.value : el.innerText;
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast("복사되었습니다!");
+            } catch (err) { alert("복사 실패"); }
+        };
+
+        window.copyRawText = async (text) => {
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast("복사되었습니다!");
+            } catch (err) { alert("복사 실패"); }
+        };
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = "fixed bottom-10 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full text-xs font-bold z-[200] shadow-xl animate-bounce";
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        // --- Firebase Core Logic ---
         async function syncGlobalConfig() {
             const metaRef = doc(db, "users", currentUser.uid, "config", "metadata");
             onSnapshot(metaRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    projectsMetadata = docSnap.data().projects || [];
-                } else {
-                    projectsMetadata = [{ id: Date.now(), name: "새 작품", order: 0, tabs: [{ id: Date.now() + 1, order: 0 }] }];
-                    saveMetadata();
-                }
-                
+                if (docSnap.exists()) { projectsMetadata = docSnap.data().projects || []; } 
+                else { projectsMetadata = [{ id: Date.now(), name: "새 작품", order: 0, tabs: [{ id: Date.now() + 1, order: 0 }] }]; saveMetadata(); }
                 if (!currentProjectId && projectsMetadata.length > 0) {
                     currentProjectId = projectsMetadata[0].id;
                     currentTabId = projectsMetadata[0].tabs[0].id;
                 }
-                renderProjectTabs();
-                renderWorkspaceTabs();
-                loadContent();
+                renderProjectTabs(); renderWorkspaceTabs(); loadContent();
             });
         }
 
@@ -73,7 +91,6 @@
         function loadContent() {
             if (contentUnsub) contentUnsub();
             if (!currentProjectId || !currentTabId) return;
-
             const docRef = doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${currentTabId}`);
             contentUnsub = onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
@@ -81,15 +98,16 @@
                     document.getElementById('episodeTitle').value = data.title || "";
                     document.getElementById('originalView').value = data.originalText || "";
                     document.getElementById('panelContainer').innerHTML = data.boardHTML || "";
-                    reattachEvents();
-                    updateStats();
-                } else {
-                    document.getElementById('episodeTitle').value = "";
-                    document.getElementById('originalView').value = "";
-                    document.getElementById('panelContainer').innerHTML = "";
-                    updateStats();
-                }
+                    reattachEvents(); updateStats();
+                } else { clearEditor(); }
             });
+        }
+
+        function clearEditor() {
+            document.getElementById('episodeTitle').value = "";
+            document.getElementById('originalView').value = "";
+            document.getElementById('panelContainer').innerHTML = "";
+            updateStats();
         }
 
         window.saveToCloud = async () => {
@@ -174,32 +192,7 @@
             if (p) { p.name = val; saveMetadata(); }
         }
 
-        window.backupTab = () => {
-            const data = { type: "tab_backup", title: document.getElementById('episodeTitle').value, originalText: document.getElementById('originalView').value, boardHTML: document.getElementById('panelContainer').innerHTML };
-            downloadJSON(data, `Slot_Backup_${data.title || 'Untitled'}.json`);
-        };
-
-        window.backupProject = async () => {
-            const p = projectsMetadata.find(x => x.id === currentProjectId);
-            const allTabsData = [];
-            for (const t of p.tabs) {
-                const docSnap = await getDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${t.id}`));
-                if (docSnap.exists()) allTabsData.push(docSnap.data());
-            }
-            downloadJSON({ type: "project_backup", projectName: p.name, tabs: allTabsData }, `Project_Full_Backup_${p.name}.json`);
-        };
-
-        function downloadJSON(data, filename) {
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
-        }
-
-        window.signIn = () => signInWithPopup(auth, provider).catch(err => {
-            if(err.code === 'auth/unauthorized-domain') {
-                alert("로그인 실패: 깃허브 주소가 파이어베이스 '승인된 도메인'에 등록되지 않았습니다.");
-            } else { alert("오류 발생: " + err.message); }
-        });
+        window.signIn = () => signInWithPopup(auth, provider);
         window.logOut = () => { signOut(auth); location.reload(); };
 
     </script>
@@ -214,15 +207,17 @@
         .card-selected { border-color: #3b82f6 !important; background-color: #111 !important; }
         .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 4px; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+        .btn-copy { opacity: 0.4; transition: all 0.2s; cursor: pointer; }
+        .btn-copy:hover { opacity: 1; color: #60a5fa; transform: scale(1.1); }
     </style>
 </head>
 <body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
 
     <div id="loginOverlay" class="fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center gap-6">
-        <span class="text-6xl">🐲</span>
-        <h2 class="text-2xl font-black tracking-tighter">Dragon Adapter v5.1 Cloud</h2>
-        <button onclick="signIn()" class="px-8 py-3 rounded-full bg-white text-black font-bold hover:bg-blue-500 hover:text-white transition flex items-center gap-3 shadow-2xl">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"> 구글 계정으로 시작하기
+        <span class="text-6xl animate-pulse">🐲</span>
+        <h2 class="text-2xl font-black tracking-tighter uppercase">Dragon Adapter v5.2</h2>
+        <button onclick="signIn()" class="px-10 py-4 rounded-full bg-white text-black font-black hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3 shadow-2xl">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"> Google Workspace 로그인
         </button>
     </div>
 
@@ -230,8 +225,8 @@
         <div id="projectTabContainer" class="flex h-full"></div>
         <button onclick="addProject()" class="px-4 text-blue-500 hover:text-blue-300 font-black text-lg transition">+</button>
         <div class="ml-auto flex items-center gap-4 pr-4">
-             <span id="userName" class="text-[10px] text-gray-500 font-bold"></span>
-             <button onclick="logOut()" class="text-[9px] text-red-900 hover:text-red-500 font-black">LOGOUT</button>
+             <span id="userName" class="text-[10px] text-gray-500 font-bold uppercase tracking-widest"></span>
+             <button onclick="logOut()" class="text-[9px] text-red-900 hover:text-red-500 font-black tracking-tighter">LOGOUT</button>
         </div>
     </nav>
 
@@ -239,19 +234,25 @@
         <div id="workspaceTabContainer" class="flex h-full"></div>
         <button onclick="addTab()" class="px-6 text-gray-500 hover:text-blue-500 font-bold text-sm transition">+</button>
         <div class="ml-auto flex items-center gap-4 pr-4 border-l border-white/5">
-            <button onclick="backupTab()" class="text-[8px] text-gray-500 hover:text-blue-400 font-bold uppercase">Tab Backup</button>
-            <button onclick="backupProject()" class="text-[8px] text-gray-500 hover:text-green-400 font-bold uppercase">Project Backup</button>
+            <button onclick="backupTab()" class="text-[8px] text-gray-600 hover:text-blue-400 font-bold uppercase tracking-tighter transition">Slot Backup</button>
+            <button onclick="backupProject()" class="text-[8px] text-gray-600 hover:text-green-400 font-bold uppercase tracking-tighter transition">Full Backup</button>
         </div>
     </nav>
 
     <main class="flex flex-1 overflow-hidden">
         <section class="w-1/4 flex flex-col border-r border-white/5 bg-[#080808] z-10">
             <div class="h-1/2 flex flex-col border-b border-white/10">
-                <div class="p-2 bg-white/5 text-[9px] uppercase tracking-widest text-gray-500 font-bold flex justify-between italic"><span>Original History</span><span class="text-xs">🔒</span></div>
+                <div class="p-2 bg-white/5 text-[9px] uppercase tracking-widest text-gray-500 font-bold flex justify-between items-center italic">
+                    <span>Original History</span>
+                    <button onclick="clipCopy('originalView')" class="btn-copy text-[10px]">📋 COPY</button>
+                </div>
                 <textarea id="originalView" class="flex-1 bg-[#0a0a0a] p-4 outline-none resize-none leading-relaxed text-gray-500 text-[11px] border-none select-text" readonly></textarea>
             </div>
             <div class="h-1/2 flex flex-col">
-                <div class="p-2 bg-blue-900/10 text-[9px] uppercase tracking-widest text-blue-400 font-bold">Active Input</div>
+                <div class="p-2 bg-blue-900/10 text-[9px] uppercase tracking-widest text-blue-400 font-bold flex justify-between items-center">
+                    <span>Active Input</span>
+                    <button onclick="clipCopy('sourceInput')" class="btn-copy text-[10px]">📋 COPY</button>
+                </div>
                 <textarea id="sourceInput" class="flex-1 bg-transparent p-4 outline-none resize-none leading-relaxed text-gray-300 focus:text-white text-sm border-none placeholder-gray-700" placeholder="추가할 텍스트..."></textarea>
                 <div class="p-3 grid grid-cols-1 gap-2 border-t border-white/5 bg-[#0a0a0a]">
                     <div class="grid grid-cols-2 gap-2">
@@ -273,16 +274,17 @@
                         <button onclick="findNext()" class="text-gray-500 hover:text-white px-1 text-xs">▼</button>
                     </div>
                 </div>
-                <button onclick="copyToClipboard()" class="bg-blue-600 px-4 py-1.5 rounded-full text-white hover:bg-blue-500 transition text-[10px] font-bold uppercase shadow-lg shadow-blue-900/20">📋 Notion Copy</button>
+                <button onclick="copyToClipboard()" class="bg-blue-600 px-4 py-1.5 rounded-full text-white hover:bg-blue-500 transition text-[10px] font-bold uppercase shadow-lg shadow-blue-900/20">📋 Notion Copy (All)</button>
             </div>
 
-            <div class="shrink-0 px-10 py-5 bg-[#0a0a0a] border-b border-white/5 shadow-md flex items-center gap-4 z-10">
+            <div class="shrink-0 px-10 py-5 bg-[#0a0a0a] border-b border-white/5 shadow-md flex items-center gap-4 z-10 group">
                 <span class="text-xl opacity-80">📖</span>
                 <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-2xl font-black text-gray-100 outline-none placeholder-gray-800 tracking-tight" oninput="saveToCloud()">
+                <button onclick="clipCopy('episodeTitle')" class="btn-copy text-[10px] group-hover:opacity-100 opacity-0 transition-opacity">📋 COPY</button>
             </div>
             
             <div id="panelContainer" class="flex-1 overflow-y-auto p-10 space-y-6 max-w-4xl mx-auto w-full"></div>
-            <div id="panelCount" class="absolute bottom-4 right-8 text-[10px] text-gray-700 font-mono">0 Cuts</div>
+            <div id="panelCount" class="absolute bottom-4 right-8 text-[10px] text-gray-700 font-mono tracking-tighter">0 Cuts Loaded</div>
         </section>
     </main>
 
@@ -327,15 +329,11 @@
             if (mode === 'overwrite') {
                 if (panelContainer.children.length > 0 && !confirm("이 작업을 초기화하시겠습니까?")) return;
                 originalView.value = text; panelContainer.innerHTML = '';
-            } else {
-                originalView.value += `\n\n--- Added [${new Date().toLocaleTimeString()}] ---\n` + text;
-            }
+            } else { originalView.value += `\n\n--- Added [${new Date().toLocaleTimeString()}] ---\n` + text; }
             const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
             if (mode === 'insert' && activeCard) {
                 let refNode = activeCard; sentences.forEach(s => { const newCard = createCardElement(s); panelContainer.insertBefore(newCard, refNode.nextSibling); refNode = newCard; });
-            } else {
-                sentences.forEach(s => { panelContainer.appendChild(createCardElement(s)); });
-            }
+            } else { sentences.forEach(s => { panelContainer.appendChild(createCardElement(s)); }); }
             updateStats(); if (mode !== 'overwrite') sourceInput.value = ''; saveToCloud();
         }
 
@@ -343,16 +341,45 @@
             const card = document.createElement('div');
             card.className = 'card-anim bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all group relative cursor-move';
             card.draggable = true; card.onclick = (e) => selectCard(e, card); addCardDragEvents(card);
-            card.innerHTML = `<div class="flex flex-col gap-3 pointer-events-none"><div class="flex justify-between items-center pointer-events-auto"><div class="flex items-center gap-2 cursor-grab active:cursor-grabbing"><span class="text-gray-600">☰</span><span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span></div><div class="flex gap-3 opacity-40 group-hover:opacity-100 transition-opacity"><label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '앵글/샷')" class="hidden"> 앵글/샷</label><label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '배경')" class="hidden"> 배경</label><label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '참고')" class="hidden"> 참고</label></div></div><div class="flex gap-5 pointer-events-auto"><div class="w-32 shrink-0 flex flex-col gap-2"><div class="img-container img-grid bg-black/50 rounded border border-white/5 min-h-[60px] p-1 transition-colors" ondragover="imgContainerDragOver(event)" ondrop="imgContainerDrop(event, this)"></div><button onclick="event.stopPropagation(); triggerImageUpload(this)" class="text-[9px] bg-gray-800 hover:bg-gray-700 w-full py-1 rounded text-gray-400 hover:text-white transition">+ Add Image</button></div><div class="flex-1 space-y-3"><div class="memo-area flex flex-wrap gap-x-4 gap-y-1"></div><div class="content-area text-[15px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="handlePaste(event, this)" onblur="this.innerHTML = highlightText(this.innerText); saveToCloud();" onclick="event.stopPropagation()">${highlightText(text)}</div><div class="flex justify-between items-center pt-3 opacity-0 group-hover:opacity-100 transition-opacity"><div class="flex gap-4"><button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase transition-colors">Merge Up</button><button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase transition-colors">Split at Cursor</button></div><button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); deleteCard(this)" class="text-[9px] text-red-900 hover:text-red-500 font-bold transition-colors">Delete</button></div></div></div></div>`;
+            card.innerHTML = `
+                <div class="flex flex-col gap-3 pointer-events-none">
+                    <div class="flex justify-between items-center pointer-events-auto">
+                        <div class="flex items-center gap-2 cursor-grab active:cursor-grabbing"><span class="text-gray-600">☰</span><span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span></div>
+                        <div class="flex gap-3 opacity-40 group-hover:opacity-100 transition-opacity">
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '앵글/샷')" class="hidden"> 앵글/샷</label>
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '배경')" class="hidden"> 배경</label>
+                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400"><input type="checkbox" onchange="toggleMemo(this, '참고')" class="hidden"> 참고</label>
+                        </div>
+                    </div>
+                    <div class="flex gap-5 pointer-events-auto">
+                        <div class="w-32 shrink-0 flex flex-col gap-2">
+                             <div class="img-container img-grid bg-black/50 rounded border border-white/5 min-h-[60px] p-1 transition-colors" ondragover="imgContainerDragOver(event)" ondrop="imgContainerDrop(event, this)"></div>
+                             <button onclick="event.stopPropagation(); triggerImageUpload(this)" class="text-[9px] bg-gray-800 hover:bg-gray-700 w-full py-1 rounded text-gray-400 hover:text-white transition">+ Add Image</button>
+                        </div>
+                        <div class="flex-1 space-y-3">
+                            <div class="memo-area flex flex-wrap gap-x-4 gap-y-1"></div>
+                            <div class="content-area text-[15px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="handlePaste(event, this)" onblur="this.innerHTML = highlightText(this.innerText); saveToCloud();" onclick="event.stopPropagation()">${highlightText(text)}</div>
+                            <div class="flex justify-between items-center pt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div class="flex gap-4">
+                                    <button onclick="event.stopPropagation(); window.copyRawText(this.closest('.group').querySelector('.content-area').innerText)" class="text-[9px] text-blue-500 hover:text-blue-300 font-bold uppercase tracking-tighter transition-colors">📋 Copy Text</button>
+                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase transition-colors">Merge Up</button>
+                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase transition-colors">Split at Cursor</button>
+                                </div>
+                                <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); deleteCard(this)" class="text-[9px] text-red-900 hover:text-red-500 font-bold transition-colors">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
             return card;
         }
 
+        // --- Utils (v5.1 유지) ---
         function compressImage(file, callback) { const r = new FileReader(); r.readAsDataURL(file); r.onload = (e) => { const img = new Image(); img.src = e.target.result; img.onload = () => { const cvs = document.createElement('canvas'); const MAX_W = 500; const sc = MAX_W / img.width; cvs.width = MAX_W; cvs.height = img.height * sc; const ctx = cvs.getContext('2d'); ctx.drawImage(img, 0, 0, cvs.width, cvs.height); callback(cvs.toDataURL('image/jpeg', 0.6)); } } }
         function addImageToCard(card, src) { const container = card.querySelector('.img-container'); if (container.children.length >= 10) return; const w = document.createElement('div'); w.className = "relative aspect-square bg-gray-900 rounded overflow-hidden group/img cursor-pointer"; w.draggable = true; w.setAttribute('ondragstart', 'imgDragStart(event, this)'); w.innerHTML = `<img src="${src}" class="w-full h-full object-cover"><button onclick="this.parentElement.remove(); saveToCloud();" class="absolute top-0 right-0 bg-red-600 text-white w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover/img:opacity-100 transition">×</button>`; container.appendChild(w); saveToCloud(); }
         function triggerImageUpload(btn) { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = e => { if (e.target.files[0]) compressImage(e.target.files[0], (src) => addImageToCard(btn.closest('.group'), src)); }; input.click(); }
         function handlePaste(e, el) { const items = (e.clipboardData || e.originalEvent.clipboardData).items; for (let item of items) { if (item.kind === 'file' && item.type.startsWith('image/')) { e.preventDefault(); compressImage(item.getAsFile(), (src) => addImageToCard(el.closest('.group'), src)); } } }
         function highlightText(text) { if (!text) return ""; return text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>'); }
-        function updateStats() { const cards = panelContainer.querySelectorAll('.group'); document.getElementById('panelCount').innerText = `${cards.length} Cuts`; cards.forEach((c, i) => { c.querySelector('.cut-num').innerText = `Cut ${String(i + 1).padStart(2, '0')}`; }); }
+        function updateStats() { const cards = panelContainer.querySelectorAll('.group'); document.getElementById('panelCount').innerText = `${cards.length} Cuts Loaded`; cards.forEach((c, i) => { c.querySelector('.cut-num').innerText = `Cut ${String(i + 1).padStart(2, '0')}`; }); }
         function selectCard(e, c) { if (activeCard) activeCard.classList.remove('card-selected'); activeCard = c; activeCard.classList.add('card-selected'); selectionMsg.classList.remove('hidden'); selectionMsg.innerText = `${c.querySelector('.cut-num').innerText} 뒤 삽입 대기`; }
         function clearSelection(e) { if (e.target.id === 'panelContainer' || e.target.tagName === 'SECTION') { if (activeCard) activeCard.classList.remove('card-selected'); activeCard = null; selectionMsg.classList.add('hidden'); } }
         function toggleMemo(cb, L) { const mA = cb.closest('.group').querySelector('.memo-area'); if (cb.checked) { const i = document.createElement('input'); i.className = 'memo-input'; i.placeholder = `${L}...`; i.dataset.type = L; i.oninput = () => saveToCloud(); mA.appendChild(i); i.focus(); } else { const i = mA.querySelector(`input[data-type="${L}"]`); if (i) i.remove(); saveToCloud(); } }
@@ -361,16 +388,20 @@
         function deleteCard(btn) { btn.closest('.group').remove(); updateStats(); saveToCloud(); }
         function openImgFS(s) { document.getElementById('fsImg').src = s; document.getElementById('imgOverlay').classList.replace('hidden', 'flex'); }
         function closeImgFS() { document.getElementById('imgOverlay').classList.replace('flex', 'hidden'); }
-        function imgDragStart(e, w) { dragType = 'image'; dragImgEl = w; e.dataTransfer.setData("type", "image"); }
+        function imgDragStart(e, w) { dragType = 'image'; dragImgEl = w; }
         function imgContainerDragOver(e) { if (dragType === 'image') e.preventDefault(); }
         function imgContainerDrop(e, c) { e.preventDefault(); if (dragType === 'image') { c.appendChild(dragImgEl); updateStats(); saveToCloud(); } }
         function addCardDragEvents(c) { c.ondragstart = (e) => { if (dragType === 'image') { e.preventDefault(); return; } dragType = 'card'; dragCardSrc = c; c.classList.add('opacity-50'); }; c.ondragover = (e) => e.preventDefault(); c.ondrop = (e) => { if (dragType === 'card' && dragCardSrc !== c) { const all = [...panelContainer.children]; if (all.indexOf(dragCardSrc) < all.indexOf(c)) c.after(dragCardSrc); else c.before(dragCardSrc); updateStats(); saveToCloud(); } }; c.ondragend = () => { dragType = null; c.classList.remove('opacity-50'); }; }
-        async function copyToClipboard() { let title = episodeTitleInput.value || `각색 원고`; let md = `# ${title}\n\n`; panelContainer.querySelectorAll('.group').forEach(c => { const n = c.querySelector('.cut-num').innerText; const t = c.querySelector('.content-area').innerText.trim(); const ms = []; c.querySelectorAll('.memo-input').forEach(i => { if (i.value) ms.push(`[${i.dataset.type}: ${i.value}]`); }); md += `### ${n}${ms.length>0?' '+ms.join(' '):''}\n${t}\n\n`; }); await navigator.clipboard.writeText(md); alert("✅ 노션용 복사 완료!"); }
+        async function copyToClipboard() { let title = episodeTitleInput.value || `각색 원고`; let md = `# ${title}\n\n`; panelContainer.querySelectorAll('.group').forEach(c => { const n = c.querySelector('.cut-num').innerText; const t = c.querySelector('.content-area').innerText.trim(); const ms = []; c.querySelectorAll('.memo-input').forEach(i => { if (i.value) ms.push(`[${i.dataset.type}: ${i.value}]`); }); md += `### ${n}${ms.length>0?' '+ms.join(' '):''}\n${t}\n\n`; }); await navigator.clipboard.writeText(md); showToast("전체 복사 완료!"); }
 
         function buildSearchIndex(term) { searchMatches = []; if (!term) return; const cards = panelContainer.querySelectorAll('.content-area'); cards.forEach((area) => { const walker = document.createTreeWalker(area, NodeFilter.SHOW_TEXT, null, false); let node; while (node = walker.nextNode()) { const text = node.nodeValue; const regex = new RegExp(term, 'gi'); let match; while ((match = regex.exec(text)) !== null) { searchMatches.push({ node: node, start: match.index, end: match.index + term.length, card: area.closest('.group') }); } } }); }
         function findNext() { const term = boardSearchInput.value.trim(); if (!term) return; if (searchMatches.length === 0 || !searchMatches[0].node.nodeValue.toLowerCase().includes(term.toLowerCase())) { buildSearchIndex(term); currentMatchIndex = -1; } if (searchMatches.length === 0) { alert("결과 없음"); return; } if (currentMatchIndex >= searchMatches.length - 1) { alert("다음 없음"); return; } currentMatchIndex++; highlightMatch(currentMatchIndex); }
         function findPrev() { const term = boardSearchInput.value.trim(); if (!term) return; if (searchMatches.length === 0) { buildSearchIndex(term); currentMatchIndex = searchMatches.length; } if (searchMatches.length === 0) { alert("결과 없음"); return; } if (currentMatchIndex <= 0) { alert("이전 없음"); return; } currentMatchIndex--; highlightMatch(currentMatchIndex); }
         function highlightMatch(index) { const match = searchMatches[index]; if (!match) return; match.card.scrollIntoView({ behavior: 'smooth', block: 'center' }); const selection = window.getSelection(); const range = document.createRange(); try { range.setStart(match.node, match.start); range.setEnd(match.node, match.end); selection.removeAllRanges(); selection.addRange(range); } catch (e) { buildSearchIndex(boardSearchInput.value); currentMatchIndex = -1; } }
+
+        window.backupTab = () => { const data = { type: "tab_backup", title: episodeTitleInput.value, originalText: originalView.value, boardHTML: panelContainer.innerHTML }; downloadJSON(data, `Slot_Backup_${data.title || 'Untitled'}.json`); };
+        window.backupProject = async () => { const p = projectsMetadata.find(x => x.id === currentProjectId); const allTabsData = []; for (const t of p.tabs) { const docSnap = await getDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${t.id}`)); if (docSnap.exists()) allTabsData.push(docSnap.data()); } downloadJSON({ type: "project_backup", projectName: p.name, tabs: allTabsData }, `Project_Full_Backup_${p.name}.json`); };
+        function downloadJSON(data, filename) { const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); }
     </script>
 </body>
 </html>
