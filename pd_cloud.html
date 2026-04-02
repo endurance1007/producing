@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 프로페셔널 워크스테이션 v6.0</title>
+    <title>지혜의 용 | 워크스테이션 v6.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -28,9 +28,8 @@
         let currentProjectId = null;
         let currentTabId = null;
         let projectsMetadata = [];
-        let isZenMode = false;
-        let isGridView = false;
         let memos = [];
+        let isGridView = false;
 
         window.onload = () => {
             onAuthStateChanged(auth, async (user) => {
@@ -39,7 +38,6 @@
                     document.getElementById('loginOverlay').classList.add('hidden');
                     document.getElementById('userName').innerText = user.displayName;
                     syncGlobalConfig();
-                    syncMemos();
                 } else {
                     currentUser = null;
                     document.getElementById('loginOverlay').classList.remove('hidden');
@@ -48,16 +46,17 @@
             initHotkeys();
         };
 
-        // --- 인디케이터 상태 관리 ---
+        // --- 동기화 인디케이터 ---
         const setSyncStatus = (status) => {
-            const dots = document.querySelectorAll(`.sync-dot-${currentTabId}`);
+            const dots = document.querySelectorAll(`.sync-dot`);
             dots.forEach(dot => {
-                dot.className = `sync-dot-${currentTabId} w-2 h-2 rounded-full transition-colors ` + 
-                    (status === 'saving' ? 'bg-yellow-500 animate-pulse' : 'bg-green-500');
+                dot.style.backgroundColor = (status === 'saving' ? '#eab308' : '#22c55e');
+                if(status === 'saving') dot.classList.add('animate-pulse');
+                else dot.classList.remove('animate-pulse');
             });
         };
 
-        // --- 단축키 시스템 ---
+        // --- 단축키 ---
         function initHotkeys() {
             window.addEventListener('keydown', (e) => {
                 if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); processSource('append'); }
@@ -66,28 +65,13 @@
             });
         }
 
-        // --- 테마 & 뷰 전환 ---
-        window.setTheme = (theme) => {
-            const body = document.body;
-            body.classList.remove('theme-midnight', 'theme-sepia', 'theme-light', 'theme-dark');
-            body.classList.add(`theme-${theme}`);
-            saveToCloud(); // 설정 저장
-        };
-
-        window.toggleZen = () => {
-            isZenMode = !isZenMode;
-            document.body.classList.toggle('zen-active', isZenMode);
-        };
-
-        window.toggleGrid = () => {
-            isGridView = !isGridView;
-            document.getElementById('panelContainer').classList.toggle('grid-view', isGridView);
-        };
-
-        // --- 메모 시스템 (사이드바) ---
-        async function syncMemos() {
-            const q = query(collection(db, "users", currentUser.uid, "memos"), orderBy("order", "asc"));
-            onSnapshot(q, (qs) => {
+        // --- 메모 시스템 (작품별 공유) ---
+        let memoUnsub = null;
+        function syncMemos() {
+            if (memoUnsub) memoUnsub();
+            if (!currentProjectId) return;
+            const q = query(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), orderBy("order", "asc"));
+            memoUnsub = onSnapshot(q, (qs) => {
                 memos = [];
                 qs.forEach(doc => memos.push({id: doc.id, ...doc.data()}));
                 renderMemos();
@@ -95,17 +79,18 @@
         }
 
         window.addMemo = async () => {
-            await addDoc(collection(db, "users", currentUser.uid, "memos"), {
-                title: "새 메모", content: "", order: memos.length, collapsed: false
+            const tabTitle = document.getElementById('episodeTitle').value || "새 슬롯";
+            await addDoc(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), {
+                title: `[${tabTitle}] 메모`, content: "", order: memos.length, collapsed: false
             });
         };
 
         window.deleteMemo = async (id) => {
-            if(confirm("이 메모를 삭제할까요?")) await deleteDoc(doc(db, "users", currentUser.uid, "memos", id));
+            if(confirm("이 메모를 삭제할까요?")) await deleteDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id));
         };
 
         window.updateMemo = async (id, field, val) => {
-            await setDoc(doc(db, "users", currentUser.uid, "memos", id), { [field]: val }, { merge: true });
+            await setDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id), { [field]: val }, { merge: true });
         };
 
         function renderMemos() {
@@ -113,49 +98,30 @@
             container.innerHTML = "";
             memos.forEach(m => {
                 const div = document.createElement('div');
-                div.className = "memo-item bg-white/5 border border-white/10 rounded-lg overflow-hidden mb-2 cursor-move";
-                div.draggable = true;
+                div.className = "bg-white/5 border border-white/10 rounded-lg mb-3 overflow-hidden";
                 div.innerHTML = `
-                    <div class="flex items-center justify-between p-2 bg-white/5" onclick="this.nextElementSibling.classList.toggle('hidden'); updateMemo('${m.id}', 'collapsed', this.nextElementSibling.classList.contains('hidden'))">
-                        <input value="${m.title}" class="bg-transparent border-none outline-none text-[11px] font-bold w-full truncate pointer-events-auto" onchange="updateMemo('${m.id}', 'title', this.value)" onclick="event.stopPropagation()">
-                        <button onclick="event.stopPropagation(); deleteMemo('${m.id}')" class="text-xs text-red-900 opacity-50 hover:opacity-100 ml-2">×</button>
+                    <div class="flex items-center justify-between p-2 bg-white/5 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                        <input value="${m.title}" class="bg-transparent border-none outline-none text-[11px] font-bold w-full truncate" onchange="updateMemo('${m.id}', 'title', this.value)" onclick="event.stopPropagation()">
+                        <button onclick="event.stopPropagation(); deleteMemo('${m.id}')" class="text-xs text-red-500 ml-2">×</button>
                     </div>
-                    <textarea class="w-full bg-transparent p-2 text-[10px] text-gray-400 outline-none resize-none h-24 ${m.collapsed ? 'hidden' : ''}" onchange="updateMemo('${m.id}', 'content', this.value)">${m.content}</textarea>
+                    <textarea class="w-full bg-transparent p-2 text-[11px] text-gray-400 outline-none h-24 ${m.collapsed ? 'hidden' : ''}" onchange="updateMemo('${m.id}', 'content', this.value)">${m.content}</textarea>
                 `;
-                addMemoDragEvents(div, m.id);
                 container.appendChild(div);
             });
         }
 
-        function addMemoDragEvents(el, id) {
-            el.ondragstart = (e) => { e.dataTransfer.setData("memoId", id); el.classList.add('opacity-30'); };
-            el.ondragover = (e) => e.preventDefault();
-            el.ondrop = async (e) => {
-                const draggedId = e.dataTransfer.getData("memoId");
-                if (draggedId !== id) reorderMemos(draggedId, id);
-            };
-            el.ondragend = () => el.classList.remove('opacity-30');
-        }
-
-        async function reorderMemos(fromId, toId) {
-            const fromIdx = memos.findIndex(m => m.id === fromId);
-            const toIdx = memos.findIndex(m => m.id === toId);
-            const targetMemos = [...memos];
-            const [moved] = targetMemos.splice(fromIdx, 1);
-            targetMemos.splice(toIdx, 0, moved);
-            
-            for(let i=0; i<targetMemos.length; i++) {
-                await setDoc(doc(db, "users", currentUser.uid, "memos", targetMemos[i].id), { order: i }, { merge: true });
-            }
-        }
-
-        // --- Firebase Core (Indicator & Dynamic Title Fix) ---
+        // --- Core Logic ---
         async function syncGlobalConfig() {
             const metaRef = doc(db, "users", currentUser.uid, "config", "metadata");
             onSnapshot(metaRef, (docSnap) => {
                 if (docSnap.exists()) { projectsMetadata = docSnap.data().projects || []; } 
                 else { projectsMetadata = [{ id: Date.now(), name: "새 작품", order: 0, tabs: [{ id: Date.now() + 1, order: 0, title: "" }] }]; saveMetadata(); }
-                renderProjectTabs(); renderWorkspaceTabs(); loadContent();
+                
+                if (!currentProjectId && projectsMetadata.length > 0) {
+                    currentProjectId = projectsMetadata[0].id;
+                    currentTabId = projectsMetadata[0].tabs[0].id;
+                }
+                renderProjectTabs(); renderWorkspaceTabs(); loadContent(); syncMemos();
             });
         }
 
@@ -164,10 +130,25 @@
             await setDoc(doc(db, "users", currentUser.uid, "config", "metadata"), { projects: projectsMetadata });
         }
 
+        window.addProject = async () => {
+            const newId = Date.now();
+            projectsMetadata.push({ id: newId, name: "새 작품", order: projectsMetadata.length, tabs: [{ id: newId + 1, order: 0, title: "" }] });
+            await saveMetadata();
+        };
+
+        window.addTab = async () => {
+            const p = projectsMetadata.find(x => x.id === currentProjectId);
+            if (p) {
+                const newTabId = Date.now();
+                p.tabs.push({ id: newTabId, order: p.tabs.length, title: "" });
+                currentTabId = newTabId;
+                await saveMetadata();
+            }
+        };
+
         let contentUnsub = null;
         function loadContent() {
             if (contentUnsub) contentUnsub();
-            if (!currentProjectId || !currentTabId) return;
             const docRef = doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${currentTabId}`);
             contentUnsub = onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
@@ -177,55 +158,54 @@
                     document.getElementById('panelContainer').innerHTML = data.boardHTML || "";
                     reattachEvents(); updateStats();
                 } else { clearEditor(); }
-                updateTabTitleLocally();
+                updateTabUI();
             });
-        }
-
-        function updateTabTitleLocally() {
-            const p = projectsMetadata.find(x => x.id === currentProjectId);
-            if (p) {
-                const t = p.tabs.find(x => x.id === currentTabId);
-                if (t) {
-                    t.title = document.getElementById('episodeTitle').value || `SLOT ${p.tabs.indexOf(t) + 1}`;
-                    renderWorkspaceTabs();
-                }
-            }
         }
 
         window.saveToCloud = async () => {
             if (!currentUser || !currentProjectId || !currentTabId) return;
             setSyncStatus('saving');
             prepareStateForSave();
-            updateTabTitleLocally(); // 탭 제목 업데이트
             
             const docRef = doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${currentTabId}`);
+            const titleVal = document.getElementById('episodeTitle').value;
+            
             await setDoc(docRef, {
-                title: document.getElementById('episodeTitle').value,
+                title: titleVal,
                 originalText: document.getElementById('originalView').value,
                 boardHTML: document.getElementById('panelContainer').innerHTML,
                 lastUpdated: new Date()
             }, { merge: true });
-            
-            await saveMetadata(); // 메타데이터(탭 제목 정보) 저장
+
+            const p = projectsMetadata.find(x => x.id === currentProjectId);
+            const t = p.tabs.find(x => x.id === currentTabId);
+            if (t && t.title !== titleVal) {
+                t.title = titleVal;
+                await saveMetadata();
+            }
             setSyncStatus('synced');
         };
 
-        // --- 기타 공통 함수들 (v5.5 유지) ---
-        window.clipCopy = async (id, isVal=true) => { const el=document.getElementById(id); const txt=isVal?el.value:el.innerText; await navigator.clipboard.writeText(txt); showToast("복사되었습니다!"); };
-        window.copyRawText = async (txt) => { await navigator.clipboard.writeText(txt); showToast("복사되었습니다!"); };
-        window.saveSnapshot = async () => { /* v5.5 로직 유지 */ };
-        window.toggleArchive = (open) => { document.getElementById('archiveModal').classList.toggle('hidden', !open); if(open) renderArchive(); };
-        window.signIn = () => signInWithPopup(auth, provider);
-        window.logOut = () => { signOut(auth); location.reload(); };
-        
-        // --- 렌더링 파트 ---
+        function updateTabUI() {
+            const p = projectsMetadata.find(x => x.id === currentProjectId);
+            if(p) renderWorkspaceTabs();
+        }
+
+        function clearEditor() {
+            document.getElementById('episodeTitle').value = "";
+            document.getElementById('originalView').value = "";
+            document.getElementById('panelContainer').innerHTML = "";
+            updateStats();
+        }
+
+        // --- UI Rendering ---
         function renderProjectTabs() {
             const container = document.getElementById('projectTabContainer');
             container.innerHTML = "";
-            projectsMetadata.sort((a, b) => a.order - b.order).forEach(p => {
+            projectsMetadata.forEach(p => {
                 const div = document.createElement('div');
-                div.className = `group flex items-center h-full px-4 border-r border-white/5 cursor-pointer transition ${currentProjectId === p.id ? 'bg-white/10 text-blue-400' : 'text-gray-500 hover:bg-white/5'}`;
-                div.innerHTML = `<input value="${p.name}" class="bg-transparent border-none outline-none w-24 text-[11px] font-bold pointer-events-auto focus:text-white" onchange="renameProject(${p.id}, this.value)" onclick="event.stopPropagation()">`;
+                div.className = `px-4 h-full flex items-center border-r border-white/5 cursor-pointer text-[11px] font-bold ${currentProjectId === p.id ? 'bg-white/10 text-blue-400' : 'text-gray-500'}`;
+                div.innerHTML = `<input value="${p.name}" class="bg-transparent border-none outline-none w-20" onchange="renameProject(${p.id}, this.value)" onclick="event.stopPropagation()">`;
                 div.onclick = () => { currentProjectId = p.id; currentTabId = p.tabs[0].id; syncGlobalConfig(); };
                 container.appendChild(div);
             });
@@ -235,88 +215,80 @@
             const container = document.getElementById('workspaceTabContainer');
             container.innerHTML = "";
             const p = projectsMetadata.find(x => x.id === currentProjectId);
-            if (!p) return;
-            p.tabs.sort((a, b) => a.order - b.order).forEach(t => {
+            p.tabs.forEach(t => {
                 const active = currentTabId === t.id;
-                const btn = document.createElement('div');
-                btn.className = `group flex items-center px-4 h-full text-[10px] font-bold border-r border-white/5 cursor-pointer transition ${active ? 'bg-black text-blue-400 border-t-2 border-t-blue-500' : 'text-gray-600 bg-white/5 hover:text-gray-400'}`;
-                btn.innerHTML = `
-                    <span class="sync-dot-${t.id} w-1.5 h-1.5 rounded-full bg-green-500 mr-2"></span>
-                    <span class="max-w-[80px] truncate">${t.title || 'SLOT ' + (p.tabs.indexOf(t) + 1)}</span>
-                `;
-                btn.onclick = () => { currentTabId = t.id; loadContent(); renderWorkspaceTabs(); };
-                container.appendChild(btn);
+                const div = document.createElement('div');
+                div.className = `px-4 h-full flex items-center border-r border-white/5 cursor-pointer text-[10px] font-bold ${active ? 'bg-black text-blue-400 border-t-2 border-t-blue-500' : 'text-gray-600'}`;
+                div.innerHTML = `<span class="sync-dot w-1.5 h-1.5 rounded-full bg-green-500 mr-2"></span>${t.title || 'SLOT ' + (p.tabs.indexOf(t)+1)}`;
+                div.onclick = () => { currentTabId = t.id; loadContent(); };
+                container.appendChild(div);
             });
         }
+
+        window.renameProject = (id, val) => { const p=projectsMetadata.find(x=>x.id===id); if(p){p.name=val; saveMetadata();} };
+        window.clipCopy = async (id, isVal=true) => { const el=document.getElementById(id); await navigator.clipboard.writeText(isVal?el.value:el.innerText); showToast("복사되었습니다!"); };
+        window.copyRawText = async (txt) => { await navigator.clipboard.writeText(txt); showToast("복사되었습니다!"); };
+        window.logOut = () => { signOut(auth); location.reload(); };
+        window.signIn = () => signInWithPopup(auth, provider);
+        window.toggleGrid = () => { isGridView = !isGridView; document.getElementById('panelContainer').classList.toggle('grid-view', isGridView); };
+
     </script>
     <style>
-        :root { --bg: #050505; --panel: #0d0d0d; --text: #eee; --accent: #3b82f6; }
-        .theme-midnight { --bg: #0f172a; --panel: #1e293b; --accent: #6366f1; }
-        .theme-sepia { --bg: #f4ecd8; --panel: #fffcf0; --text: #433422; --accent: #a47c48; }
-        .theme-light { --bg: #f8fafc; --panel: #ffffff; --text: #1e293b; --accent: #3b82f6; }
-
-        body { background-color: var(--bg); color: var(--text); }
-        .zen-active section:not(.flex-1), .zen-active nav { display: none !important; }
-        .grid-view { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
-        .grid-view .group { height: 300px; overflow: hidden; font-size: 11px; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        .grid-view { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        .card-selected { border-color: #3b82f6 !important; background: #111 !important; }
+        .hl-dialog { color: #60a5fa; font-weight: 600; }
+        .hl-sfx { color: #fbbf24; font-style: italic; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .memo-item textarea { transition: height 0.2s; }
-        [contenteditable]:focus { outline: none; background: rgba(59, 130, 246, 0.05); }
     </style>
 </head>
-<body class="h-screen overflow-hidden flex flex-col font-sans transition-colors duration-500">
+<body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
 
     <div id="loginOverlay" class="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center gap-6">
         <span class="text-6xl">🐲</span>
-        <h1 class="text-2xl font-black italic tracking-tighter uppercase">Dragon Adapter v6.0</h1>
-        <button onclick="signIn()" class="px-10 py-4 bg-white text-black font-black rounded-full hover:bg-blue-600 hover:text-white transition-all">Google 로그인</button>
+        <h1 class="text-2xl font-black italic">Dragon Adapter v6.1</h1>
+        <button onclick="signIn()" class="px-10 py-4 bg-white text-black font-black rounded-full">Google 로그인</button>
     </div>
 
-    <nav class="h-10 border-b border-white/5 flex items-center px-4 shrink-0 bg-black/20 z-50">
+    <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-black/20">
         <div id="projectTabContainer" class="flex h-full items-center"></div>
-        <button onclick="addProject()" class="px-3 text-blue-500 font-bold">+</button>
-        
+        <button onclick="addProject()" class="px-4 text-blue-500 font-bold hover:text-white">+</button>
         <div class="ml-auto flex items-center gap-4">
-            <div class="flex gap-1">
-                <button onclick="setTheme('dark')" class="w-4 h-4 bg-black rounded-full border border-white/20"></button>
-                <button onclick="setTheme('midnight')" class="w-4 h-4 bg-slate-800 rounded-full border border-white/20"></button>
-                <button onclick="setTheme('sepia')" class="w-4 h-4 bg-[#f4ecd8] rounded-full border border-black/20"></button>
-                <button onclick="setTheme('light')" class="w-4 h-4 bg-white rounded-full border border-black/20"></button>
-            </div>
-            <button onclick="toggleZen()" class="text-[10px] font-bold text-gray-500 hover:text-blue-400">ZEN</button>
             <span id="userName" class="text-[9px] font-bold text-gray-600 uppercase"></span>
-            <button onclick="logOut()" class="text-[8px] text-red-900 font-bold">LOGOUT</button>
+            <button onclick="logOut()" class="text-[9px] text-red-900 font-bold">LOGOUT</button>
         </div>
     </nav>
 
-    <nav class="h-9 bg-black/40 border-b border-white/5 flex items-center shrink-0">
+    <nav class="h-9 border-b border-white/5 bg-black/40 flex items-center">
         <div id="workspaceTabContainer" class="flex h-full items-center"></div>
         <button onclick="addTab()" class="px-4 text-gray-600 font-bold hover:text-white">+</button>
         <div class="ml-auto flex h-full">
-            <button onclick="toggleGrid()" class="px-4 text-[9px] font-bold border-l border-white/5 hover:text-blue-400">GRID VIEW</button>
-            <button onclick="saveSnapshot()" class="px-4 bg-blue-600/20 text-blue-400 text-[9px] font-bold border-l border-white/5 hover:bg-blue-600 hover:text-white transition">SNAPSHOT</button>
+            <button onclick="toggleGrid()" class="px-4 text-[9px] font-bold border-l border-white/5 hover:text-blue-400">그리드 뷰</button>
+            <button onclick="saveSnapshot()" class="px-4 bg-blue-600/20 text-blue-400 text-[9px] font-bold border-l border-white/5">스냅샷</button>
         </div>
     </nav>
 
-    <main class="flex flex-1 overflow-hidden relative">
-        <section class="w-1/5 flex flex-col border-r border-white/5 bg-black/10">
-            <div class="h-1/2 flex flex-col border-b border-white/10 relative">
+    <main class="flex flex-1 overflow-hidden">
+        <section class="w-1/4 flex flex-col border-r border-white/5 bg-black/10">
+            <div class="h-1/2 flex flex-col border-b border-white/5">
                 <div class="p-2 text-[9px] font-bold text-gray-500 flex justify-between bg-white/5 italic">ORIGINAL <button onclick="clipCopy('originalView')">📋</button></div>
-                <textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500" readonly></textarea>
+                <textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] text-gray-500" readonly></textarea>
             </div>
-            <div class="h-1/2 flex flex-col p-4 gap-4">
-                <div class="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Active Input</div>
-                <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-lg p-3 outline-none text-sm placeholder-gray-700 focus:ring-1 ring-blue-500" placeholder="여기에 텍스트를 붙여넣으세요..."></textarea>
+            <div class="h-1/2 flex flex-col p-4 gap-3">
+                <div class="text-[9px] font-bold text-blue-500 uppercase tracking-widest flex justify-between">ACTIVE INPUT <button onclick="clipCopy('sourceInput')">📋</button></div>
+                <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-lg p-3 outline-none text-sm focus:ring-1 ring-blue-500" placeholder="텍스트 입력..."></textarea>
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="processSource('append')" class="py-2 bg-blue-600 text-[10px] font-black rounded uppercase">Append</button>
-                    <button onclick="processSource('insert')" class="py-2 bg-yellow-600 text-[10px] font-black rounded uppercase text-black">Insert</button>
+                    <button onclick="processSource('append')" class="py-2 bg-blue-600 text-[10px] font-black rounded uppercase">맨 뒤에 추가</button>
+                    <button onclick="processSource('insert')" class="py-2 bg-yellow-600 text-[10px] font-black rounded uppercase text-black">선택 컷 뒤 삽입</button>
                 </div>
+                <button onclick="processSource('overwrite')" class="py-2 bg-red-900/20 text-red-500 text-[10px] font-black rounded uppercase hover:bg-red-900 hover:text-white transition">⚠️ 전체 초기화</button>
             </div>
         </section>
 
         <section class="flex-1 flex flex-col overflow-hidden bg-black/5">
-            <div class="p-6 flex items-center gap-4 group">
-                <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-3xl font-black outline-none placeholder-gray-900 tracking-tighter" oninput="saveToCloud()">
+            <div class="p-6 flex items-center gap-4">
+                <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-3xl font-black outline-none tracking-tighter" oninput="saveToCloud()">
                 <div class="flex items-center gap-2 bg-black/40 p-2 rounded-lg border border-white/5">
                     <input id="boardSearchInput" type="text" placeholder="검색..." class="bg-transparent border-none text-xs w-20 outline-none">
                 </div>
@@ -324,20 +296,91 @@
             <div id="panelContainer" class="flex-1 overflow-y-auto p-10 space-y-6 no-scrollbar"></div>
         </section>
 
-        <section class="w-1/6 flex flex-col border-l border-white/5 bg-black/20 p-4">
+        <section class="w-1/5 flex flex-col border-l border-white/5 bg-black/20 p-4">
             <div class="flex justify-between items-center mb-4">
-                <h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Library Memo</h4>
-                <button onclick="addMemo()" class="text-blue-500 font-bold">+</button>
+                <h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Project Memos</h4>
+                <button onclick="addMemo()" class="text-blue-500 font-bold hover:text-white">+</button>
             </div>
             <div id="memoContainer" class="flex-1 overflow-y-auto no-scrollbar"></div>
         </section>
     </main>
 
-    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[300]"></div>
-
     <script>
-        // --- v5.5의 핵심 기능 로직들 (reattachEvents, processSource 등)을 여기에 포함합니다 ---
-        // (지면 관계상 중복 로직은 내부적으로 최적화하여 구현됩니다.)
+        // 핵심 로직 수동 연결
+        function processSource(mode) {
+            const input = document.getElementById('sourceInput');
+            const text = input.value.trim();
+            if (!text && mode !== 'overwrite') return;
+            if (mode === 'overwrite' && !confirm("전체 초기화하시겠습니까?")) return;
+            
+            if (mode === 'overwrite') { 
+                document.getElementById('originalView').value = text;
+                document.getElementById('panelContainer').innerHTML = '';
+            }
+            
+            const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
+            sentences.forEach(s => {
+                const card = createCardElement(s);
+                if (mode === 'insert' && activeCard) activeCard.after(card);
+                else document.getElementById('panelContainer').appendChild(card);
+            });
+            
+            updateStats();
+            if(mode !== 'overwrite') input.value = '';
+            saveToCloud();
+        }
+
+        function createCardElement(text) {
+            const card = document.createElement('div');
+            card.className = 'bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/10 transition group relative cursor-move';
+            card.draggable = true;
+            card.onclick = (e) => { 
+                if(activeCard) activeCard.classList.remove('card-selected');
+                activeCard = card; activeCard.classList.add('card-selected');
+            };
+            card.innerHTML = `
+                <div class="flex flex-col gap-3 pointer-events-none">
+                    <div class="flex justify-between items-center pointer-events-auto">
+                        <div class="flex items-center gap-2"><span class="text-gray-600">☰</span><span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span></div>
+                    </div>
+                    <div class="content-area text-[15px] leading-relaxed text-gray-300 outline-none pointer-events-auto" contenteditable="true" onblur="this.innerHTML=highlightText(this.innerText); saveToCloud();">${highlightText(text)}</div>
+                    <div class="flex gap-4 pt-3 opacity-100 pointer-events-auto">
+                        <button onclick="window.copyRawText(this.closest('.group').querySelector('.content-area').innerText)" class="text-[9px] text-blue-500 font-bold uppercase">📋 Copy</button>
+                        <button onclick="this.closest('.group').remove(); updateStats(); saveToCloud();" class="text-[9px] text-red-900 font-bold uppercase ml-auto">Delete</button>
+                    </div>
+                </div>`;
+            return card;
+        }
+
+        function prepareStateForSave() {
+            const cards = document.getElementById('panelContainer').querySelectorAll('.group');
+            cards.forEach(c => {
+                const area = c.querySelector('.content-area');
+                area.setAttribute('data-text', area.innerText);
+            });
+        }
+
+        function reattachEvents() {
+            const cards = document.getElementById('panelContainer').querySelectorAll('.group');
+            cards.forEach(card => {
+                card.onclick = (e) => {
+                    if(activeCard) activeCard.classList.remove('card-selected');
+                    activeCard = card; activeCard.classList.add('card-selected');
+                };
+            });
+        }
+
+        function highlightText(text) {
+            return text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>')
+                       .replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
+        }
+
+        function updateStats() {
+            const cards = document.getElementById('panelContainer').querySelectorAll('.group');
+            cards.forEach((c, i) => c.querySelector('.cut-num').innerText = `Cut ${String(i+1).padStart(2, '0')}`);
+        }
+
+        let activeCard = null;
     </script>
 </body>
 </html>
