@@ -592,12 +592,35 @@
                 window.executeInternalDiskSave(); window.renderProjectMemoStack();
             };
             
-            // 전역 핫키 바인딩
-            window.addEventListener('keydown', function(e) {
-                if (e.ctrlKey && e.key === 'Enter') window.processManuscriptInput('append');
-                if (e.ctrlKey && e.key === 'z') { e.preventDefault(); window.executeUndoAction(); }
-                if (e.ctrlKey && e.key === 'y') { e.preventDefault(); window.executeRedoAction(); }
-            });
+// [단축키 엔진] 기존 1150라인 부근의 window.addEventListener('keydown', ...) 부분을 아래로 교체하세요.
+window.addEventListener('keydown', function(e) {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const ctrl = isMac ? e.metaKey : e.ctrlKey; // Mac은 Cmd, PC는 Ctrl 감지
+
+    // 1. [Undo] Ctrl + Z
+    if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault(); // 브라우저 기본 텍스트 언두 방지 (우리 시스템 언두 실행을 위해)
+        window.executeUndoAction();
+    }
+
+    // 2. [Redo] Ctrl + Y 또는 Ctrl + Shift + Z
+    if ((ctrl && e.key.toLowerCase() === 'y') || (ctrl && e.shiftKey && e.key.toLowerCase() === 'z')) {
+        e.preventDefault(); // 브라우저 기본 리두 방지
+        window.executeRedoAction();
+    }
+
+    // 3. [원고 추가] Ctrl + Enter (작성 중인 원고를 즉시 컷으로 분할)
+    if (ctrl && e.key === 'Enter') {
+        e.preventDefault();
+        window.processManuscriptInput('append');
+    }
+
+    // 4. [저장] Ctrl + S (파일 저장 창 호출)
+    if (ctrl && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        window.executeSaveAsFile();
+    }
+});
         };
 
         // [메모 및 기타 유틸리티]
