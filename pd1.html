@@ -98,13 +98,17 @@
         <div id="slotTabContainer" class="flex h-full items-center overflow-x-auto no-scrollbar"></div>
         <button id="btnNewSlot" class="ml-4 px-4 h-full text-gray-700 hover:text-white font-bold text-xl">+</button>
         
-        <div class="ml-auto flex gap-6 items-center pr-2">
-            <div class="flex gap-5 border-r border-white/10 pr-6">
-                <button id="btnUndo" class="text-[10px] font-black text-gray-400 hover:text-yellow-500 uppercase tracking-widest">Undo (Ctrl+Z)</button>
-                <button id="btnRedo" class="text-[10px] font-black text-gray-400 hover:text-yellow-500 uppercase tracking-widest">Redo (Ctrl+Y)</button>
-            </div>
-            <button id="btnResetBoard" class="text-[10px] font-black text-red-900 hover:text-red-500 uppercase tracking-widest">Reset Board</button>
-        </div>
+     <div class="ml-auto flex gap-6 items-center pr-2">
+    <div class="flex gap-5 border-r border-white/10 pr-6">
+        <button id="btnUndo" ...>Undo (Ctrl+Z)</button>
+        <button id="btnRedo" ...>Redo (Ctrl+Y)</button>
+    </div>
+    
+    <button onclick="window.executeSaveSlotOnly()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Save</button>
+    <button onclick="window.executeImportToCurrentSlot()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Load</button>
+
+    <button id="btnResetBoard" class="text-[10px] font-black text-red-900 hover:text-red-500 uppercase tracking-widest">Reset Board</button>
+</div>
     </nav>
 
     <main class="flex flex-1 overflow-hidden">
@@ -721,7 +725,101 @@ if (document.getElementById('btnRestore')) {
 if (document.getElementById('btnRestore')) {
     document.getElementById('btnRestore').onclick = window.executeRestoreProcess;
 }
-// --- [탭 삭제 실행 엔진: 이 내용을 코드 하단 함수 구역에 넣으세요] ---
+// --- [슬롯 전용 저장/불러오기 엔진] ---
+
+// 1. 현재 슬롯만 파일로 저장 (Export Current Slot)
+window.executeSaveSlotOnly = async function() {
+    window.executeCurrentViewCapture(); // 현재 화면 내용 메모리에 박제
+    const p = window.getSafeActiveProject();
+    const s = window.getSafeActiveSlot();
+    
+    if (!s) return;
+
+    // 슬롯 데이터만 따로 추출
+    const slotData = {
+        type: "DRAGON_SLOT_ONLY", // 슬롯 전용 파일임을 표시
+        title: s.title,
+        original: s.original,
+        cards: s.cards
+    };
+
+    const fileName = `[슬롯백업] ${s.title || '원고'}_${new Date().toLocaleDateString()}.json`;
+
+    if ('showSaveFilePicker' in window) {
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: fileName,
+                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(JSON.stringify(slotData, null, 2));
+            await writable.close();
+        } catch (e) { console.log("저장 취소"); }
+    } else {
+        const blob = new Blob([JSON.stringify(slotData)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName;
+        a.click();
+    }
+};
+
+// 2. 파일에서 현재 슬롯으로 내용만 불러오기 (Import to Active Slot)
+window.executeImportToCurrentSlot = function() {
+    const filePicker = document.createElement('input');
+    filePicker.type = 'file';
+    filePicker.accept = '.json';
+
+    filePicker.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                const data = JSON.parse(event.target.result);
+                const activeS = window.getSafeActiveSlot();
+
+                if (!activeS) {
+                    alert("원고를 불러올 대상 슬롯이 없습니다.");
+                    return;
+                }
+
+                if (confirm("이 파일을 현재 열려 있는 슬롯에 덮어씌울까요? (다른 작품이나 슬롯은 유지됩니다)")) {
+                    window.executeDeepSnapshot(); // 불러오기 전 언두 스택 저장
+
+                    // 데이터 이식
+                    if (data.type === "DRAGON_SLOT_ONLY") {
+                        // 슬롯 전용 파일인 경우
+                        activeS.title = data.title;
+                        activeS.original = data.original;
+                        activeS.cards = data.cards;
+                    } else if (data.activeSlotId || data.projects) {
+                        // 전체 백업 파일에서 현재 활성화된 슬롯 내용만 추출하는 경우
+                        alert("전체 백업 파일입니다. 시스템 규격에 맞춰 원고 내용만 추출합니다.");
+                        // 전체 백업 파일일 경우 첫 번째 작품의 첫 번째 슬롯 내용을 가져옵니다.
+                        const firstSlot = data.projects[0].slots[0];
+                        activeS.title = firstSlot.title;
+                        activeS.original = firstSlot.original;
+                        activeS.cards = firstSlot.cards;
+                    }
+
+                    window.executeInternalDiskSave();
+                    window.executeFullUIRenderCycle(); // 화면 즉시 갱신
+                    alert("현재 슬롯에 원고를 성공적으로 불러왔습니다.");
+                }
+            } catch (err) {
+                alert("불러오기 실패: " + err.message);
+            }
+        };
+        reader.readAsText(file);
+    };
+    filePicker.click();
+};
+        
+        
+        
+        // --- [탭 삭제 실행 엔진: 이 내용을 코드 하단 함수 구역에 넣으세요] ---
 
 // 1. 작품(Project) 삭제 실제 기능
 window.executeKillProjectProcess = function(id) {
