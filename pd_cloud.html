@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>지혜의 용 | 워크스테이션 v8.9</title>
+    <title>지혜의 용 | 워크스테이션 v9.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -16,7 +16,7 @@
             addDoc, query, orderBy, limit, writeBatch, enableIndexedDbPersistence 
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // [인증] 작가님의 고유 Firebase 설정
+        // [인증] Firebase 고유 설정
         const firebaseConfig = {
             apiKey: "AIzaSyDIpM-V52irW0N0Em8qAItvI6L5LYJg8Ik",
             authDomain: "wisdomdragonadapter.firebaseapp.com",
@@ -31,16 +31,15 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        // [iOS 사파리 루프 방지] 인증 정보 로컬 강제 저장 설정
+        // [핵심] iOS 인증 유지력 강화 설정
         setPersistence(auth, browserLocalPersistence);
 
-        // [심리스] 오프라인 데이터 지속성 활성화
+        // [심리스] 오프라인 데이터 유지 설정
         enableIndexedDbPersistence(db).catch((err) => {
-            if (err.code == 'failed-precondition') { console.warn("Persistence failed: Multiple tabs open."); }
-            else if (err.code == 'unimplemented') { console.warn("Persistence failed: Browser not supported."); }
+            if (err.code == 'failed-precondition') { console.warn("다중 탭 실행 중"); }
         });
 
-        // 시스템 전역 상태 변수
+        // 시스템 전역 상태 (명시적 선언)
         let currentUser = null;
         let currentProjectId = null;
         let currentTabId = null;
@@ -57,189 +56,182 @@
         let dragSlotSrcId = null;
         let dragSnapshotSrcId = null;
 
-        // --- 1. 초기 시스템 로드 및 iOS 리다이렉트 처리 ---
+        // --- 1. 초기화 및 iOS 로그인 루프 방지 로직 ---
         window.onload = function() {
-            // iOS 사파리에서 로그인 후 돌아왔을 때의 결과를 우선적으로 낚아챕니다.
+            // iOS 리다이렉트 로그인 후 돌아왔을 때의 결과를 강제로 먼저 확인합니다.
             getRedirectResult(auth)
                 .then((result) => { 
-                    if (result) { console.log("Redirect Auth Result Success"); } 
+                    if (result) { console.log("iOS Redirect Auth Success"); } 
                 })
                 .catch((err) => { 
-                    console.error("Redirect Error:", err); 
+                    console.error("Auth Redirect Error:", err); 
                 });
 
             onAuthStateChanged(auth, async (user) => {
-                const overlay = document.getElementById('loginOverlay');
+                const loginOverlay = document.getElementById('loginOverlay');
                 if (user) {
                     currentUser = user;
-                    overlay.classList.add('hidden');
+                    loginOverlay.classList.add('hidden');
                     document.getElementById('userName').innerText = user.displayName;
-                    // 데이터베이스 초기화 시동
-                    bootstrapUserDatabase();
+                    bootstrapData();
                 } else {
                     currentUser = null;
-                    overlay.classList.remove('hidden');
+                    loginOverlay.classList.remove('hidden');
                 }
             });
-            setupGlobalHotkeys();
+            initializeHotkeys();
         };
 
-        async function bootstrapUserDatabase() {
+        async function bootstrapData() {
             const metaRef = doc(db, "users", currentUser.uid, "config", "metadata");
             onSnapshot(metaRef, (docSnap) => {
                 if (docSnap.exists()) {
                     projectsMetadata = docSnap.data().projects || [];
                 } else {
-                    // 최초 접속자를 위한 초기 구조 생성
-                    projectsMetadata = [{ 
-                        id: Date.now(), 
-                        name: "새 작품", 
-                        order: 0, 
-                        tabs: [{ id: Date.now() + 1, order: 0, title: "" }] 
-                    }];
-                    saveGlobalMetadataToCloud();
+                    projectsMetadata = [{ id: Date.now(), name: "새 작품", order: 0, tabs: [{ id: Date.now() + 1, order: 0, title: "" }] }];
+                    saveGlobalMetadata();
                 }
                 
-                // 현재 선택 작품 유효성 검사
+                // 현재 작품 상태 정합성 체크
                 if (!currentProjectId || !projectsMetadata.find(p => p.id === currentProjectId)) {
                     if (projectsMetadata.length > 0) {
                         currentProjectId = projectsMetadata[0].id;
                         currentTabId = projectsMetadata[0].tabs[0].id;
                     }
                 }
-                refreshEntireWorkspace();
+                refreshUI();
             });
         }
 
-        async function saveGlobalMetadataToCloud() {
+        async function saveGlobalMetadata() {
             if (!currentUser) return;
             await setDoc(doc(db, "users", currentUser.uid, "config", "metadata"), { projects: projectsMetadata });
         }
 
-        function refreshEntireWorkspace() {
+        function refreshUI() {
             renderProjectTabs();
             renderSlotTabs();
-            loadWorkspaceContent();
-            syncProjectMemos();
+            loadWorkspace();
+            syncMemos();
         }
 
-        // --- 2. 탭 가변 너비 계산 엔진 ---
-        function calculateTextPixelWidth(text, font) {
+        // --- 2. 탭 너비 계산 엔진 ---
+        function getTextWidth(text, font) {
             const canvas = document.createElement("canvas");
             const context = canvas.getContext("2d");
             context.font = font;
             return context.measureText(text).width;
         }
 
-        window.updateTabWidthOnInput = function(input) {
+        window.autoAdjustTabWidth = function(input) {
             const style = window.getComputedStyle(input);
-            const width = calculateTextPixelWidth(input.value, style.font);
-            input.style.width = (width + 20) + "px";
+            const w = getTextWidth(input.value, style.font);
+            input.style.width = (w + 20) + "px";
         };
 
-        // --- 3. 작품 탭 관리 (드래그앤드롭 및 전환) ---
+        // --- 3. 작품 탭 관리 (드래그앤드롭 및 순서) ---
         function renderProjectTabs() {
             const container = document.getElementById('projectTabContainer');
             container.innerHTML = "";
             projectsMetadata.sort((a, b) => (a.order || 0) - (b.order || 0));
 
             projectsMetadata.forEach(p => {
-                const isActive = currentProjectId === p.id;
-                const tabWrap = document.createElement('div');
-                tabWrap.className = `group flex items-center h-full px-4 border-r border-white/5 cursor-move transition-all ${isActive ? 'bg-white/10 text-blue-400' : 'text-gray-500 hover:bg-white/5'}`;
-                tabWrap.draggable = true;
+                const active = currentProjectId === p.id;
+                const tab = document.createElement('div');
+                tab.className = `group flex items-center h-full px-4 border-r border-white/5 cursor-move transition-all ${active ? 'bg-white/10 text-blue-400 shadow-inner' : 'text-gray-500 hover:bg-white/5'}`;
+                tab.draggable = true;
 
-                // 작품 탭 드래그 로직 (풀어서 작성)
-                tabWrap.ondragstart = (e) => {
+                // 작품 탭 드래그 로직
+                tab.ondragstart = (e) => {
                     dragProjectSrcId = p.id;
                     e.dataTransfer.effectAllowed = 'move';
-                    tabWrap.classList.add('opacity-30');
+                    tab.classList.add('opacity-30');
                 };
-                tabWrap.ondragover = (e) => e.preventDefault();
-                tabWrap.ondrop = async (e) => {
+                tab.ondragover = (e) => e.preventDefault();
+                tab.ondrop = async (e) => {
                     e.preventDefault();
                     if (dragProjectSrcId && dragProjectSrcId !== p.id) {
                         const sIdx = projectsMetadata.findIndex(x => x.id === dragProjectSrcId);
                         const dIdx = projectsMetadata.findIndex(x => x.id === p.id);
                         const [moved] = projectsMetadata.splice(sIdx, 1);
                         projectsMetadata.splice(dIdx, 0, moved);
-                        projectsMetadata.forEach((item, idx) => item.order = idx);
-                        await saveGlobalMetadataToCloud();
+                        projectsMetadata.forEach((item, index) => item.order = index);
+                        await saveGlobalMetadata();
                     }
                 };
-                tabWrap.ondragend = () => tabWrap.classList.remove('opacity-30');
+                tab.ondragend = () => tab.classList.remove('opacity-30');
 
-                // 싱크 도트 (클릭 편의성용)
+                // 싱크 점 (●)
                 const dot = document.createElement('span');
-                dot.className = `w-2 h-2 rounded-full mr-2 flex-shrink-0 ${isActive ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-gray-700'}`;
+                dot.className = `w-2 h-2 rounded-full mr-2 flex-shrink-0 ${active ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-gray-700'}`;
                 
-                const titleInput = document.createElement('input');
-                titleInput.value = p.name;
-                titleInput.className = "bg-transparent border-none outline-none font-bold text-[11px] cursor-text";
-                titleInput.oninput = () => updateTabWidthOnInput(titleInput);
-                titleInput.onchange = () => { p.name = titleInput.value; saveGlobalMetadataToCloud(); };
-                titleInput.onclick = (e) => e.stopPropagation();
+                const input = document.createElement('input');
+                input.value = p.name;
+                input.className = "bg-transparent border-none outline-none font-bold text-[11px] cursor-text";
+                input.oninput = () => autoAdjustTabWidth(input);
+                input.onchange = () => { p.name = input.value; saveGlobalMetadata(); };
+                input.onclick = (e) => e.stopPropagation();
 
                 const delBtn = document.createElement('button');
                 delBtn.innerHTML = "×";
                 delBtn.className = "ml-2 opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 text-xs transition-opacity";
                 delBtn.onclick = (e) => { e.stopPropagation(); window.killProject(p.id); };
 
-                tabWrap.onclick = () => { currentProjectId = p.id; currentTabId = p.tabs[0].id; refreshEntireWorkspace(); };
-                tabWrap.appendChild(dot);
-                tabWrap.appendChild(titleInput);
-                tabWrap.appendChild(delBtn);
-                container.appendChild(tabWrap);
-                updateTabWidthOnInput(titleInput);
+                tab.onclick = () => { currentProjectId = p.id; currentTabId = p.tabs[0].id; refreshUI(); };
+                tab.appendChild(dot);
+                tab.appendChild(input);
+                tab.appendChild(delBtn);
+                container.appendChild(tab);
+                autoAdjustTabWidth(input);
             });
         }
 
-        // --- 4. 슬롯 탭 관리 (드래그앤드롭 및 전환) ---
+        // --- 4. 슬롯 탭 관리 (드래그앤드롭 및 순서) ---
         function renderSlotTabs() {
             const container = document.getElementById('workspaceTabContainer');
             container.innerHTML = "";
-            const proj = projectsMetadata.find(p => p.id === currentProjectId);
-            if (!proj) return;
-            proj.tabs.sort((a, b) => (a.order || 0) - (b.order || 0));
+            const currentProj = projectsMetadata.find(p => p.id === currentProjectId);
+            if (!currentProj) return;
+            currentProj.tabs.sort((a, b) => (a.order || 0) - (b.order || 0));
 
-            proj.tabs.forEach(t => {
-                const isActive = currentTabId === t.id;
-                const slotWrap = document.createElement('div');
-                slotWrap.className = `px-5 h-full flex items-center border-r border-white/5 cursor-move text-[10px] font-bold whitespace-nowrap flex-shrink-0 transition-all ${isActive ? 'bg-black text-blue-400 border-t-2 border-t-blue-500 shadow-xl' : 'text-gray-600 bg-white/5 hover:text-gray-400'}`;
-                slotWrap.draggable = true;
+            currentProj.tabs.forEach(t => {
+                const active = currentTabId === t.id;
+                const slot = document.createElement('div');
+                slot.className = `px-5 h-full flex items-center border-r border-white/5 cursor-move text-[10px] font-bold whitespace-nowrap flex-shrink-0 transition-all ${active ? 'bg-black text-blue-400 border-t-2 border-t-blue-500' : 'text-gray-600 bg-white/5 hover:text-gray-400'}`;
+                slot.draggable = true;
 
-                // 슬롯 탭 드래그 로직 (풀어서 작성)
-                slotWrap.ondragstart = (e) => {
+                // 슬롯 탭 드래그 로직
+                slot.ondragstart = (e) => {
                     dragSlotSrcId = t.id;
                     e.dataTransfer.effectAllowed = 'move';
-                    slotWrap.classList.add('opacity-30');
+                    slot.classList.add('opacity-30');
                 };
-                slotWrap.ondragover = (e) => e.preventDefault();
-                slotWrap.ondrop = async (e) => {
+                slot.ondragover = (e) => e.preventDefault();
+                slot.ondrop = async (e) => {
                     e.preventDefault();
                     if (dragSlotSrcId && dragSlotSrcId !== t.id) {
-                        const sIdx = proj.tabs.findIndex(x => x.id === dragSlotSrcId);
-                        const dIdx = proj.tabs.findIndex(x => x.id === t.id);
-                        const [moved] = proj.tabs.splice(sIdx, 1);
-                        proj.tabs.splice(dIdx, 0, moved);
-                        proj.tabs.forEach((item, idx) => item.order = idx);
-                        await saveGlobalMetadataToCloud();
+                        const sIdx = currentProj.tabs.findIndex(x => x.id === dragSlotSrcId);
+                        const dIdx = currentProj.tabs.findIndex(x => x.id === t.id);
+                        const [moved] = currentProj.tabs.splice(sIdx, 1);
+                        currentProj.tabs.splice(dIdx, 0, moved);
+                        currentProj.tabs.forEach((item, index) => item.order = index);
+                        await saveGlobalMetadata();
                     }
                 };
-                slotWrap.ondragend = () => slotWrap.classList.remove('opacity-30');
+                slot.ondragend = () => slot.classList.remove('opacity-30');
 
-                slotWrap.innerHTML = `
+                slot.innerHTML = `
                     <span class="sync-dot-${t.id} w-1.5 h-1.5 rounded-full bg-green-500 mr-3 flex-shrink-0"></span>
-                    <span class="mr-2">${t.title || 'SLOT ' + (proj.tabs.indexOf(t) + 1)}</span>
+                    <span class="mr-2">${t.title || 'SLOT ' + (currentProj.tabs.indexOf(t) + 1)}</span>
                     <button onclick="event.stopPropagation(); window.killSlot(${t.id})" class="ml-2 opacity-40 hover:opacity-100 hover:text-red-500 transition-opacity">×</button>
                 `;
-                slotWrap.onclick = () => { currentTabId = t.id; loadWorkspaceContent(); };
-                container.appendChild(slotWrap);
+                slot.onclick = () => { currentTabId = t.id; loadWorkspace(); };
+                container.appendChild(slot);
             });
         }
 
-        // --- 5. 에디터 로드 및 기능 부활(Re-binding) 엔진 ---
-        function loadWorkspaceContent() {
+        // --- 5. 메인 에디터 엔진 (소환물 기능 복구 엔진 포함) ---
+        function loadWorkspace() {
             if (!currentProjectId || !currentTabId) return;
             const docRef = doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${currentTabId}`);
             getDoc(docRef).then((docSnap) => {
@@ -249,80 +241,80 @@
                     document.getElementById('originalView').value = data.originalText || "";
                     document.getElementById('panelContainer').innerHTML = data.boardHTML || "";
                     
-                    // [불러오기 즉시 수리] 브라우저가 화면을 그리는 시간을 기다려 기능을 다시 주입합니다.
+                    // [불러오기 핵심] 화면이 그려지자마자 모든 편집/드래그 기능을 강제로 다시 주입
                     requestAnimationFrame(() => {
-                        awakenSummonedCuts();
-                        updateLiveCutStats(); // 카운팅 엔진 재가동
+                        awakenSummonedEditorFeatures();
+                        updateLiveStats(); // 컷수 카운팅
                     });
-                } else { clearAllEditorState(); }
-                undoStack = []; redoStack = []; saveStateSnapshot();
+                } else { clearAllEditor(); }
+                undoStack = []; redoStack = []; pushUndoState();
                 renderSlotTabs();
             });
         }
 
-        function awakenSummonedCuts() {
+        function awakenSummonedEditorFeatures() {
             const cards = document.querySelectorAll('.card-unit');
             cards.forEach(card => {
                 card.draggable = true;
-                card.onclick = (e) => { e.stopPropagation(); focusCard(card); };
+                card.onclick = (e) => { e.stopPropagation(); selectCard(card); };
                 
                 // 드래그앤드롭 이벤트 강제 주입
-                card.addEventListener('dragstart', (e) => {
+                card.ondragstart = (e) => {
                     if (e.target.tagName === 'IMG' || e.target.tagName === 'INPUT') return;
                     dragCardSrc = card;
                     e.dataTransfer.effectAllowed = 'move';
                     setTimeout(() => card.classList.add('opacity-20'), 0);
-                });
-                card.addEventListener('dragover', (e) => e.preventDefault());
-                card.addEventListener('drop', (e) => {
+                };
+                card.ondragover = (e) => e.preventDefault();
+                card.ondrop = (e) => {
                     e.preventDefault();
                     if (dragCardSrc && dragCardSrc !== card) {
-                        saveStateSnapshot();
+                        pushUndoState();
                         const container = document.getElementById('panelContainer');
                         if ([...container.children].indexOf(dragCardSrc) < [...container.children].indexOf(card)) card.after(dragCardSrc);
                         else card.before(dragCardSrc);
-                        updateLiveCutStats(); 
-                        window.saveCurrentEditorToCloud(); 
-                        saveStateSnapshot();
+                        updateLiveStats(); 
+                        window.saveCurrentEditor(); 
+                        pushUndoState();
                     }
-                });
-                card.addEventListener('dragend', () => card.classList.remove('opacity-20'));
+                };
+                card.ondragend = () => card.classList.remove('opacity-20');
 
-                // 텍스트 편집기 기능 다시 연결
-                const ed = card.querySelector('.c-editor');
-                if (ed) {
-                    ed.onblur = () => { saveStateSnapshot(); window.saveCurrentEditorToCloud(); };
-                    ed.onpaste = (e) => window.handlePasteProcess(e, ed);
+                // 텍스트 에디터 저장/붙여넣기 로직
+                const editor = card.querySelector('.c-editor');
+                if (editor) {
+                    editor.onblur = () => { pushUndoState(); window.saveCurrentEditor(); };
+                    editor.onpaste = (e) => window.handlePaste(e, editor);
                 }
             });
         }
 
-        window.saveCurrentEditorToCloud = async function() {
+        window.saveCurrentEditor = async function() {
             if (!currentUser || !currentProjectId || !currentTabId) return;
             setSyncStatusIndicator('saving');
             
-            // 모든 폼 요소의 값을 HTML 속에 강제로 박아 넣습니다 (Snapshot/Reload 호환성)
+            // 모든 폼 상태(텍스트, 체크박스)를 Snapshot용 속성으로 동기화
             document.querySelectorAll('.card-unit').forEach(card => {
                 card.querySelectorAll('input[type="text"]').forEach(i => i.setAttribute('value', i.value));
                 card.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked ? c.setAttribute('checked', 'true') : c.removeAttribute('checked'));
             });
 
-            const titleVal = document.getElementById('episodeTitle').value;
+            const titleValue = document.getElementById('episodeTitle').value;
             const docRef = doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${currentTabId}`);
             
             await setDoc(docRef, {
-                title: titleVal, originalText: document.getElementById('originalView').value,
+                title: titleValue, originalText: document.getElementById('originalView').value,
                 boardHTML: document.getElementById('panelContainer').innerHTML, lastUpdated: new Date()
             }, { merge: true });
 
             const p = projectsMetadata.find(x => x.id === currentProjectId);
             const t = p?.tabs.find(x => x.id === currentTabId);
-            if (t && t.title !== titleVal) { t.title = titleVal; saveGlobalMetadataToCloud(); }
+            if (t && t.title !== titleValue) { t.title = titleValue; saveGlobalMetadata(); }
             setSyncStatusIndicator('synced');
         };
 
-        // --- 6. 히스토리 시스템 (Undo/Redo) ---
-        window.saveStateSnapshot = function() {
+        // --- 6. 히스토리 & 언두 시스템 ---
+        window.pushUndoState = function() {
             const currentSnap = {
                 title: document.getElementById('episodeTitle').value,
                 originalText: document.getElementById('originalView').value,
@@ -340,63 +332,63 @@
         window.undoAction = function() {
             if (undoStack.length <= 1) return;
             redoStack.push(undoStack.pop());
-            const prevState = undoStack[undoStack.length - 1];
-            applyStateFromSnapshot(prevState);
+            const previous = undoStack[undoStack.length - 1];
+            applyStackSnapshot(previous);
         };
 
         window.redoAction = function() {
             if (redoStack.length === 0) return;
-            const nextState = redoStack.pop();
-            undoStack.push(nextState);
-            applyStateFromSnapshot(nextState);
+            const next = redoStack.pop();
+            undoStack.push(next);
+            applyStackSnapshot(next);
         };
 
-        function applyStateFromSnapshot(state) {
+        function applyStackSnapshot(state) {
             document.getElementById('episodeTitle').value = state.title;
             document.getElementById('originalView').value = state.originalText;
             document.getElementById('panelContainer').innerHTML = state.boardHTML;
-            awakenSummonedCuts(); 
-            updateLiveCutStats(); // 언두 시 즉시 카운팅 갱신
-            window.saveCurrentEditorToCloud();
+            awakenSummonedEditorFeatures(); 
+            updateLiveStats(); // 언두 후 카운팅 복구
+            window.saveCurrentEditor();
         }
 
-        // --- 7. 원고 편집 및 컷 가공 (카운팅 수리 완료) ---
-        window.processRawSource = (mode) => {
+        // --- 7. 원고 편집 (전부 풀어서 작성) ---
+        window.processRawText = (mode) => {
             const input = document.getElementById('sourceInput');
             const text = input.value.trim();
             if (!text && mode !== 'overwrite') return;
-            if (mode === 'overwrite' && !confirm("보드를 초기화하시겠습니까?")) return;
+            if (mode === 'overwrite' && !confirm("전체 초기화합니까?")) return;
             
-            window.saveStateSnapshot();
-            const histBox = document.getElementById('originalView');
+            window.pushUndoState();
+            const originalBox = document.getElementById('originalView');
             if (mode === 'overwrite') { 
-                histBox.value = text; 
+                originalBox.value = text; 
                 document.getElementById('panelContainer').innerHTML = ""; 
             } else {
-                histBox.value += `\n[${new Date().toLocaleTimeString()}] 추가 원고:\n${text}\n`;
+                originalBox.value += `\n[${new Date().toLocaleTimeString()}] 추가됨:\n${text}\n`;
             }
 
-            const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
-            sentences.forEach(s => {
-                const unit = createUnitElement(s);
+            const chunks = text.split(/(?<=[.!?])\s+/).filter(c => c.length > 0);
+            chunks.forEach(chunk => {
+                const unit = createCutUnit(chunk);
                 if (mode === 'insert' && activeCard) activeCard.after(unit);
                 else document.getElementById('panelContainer').appendChild(unit);
             });
 
-            updateLiveCutStats(); // 원고 추가 후 즉시 카운팅
+            updateLiveStats(); // 편집 후 카운팅
             if (mode !== 'overwrite') input.value = "";
-            window.saveCurrentEditorToCloud(); 
-            window.saveStateSnapshot();
+            window.saveCurrentEditor(); 
+            window.pushUndoState();
         };
 
-        function createUnitElement(content) {
+        function createCutUnit(content) {
             const card = document.createElement('div');
             card.className = 'bg-[#0d0d0d] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition group relative cursor-move card-unit';
             
             card.innerHTML = `
                 <div class="flex flex-col gap-3 pointer-events-none">
                     <div class="flex justify-between items-center pointer-events-auto">
-                        <div class="flex items-center gap-2 text-gray-600"><span class="text-sm">☰</span><span class="text-[10px] font-black uppercase tracking-widest c-id-tag">Cut 00</span></div>
+                        <div class="flex items-center gap-2 text-gray-600"><span class="text-sm">☰</span><span class="text-[10px] font-black uppercase tracking-widest c-id-badge">Cut 00</span></div>
                         <div class="flex gap-3">
                             <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="window.toggleCardMemo(this, '앵글/샷')" class="hidden"> 앵글/샷</label>
                             <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="window.toggleCardMemo(this, '배경')" class="hidden"> 배경</label>
@@ -405,39 +397,39 @@
                     </div>
                     <div class="flex gap-6 pointer-events-auto layout-row">
                         <div class="w-32 shrink-0 flex flex-col gap-2">
-                             <div class="img-slot-box grid grid-cols-2 gap-1 bg-black/50 rounded p-1 min-h-[60px]" ondragover="event.preventDefault()" ondrop="window.handleImageDropOnSlot(event, this)"></div>
-                             <button onclick="event.stopPropagation(); window.openCutImgPicker(this)" class="text-[9px] bg-white/5 hover:bg-white/10 py-1.5 rounded text-gray-500 transition">+ Image</button>
+                             <div class="img-slot grid grid-cols-2 gap-1 bg-black/50 rounded p-1 min-h-[60px]" ondragover="event.preventDefault()" ondrop="window.handleImageDrop(event, this)"></div>
+                             <button onclick="event.stopPropagation(); window.openPicker(this)" class="text-[9px] bg-white/5 hover:bg-white/10 py-1.5 rounded text-gray-500 transition">+ Image</button>
                         </div>
                         <div class="flex-1 space-y-4">
                             <div class="memo-wrap flex flex-wrap gap-2"></div>
-                            <div class="c-editor text-[16px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="window.handlePasteProcess(event, this)">${highlightStoryLines(content)}</div>
+                            <div class="c-editor text-[16px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="window.handlePaste(event, this)">${highlightText(content)}</div>
                             <div class="flex gap-4 pt-3 border-t border-white/5">
-                                <button onclick="event.stopPropagation(); window.copyThisCut(this)" class="text-[9px] text-blue-500 font-bold uppercase">📋 Copy</button>
-                                <button onclick="event.stopPropagation(); window.mergeCutUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase">Merge Up</button>
+                                <button onclick="event.stopPropagation(); window.copyThis(this)" class="text-[9px] text-blue-500 font-bold uppercase">📋 Copy</button>
+                                <button onclick="event.stopPropagation(); window.mergeCutUpwards(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase">Merge Up</button>
                                 <button onclick="event.stopPropagation(); window.splitCutAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase">Split</button>
-                                <button onclick="event.stopPropagation(); window.killCardUnit(this)" class="text-[9px] text-red-900 font-bold uppercase ml-auto">Delete</button>
+                                <button onclick="event.stopPropagation(); window.killCard(this)" class="text-[9px] text-red-900 font-bold uppercase ml-auto">Delete</button>
                             </div>
                         </div>
                     </div>
                 </div>`;
             
-            setTimeout(() => { awakenSummonedCuts(); updateLiveCutStats(); }, 0);
+            setTimeout(() => { awakenSummonedEditorFeatures(); updateLiveStats(); }, 0);
             return card;
         }
 
-        // --- 8. 창고 관리자 엔진 (iOS 정렬 무반응 해결 및 드래그) ---
+        // --- 8. 창고 관리자 엔진 (드래그 정렬 및 무반응 해결) ---
         window.openArchiveManager = async function() {
             const modal = document.getElementById('archiveModal');
             modal.classList.remove('hidden');
             const list = document.getElementById('archiveList');
-            list.innerHTML = "<div class='p-10 text-center opacity-50 font-black text-xs tracking-widest'>ACCESSING ARCHIVE DATABASE...</div>";
+            list.innerHTML = "<div class='p-10 text-center opacity-50 font-black text-xs tracking-widest'>LOADING DATABASE...</div>";
             
             try {
-                // 단순 쿼리 후 클라이언트 사이드 정렬 (색인 오류 회피)
+                // ITP 회피를 위한 단순 쿼리 후 브라우저 정렬
                 const q_ref = query(collection(db, "users", currentUser.uid, "archives"), orderBy("timestamp", "desc"), limit(60));
                 const qs = await getDocs(q_ref);
                 list.innerHTML = "";
-                if (qs.empty) { list.innerHTML = "<div class='p-10 text-center opacity-30 text-xs uppercase'>Empty Archives.</div>"; return; }
+                if (qs.empty) { list.innerHTML = "<div class='p-10 text-center opacity-30 text-xs'>No archives found.</div>"; return; }
 
                 const archiveItems = [];
                 qs.forEach(docSnap => archiveItems.push({ id: docSnap.id, ...docSnap.data() }));
@@ -456,10 +448,10 @@
                         if (dragSnapshotSrcId && dragSnapshotSrcId !== item.id) {
                             const entries = [...list.querySelectorAll('.snapshot-entry')];
                             const sIdx = entries.findIndex(u => u.dataset.id === dragSnapshotSrcId);
-                            const tIdx = entries.findIndex(u => u.dataset.id === item.id);
+                            const dIdx = entries.findIndex(u => u.dataset.id === item.id);
                             const srcEl = entries[sIdx];
-                            if (sIdx < tIdx) div.after(srcEl); else div.before(srcEl);
-                            await commitArchiveOrderToCloud(list);
+                            if (sIdx < dIdx) div.after(srcEl); else div.before(srcEl);
+                            await commitArchiveOrder(list);
                         }
                     };
                     div.ondragend = () => div.classList.remove('opacity-30');
@@ -468,13 +460,13 @@
                         <div class="text-base font-black text-white">${item.title}</div>
                         <div class="text-[10px] text-gray-600">${item.timestamp.toDate().toLocaleString()}</div></div>
                         <div class="flex gap-2"><button onclick="window.summonSnapshotNow('${item.id}')" class="bg-blue-600/20 text-blue-400 px-5 py-2 rounded-xl font-bold hover:bg-blue-600 transition">소환</button>
-                        <button onclick="window.killSnapshotEntry('${item.id}')" class="bg-red-900/10 text-red-700 px-4 py-2 rounded-xl font-bold hover:bg-red-900 transition">삭제</button></div>`;
+                        <button onclick="window.killSnapshotNow('${item.id}')" class="bg-red-900/10 text-red-700 px-4 py-2 rounded-xl font-bold hover:bg-red-900 transition">삭제</button></div>`;
                     list.appendChild(div);
                 });
             } catch (err) { list.innerHTML = `<div class='p-10 text-center text-red-500'>Error: ${err.message}</div>`; }
         };
 
-        async function commitArchiveOrderToCloud(container) {
+        async function commitArchiveOrder(container) {
             const batch = writeBatch(db);
             const items = container.querySelectorAll('.snapshot-entry');
             items.forEach((item, index) => {
@@ -485,27 +477,27 @@
         }
 
         window.summonSnapshotNow = async function(id) {
-            if (!confirm("소환합니까? 모든 편집 기능이 다시 활성화됩니다.")) return;
+            if (!confirm("소환합니까? 모든 편집 기능이 즉시 재가동됩니다.")) return;
             const docSnap = await getDoc(doc(db, "users", currentUser.uid, "archives", id));
             if (docSnap.exists()) {
-                window.saveStateSnapshot();
+                window.pushUndoState();
                 const d = docSnap.data();
                 document.getElementById('episodeTitle').value = d.title;
                 document.getElementById('originalView').value = d.originalText;
                 document.getElementById('panelContainer').innerHTML = d.boardHTML;
                 
-                // 소환 즉시 이벤트 재주입 및 카운팅 리프레시
+                // 소환 후 0.15초 대기 후 기능과 숫자 복구
                 setTimeout(() => { 
-                    awakenSummonedCuts(); 
-                    updateLiveCutStats(); 
-                    window.saveCurrentEditorToCloud(); 
-                    window.saveStateSnapshot(); 
+                    awakenSummonedEditorFeatures(); 
+                    updateLiveStats(); 
+                    window.saveCurrentEditor(); 
+                    window.pushUndoState(); 
                 }, 150);
                 document.getElementById('archiveModal').classList.add('hidden');
             }
         };
 
-        // --- 9. 전역 함수 바인딩 (TypeError 박멸 및 풀어서 작성) ---
+        // --- 9. 전역 윈도우 함수 바인딩 (TypeError 박멸) ---
         window.googleSignIn = function() {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
             if (isIOS) { signInWithRedirect(auth, provider); } 
@@ -520,127 +512,79 @@
         window.createProject = async function() { const id = Date.now(); projectsMetadata.push({ id, name: "새 작품", order: projectsMetadata.length, tabs: [{ id: id + 1, order: 0, title: "" }] }); currentProjectId = id; currentTabId = id + 1; await saveGlobalMetadataToCloud(); };
         window.createSlot = async function() { const p = projectsMetadata.find(x => x.id === currentProjectId); if (p) { const id = Date.now(); p.tabs.push({ id, order: p.tabs.length, title: "" }); currentTabId = id; await saveGlobalMetadataToCloud(); } };
         
-        window.killCardUnit = function(btn) { 
-            window.saveStateSnapshot(); 
-            btn.closest('.card-unit').remove(); 
-            updateLiveCutStats(); 
-            window.saveCurrentEditorToCloud(); 
-            window.saveStateSnapshot(); 
-        };
-        
-        window.mergeCutUp = function(btn) {
+        window.killCard = function(btn) { window.pushUndoState(); btn.closest('.card-unit').remove(); updateLiveStats(); window.saveCurrentEditor(); window.pushUndoState(); };
+        window.mergeCutUpwards = function(btn) {
             const cur = btn.closest('.card-unit'); const prev = cur.previousElementSibling;
-            if (prev) {
-                window.saveStateSnapshot();
-                const ed = prev.querySelector('.c-editor');
-                ed.innerText += " " + cur.querySelector('.c-editor').innerText;
-                ed.innerHTML = highlightStoryLines(ed.innerText);
-                cur.querySelectorAll('.img-slot-box > div').forEach(img => prev.querySelector('.img-slot-box').appendChild(img));
-                cur.remove();
-                updateLiveCutStats(); 
-                window.saveCurrentEditorToCloud(); 
-            }
+            if (prev) { window.pushUndoState(); const ed = prev.querySelector('.c-editor'); ed.innerText += " " + cur.querySelector('.c-editor').innerText; ed.innerHTML = highlightText(ed.innerText); cur.querySelectorAll('.img-slot > div').forEach(img => prev.querySelector('.img-slot').appendChild(img)); cur.remove(); updateLiveStats(); window.saveCurrentEditor(); }
         };
-
         window.splitCutAtCursor = function(btn) {
             const cur = btn.closest('.card-unit'); const ed = cur.querySelector('.c-editor');
             const sel = window.getSelection(); if (!sel.rangeCount || !ed.contains(sel.getRangeAt(0).commonAncestorContainer)) return;
-            window.saveStateSnapshot();
+            window.pushUndoState();
             const r = sel.getRangeAt(0); const ext = document.createRange();
             ext.setStart(r.endContainer, r.endOffset); ext.setEnd(ed, ed.childNodes.length);
             const rem = ext.toString(); ext.deleteContents();
-            ed.innerHTML = highlightStoryLines(ed.innerText);
-            cur.after(createUnitElement(rem));
-            updateLiveCutStats(); 
-            window.saveCurrentEditorToCloud(); 
+            ed.innerHTML = highlightText(ed.innerText);
+            cur.after(createCutUnit(rem));
+            updateLiveStats(); window.saveCurrentEditor(); 
         };
-
         window.toggleCardMemo = function(cb, label) {
-            window.saveStateSnapshot();
+            window.pushUndoState();
             const wrap = cb.closest('.card-unit').querySelector('.memo-wrap');
             if (cb.checked) {
                 const i = document.createElement('input');
                 i.className = 'bg-transparent border-b border-white/10 text-[11px] text-gray-500 outline-none w-24';
                 i.placeholder = label + "..."; i.dataset.type = label;
-                i.onblur = () => { window.saveStateSnapshot(); window.saveCurrentEditorToCloud(); };
+                i.onblur = () => { window.pushUndoState(); window.saveCurrentEditor(); };
                 wrap.appendChild(i); i.focus();
             } else { const ex = wrap.querySelector(`input[data-type="${label}"]`); if (ex) ex.remove(); }
-            window.saveCurrentEditorToCloud();
+            window.saveCurrentEditor();
         };
-
-        window.saveSnapshotToArchive = async function() {
+        window.saveSnapshot = async function() {
             const title = document.getElementById('episodeTitle').value || "무제";
-            const name = prompt("창고 보관용 이름?", title); if (!name) return;
+            const name = prompt("창고에 보관할 이름?", title); if (!name) return;
             const qs = await getDocs(collection(db, "users", currentUser.uid, "archives"));
-            await addDoc(collection(db, "users", currentUser.uid, "archives"), { 
-                title: name, 
-                originalText: document.getElementById('originalView').value, 
-                boardHTML: document.getElementById('panelContainer').innerHTML, 
-                timestamp: new Date(), 
-                projectName: projectsMetadata.find(p => p.id === currentProjectId)?.name, 
-                order: qs.size 
-            });
+            await addDoc(collection(db, "users", currentUser.uid, "archives"), { title: name, originalText: document.getElementById('originalView').value, boardHTML: document.getElementById('panelContainer').innerHTML, timestamp: new Date(), projectName: projectsMetadata.find(p => p.id === currentProjectId)?.name, order: qs.size });
             alert("보관 완료");
         };
+        window.killSnapshotNow = async function(id) { if (confirm("삭제합니까?")) { await deleteDoc(doc(db, "users", currentUser.uid, "archives", id)); window.openArchiveManager(); } };
+        window.copyThis = async function(btn) { await navigator.clipboard.writeText(btn.closest('.card-unit').querySelector('.c-editor').innerText); alert("복사됨"); };
+        window.clipCopy = async function(id) { await navigator.clipboard.writeText(document.getElementById(id).value); alert("복사됨"); };
+        window.toggleGridView = function() { isGridView = !isGridView; document.getElementById('panelContainer').classList.toggle('grid-view', isGridView); document.getElementById('gridBtn').innerText = isGridView ? "리스트 뷰" : "그리드 뷰"; document.getElementById('gridBtn').classList.toggle('text-blue-400', isGridView); };
+        window.openPicker = function(btn) { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = e => { if (e.target.files[0]) compressAndAttach(e.target.files[0], btn.closest('.card-unit')); }; input.click(); };
+        function compressAndAttach(f, c) { const r = new FileReader(); r.readAsDataURL(f); r.onload = (e) => { const img = new Image(); img.src = e.target.result; img.onload = () => { const cvs = document.createElement('canvas'); cvs.width = 500; cvs.height = img.height * (500 / img.width); cvs.getContext('2d').drawImage(img, 0, 0, cvs.width, cvs.height); const src = cvs.toDataURL('image/jpeg', 0.6); window.pushUndoState(); const slot = c.querySelector('.img-slot'); const wrap = document.createElement('div'); wrap.className = "relative aspect-square bg-gray-900 rounded overflow-hidden"; wrap.innerHTML = `<img src="${src}" class="w-full h-full object-cover"><button onclick="window.pushUndoState(); this.parentElement.remove(); window.saveCurrentEditor(); window.pushUndoState();" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5">×</button>`; slot.appendChild(wrap); window.saveCurrentEditor(); window.pushUndoState(); } } }
+        window.handleImageDrop = function(e, slot) { e.preventDefault(); if (e.dataTransfer.files[0]) compressAndAttach(e.dataTransfer.files[0], slot.closest('.card-unit')); };
+        window.handlePaste = function(e, el) { const items = (e.clipboardData || e.originalEvent.clipboardData).items; for (let item of items) { if (item.kind === 'file') { e.preventDefault(); compressAndAttach(item.getAsFile(), el.closest('.card-unit')); } } };
 
-        window.killSnapshotEntry = async function(id) { if (confirm("삭제합니까?")) { await deleteDoc(doc(db, "users", currentUser.uid, "archives", id)); window.openArchiveManager(); } };
-        window.copyThisCut = async function(btn) { await navigator.clipboard.writeText(btn.closest('.card-unit').querySelector('.c-editor').innerText); alert("복사됨"); };
-        window.clipCopyRawData = async function(id) { await navigator.clipboard.writeText(document.getElementById(id).value); alert("복사됨"); };
-        window.toggleGridViewMode = function() { isGridView = !isGridView; document.getElementById('panelContainer').classList.toggle('grid-view', isGridView); document.getElementById('gridBtn').innerText = isGridView ? "리스트 뷰" : "그리드 뷰"; document.getElementById('gridBtn').classList.toggle('text-blue-400', isGridView); };
-        window.openCutImgPicker = function(btn) { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = e => { if (e.target.files[0]) compressAndAttachImg(e.target.files[0], btn.closest('.card-unit')); }; input.click(); };
-        
-        function compressAndAttachImg(f, c) {
-            const r = new FileReader(); r.readAsDataURL(f);
-            r.onload = (e) => {
-                const img = new Image(); img.src = e.target.result;
-                img.onload = () => {
-                    const cvs = document.createElement('canvas'); cvs.width = 500; cvs.height = img.height * (500 / img.width);
-                    cvs.getContext('2d').drawImage(img, 0, 0, cvs.width, cvs.height);
-                    const src = cvs.toDataURL('image/jpeg', 0.6);
-                    window.saveCurrentStateToUndo();
-                    const slot = c.querySelector('.img-slot-box');
-                    const wrap = document.createElement('div');
-                    wrap.className = "relative aspect-square bg-gray-900 rounded overflow-hidden";
-                    wrap.innerHTML = `<img src="${src}" class="w-full h-full object-cover"><button onclick="window.saveCurrentStateToUndo(); this.parentElement.remove(); window.saveCurrentEditorToCloud(); window.saveCurrentStateToUndo();" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5">×</button>`;
-                    slot.appendChild(wrap); window.saveCurrentEditorToCloud(); window.saveCurrentStateToUndo();
-                }
-            }
-        }
-
-        window.handleImageDropOnSlot = function(e, slot) { e.preventDefault(); if (e.dataTransfer.files[0]) compressAndAttachImg(e.dataTransfer.files[0], slot.closest('.card-unit')); };
-        window.handlePasteProcess = function(e, el) { const items = (e.clipboardData || e.originalEvent.clipboardData).items; for (let item of items) { if (item.kind === 'file') { e.preventDefault(); compressAndAttachImg(item.getAsFile(), el.closest('.card-unit')); } } };
-
-        async function syncProjectSharedMemos() { if (!currentProjectId) return; const q = query(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), orderBy("order", "asc")); onSnapshot(q, (qs) => { memos = []; qs.forEach(doc => memos.push({id: doc.id, ...doc.data()})); renderMemoUIList(); }); }
-        window.addNewProjectMemo = async function() { const title = document.getElementById('episodeTitle').value || "새 슬롯"; await addDoc(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), { title: `[${title}] 메모`, content: "", order: memos.length }); };
-        function renderMemoUIList() {
+        async function syncProjectMemos() { if (!currentProjectId) return; const q = query(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), orderBy("order", "asc")); onSnapshot(q, (qs) => { memos = []; qs.forEach(doc => memos.push({id: doc.id, ...doc.data()})); renderMemoUI(); }); }
+        window.addProjectMemo = async function() { const title = document.getElementById('episodeTitle').value || "새 슬롯"; await addDoc(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), { title: `[${title}] 메모`, content: "", order: memos.length }); };
+        function renderMemoUI() {
             const container = document.getElementById('memoContainer'); container.innerHTML = "";
             memos.forEach(m => {
                 const div = document.createElement('div'); div.className = "bg-white/5 border border-white/10 rounded-xl mb-4 overflow-hidden shadow-lg transition hover:border-white/20";
                 div.innerHTML = `<div class="flex items-center justify-between p-3 bg-white/5 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('hidden')">
-                        <input value="${m.title}" class="bg-transparent border-none outline-none text-[11px] font-bold w-full truncate" onchange="window.saveMemoContentData('${m.id}', 'title', this.value)" onclick="event.stopPropagation()">
-                        <button onclick="event.stopPropagation(); window.killMemoContentEntry('${m.id}')" class="text-red-900 ml-2 font-black text-lg">×</button>
-                    </div><textarea class="w-full bg-transparent p-3 text-[11px] text-gray-400 outline-none h-28" onchange="window.saveMemoContentData('${m.id}', 'content', this.value)">${m.content}</textarea>`;
+                        <input value="${m.title}" class="bg-transparent border-none outline-none text-[11px] font-bold w-full truncate" onchange="window.saveMemoData('${m.id}', 'title', this.value)" onclick="event.stopPropagation()">
+                        <button onclick="event.stopPropagation(); window.killMemoEntry('${m.id}')" class="text-red-900 ml-2 font-black text-lg">×</button>
+                    </div><textarea class="w-full bg-transparent p-3 text-[11px] text-gray-400 outline-none h-28" onchange="window.saveMemoData('${m.id}', 'content', this.value)">${m.content}</textarea>`;
                 container.appendChild(div);
             });
         }
-        window.saveMemoContentData = async function(id, f, v) { await setDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id), { [f]: v }, { merge: true }); };
-        window.killMemoContentEntry = async function(id) { if (confirm("메모 삭제?")) await deleteDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id)); };
+        window.saveMemoData = async (id, f, v) => { await setDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id), { [f]: v }, { merge: true }); };
+        window.killMemoEntry = async (id) => { if (confirm("메모 삭제?")) await deleteDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id)); };
 
-        function setupGlobalHotkeys() { window.addEventListener('keydown', (e) => { if (e.ctrlKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); window.undoAction(); } if ((e.ctrlKey && e.shiftKey && e.key === 'Z') || (e.ctrlKey && e.key === 'y')) { e.preventDefault(); window.redoAction(); } if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); window.processRawSource('append'); } if (e.altKey && e.key === 's') { e.preventDefault(); window.saveSnapshotToArchive(); } if (e.ctrlKey && e.key === 'f') { e.preventDefault(); document.getElementById('boardSearchInput').focus(); } }); }
+        function initializeGlobalHotkeys() { window.addEventListener('keydown', (e) => { if (e.ctrlKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); window.undoAction(); } if ((e.ctrlKey && e.shiftKey && e.key === 'Z') || (e.ctrlKey && e.key === 'y')) { e.preventDefault(); window.redoAction(); } if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); window.processRawText('append'); } if (e.altKey && e.key === 's') { e.preventDefault(); window.saveSnapshot(); } if (e.ctrlKey && e.key === 'f') { e.preventDefault(); document.getElementById('boardSearchInput').focus(); } }); }
         function setSyncStatusIndicator(s) { const dot = document.querySelector(`.sync-dot-${currentTabId}`); if (dot) { dot.style.backgroundColor = (s === 'saving' ? '#eab308' : '#22c55e'); if(s==='saving') dot.classList.add('animate-pulse'); else dot.classList.remove('animate-pulse'); } }
         
-        // --- [카운팅 엔진] ---
-        function updateLiveCutStats() {
+        function updateLiveStats() {
             const units = document.getElementById('panelContainer').querySelectorAll('.card-unit');
             units.forEach((u, i) => { const label = u.querySelector('.c-id-badge'); if(label) label.innerText = `Cut ${String(i+1).padStart(2, '0')}`; });
             const counter = document.getElementById('globalCutCount'); if(counter) counter.innerText = `${units.length} Cuts Synchronized`;
         }
 
-        function focusCard(c) { document.querySelectorAll('.card-unit').forEach(u => u.classList.remove('card-focused')); c.classList.add('card-focused'); activeCard = c; }
-        window.clearFocusAllUnits = function() { document.querySelectorAll('.card-unit').forEach(u => u.classList.remove('card-focused')); activeCard = null; };
-        function highlightStoryLines(t) { return t ? t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>') : ""; }
-        function clearAllEditorState() { document.getElementById('episodeTitle').value = ""; document.getElementById('originalView').value = ""; document.getElementById('panelContainer').innerHTML = ""; updateLiveCutStats(); }
-
+        function selectCard(c) { document.querySelectorAll('.card-unit').forEach(u => u.classList.remove('card-focused')); c.classList.add('card-focused'); activeCard = c; }
+        window.clearFocusAll = function() { document.querySelectorAll('.card-unit').forEach(u => u.classList.remove('card-focused')); activeCard = null; };
+        function highlightText(t) { return t ? t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>') : ""; }
+        function clearAllEditor() { document.getElementById('episodeTitle').value = ""; document.getElementById('originalView').value = ""; document.getElementById('panelContainer').innerHTML = ""; updateLiveStats(); }
     </script>
     <style>
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
@@ -653,17 +597,17 @@
         .grid-view .layout-row { flex-direction: column !important; }
     </style>
 </head>
-<body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans" onclick="window.clearFocusAllUnits()">
+<body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans" onclick="window.clearFocusAll()">
     <div id="loginOverlay" class="fixed inset-0 z-[500] bg-black flex flex-col items-center justify-center gap-6">
         <span class="text-6xl animate-pulse">🐲</span>
-        <h1 class="text-2xl font-black italic uppercase tracking-tighter text-blue-500">Dragon Adapter v8.9</h1>
+        <h1 class="text-2xl font-black italic uppercase tracking-tighter text-blue-500">Dragon Adapter v9.0</h1>
         <button onclick="window.googleSignIn()" class="px-10 py-4 bg-white text-black font-black rounded-full shadow-2xl hover:bg-blue-500 transition-all">Google 로그인</button>
     </div>
 
     <div id="archiveModal" class="fixed inset-0 z-[400] bg-black/95 flex items-center justify-center p-6 hidden">
         <div class="bg-[#0a0a0a] border border-white/10 rounded-3xl w-full max-w-3xl h-[85vh] flex flex-col overflow-hidden shadow-2xl">
             <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
-                <h3 class="font-black text-blue-500 uppercase tracking-tighter italic">Archive Manager</h3>
+                <h3 class="font-black text-blue-500 uppercase tracking-tighter italic">Snapshot Archive Manager</h3>
                 <button onclick="document.getElementById('archiveModal').classList.add('hidden')" class="text-2xl text-gray-500 hover:text-white transition">×</button>
             </div>
             <div class="p-4 bg-blue-900/10 text-center text-[10px] text-blue-400 font-bold uppercase tracking-widest italic">드래그하여 스냅샷 순서를 자유롭게 변경할 수 있습니다.</div>
@@ -671,24 +615,24 @@
         </div>
     </div>
 
-    <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-black/20 shrink-0 overflow-x-auto no-scrollbar"><div id="projectTabContainer" class="flex h-full items-center"></div><button onclick="window.createProject()" class="px-5 text-blue-500 font-black text-lg hover:text-white transition-colors">+</button><div class="ml-auto flex items-center gap-4 shrink-0"><span id="userName" class="text-[9px] font-bold text-gray-600 uppercase tracking-widest"></span><button onclick="userLogOut()" class="text-[9px] text-red-900 font-bold hover:text-red-500">LOGOUT</button></div></nav>
-    <nav class="h-9 border-b border-white/5 bg-black/40 flex items-center shrink-0 overflow-x-auto no-scrollbar"><div id="workspaceTabContainer" class="flex h-full items-center"></div><button onclick="window.createSlot()" class="px-6 text-gray-600 font-bold hover:text-white transition-colors">+</button><div class="ml-auto flex h-full items-center shrink-0"><button id="gridBtn" onclick="window.toggleGridViewMode()" class="px-4 text-[9px] font-bold border-l border-white/5 hover:text-blue-400 uppercase">그리드 뷰</button><button onclick="window.saveSnapshotToArchive()" class="px-5 h-full bg-blue-600/10 text-blue-400 text-[9px] font-black border-l border-white/5 hover:bg-blue-600 transition uppercase">스냅샷 저장</button><button onclick="window.openArchiveManager()" class="px-5 h-full bg-white/5 text-gray-400 text-[9px] font-black border-l border-white/5 hover:bg-white/10 transition uppercase">📜 창고 관리</button></div></nav>
+    <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-black/20 shrink-0 overflow-x-auto no-scrollbar"><div id="projectTabContainer" class="flex h-full items-center"></div><button onclick="window.createProject()" class="px-5 text-blue-500 font-black text-lg hover:text-white transition-colors">+</button><div class="ml-auto flex items-center gap-4 shrink-0"><span id="userName" class="text-[9px] font-bold text-gray-600 uppercase tracking-widest"></span><button onclick="window.userLogOut()" class="text-[9px] text-red-900 font-bold hover:text-red-500">LOGOUT</button></div></nav>
+    <nav class="h-9 border-b border-white/5 bg-black/40 flex items-center shrink-0 overflow-x-auto no-scrollbar"><div id="workspaceTabContainer" class="flex h-full items-center"></div><button onclick="window.createSlot()" class="px-6 text-gray-600 font-bold hover:text-white transition-colors">+</button><div class="ml-auto flex h-full items-center shrink-0"><button id="gridBtn" onclick="window.toggleGridView()" class="px-4 text-[9px] font-bold border-l border-white/5 hover:text-blue-400 uppercase">그리드 뷰</button><button onclick="window.saveSnapshot()" class="px-5 h-full bg-blue-600/10 text-blue-400 text-[9px] font-black border-l border-white/5 hover:bg-blue-600 transition uppercase">스냅샷 저장</button><button onclick="window.openArchiveManager()" class="px-5 h-full bg-white/5 text-gray-400 text-[9px] font-black border-l border-white/5 hover:bg-white/10 transition uppercase">📜 창고 관리</button></div></nav>
 
     <main class="flex flex-1 overflow-hidden relative">
         <section class="w-1/4 flex flex-col border-r border-white/5 bg-black/10">
-            <div class="h-1/2 flex flex-col border-b border-white/5"><div class="p-2 text-[9px] font-black text-gray-500 flex justify-between bg-white/5 italic">ORIGINAL HISTORY <button onclick="window.clipCopyRawData('originalView')">📋</button></div><textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500" readonly></textarea></div>
+            <div class="h-1/2 flex flex-col border-b border-white/5"><div class="p-2 text-[9px] font-black text-gray-500 flex justify-between bg-white/5 italic">ORIGINAL HISTORY <button onclick="window.clipCopy('originalView')">📋</button></div><textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500" readonly></textarea></div>
             <div class="h-1/2 flex flex-col p-4 gap-4">
                 <div class="text-[9px] font-black text-blue-500 uppercase tracking-widest">Active Input</div>
                 <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-2xl p-4 outline-none text-sm placeholder-gray-800 focus:ring-1 ring-blue-500 transition-all" placeholder="새 원고 입력..."></textarea>
-                <div class="grid grid-cols-2 gap-2"><button onclick="window.processRawSource('append')" class="py-2.5 bg-blue-600 text-[10px] font-black rounded-xl uppercase shadow-lg shadow-blue-900/10">맨 뒤에 추가</button><button onclick="window.processRawSource('insert')" class="py-2.5 bg-yellow-600 text-[10px] font-black rounded-xl uppercase text-black shadow-lg shadow-yellow-900/10">컷 뒤 삽입</button></div>
-                <button onclick="window.processRawSource('overwrite')" class="py-2 bg-red-900/10 text-red-700 text-[10px] font-black rounded-xl uppercase hover:bg-red-900 transition">⚠️ 보드 초기화</button>
+                <div class="grid grid-cols-2 gap-2"><button onclick="window.processRawText('append')" class="py-2.5 bg-blue-600 text-[10px] font-black rounded-xl uppercase shadow-lg shadow-blue-900/10">맨 뒤에 추가</button><button onclick="window.processRawText('insert')" class="py-2.5 bg-yellow-600 text-[10px] font-black rounded-xl uppercase text-black shadow-lg shadow-yellow-900/10">컷 뒤 삽입</button></div>
+                <button onclick="window.processRawText('overwrite')" class="py-2 bg-red-900/10 text-red-700 text-[10px] font-black rounded-xl uppercase hover:bg-red-900 transition">⚠️ 보드 초기화</button>
             </div>
         </section>
-        <section class="flex-1 flex flex-col overflow-hidden bg-black/5 relative" onclick="window.clearFocusAllUnits()">
+        <section class="flex-1 flex flex-col overflow-hidden bg-black/5 relative" onclick="window.clearFocusAll()">
             <div class="p-8 flex items-center gap-6 shrink-0 bg-transparent">
                 <div class="flex flex-col gap-1 w-full">
                     <div class="flex items-center gap-4">
-                        <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-4xl font-black outline-none tracking-tighter" oninput="window.saveCurrentEditorToCloud()">
+                        <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-4xl font-black outline-none tracking-tighter" oninput="window.saveCurrentEditor()">
                         <div id="globalCutCount" class="px-4 py-1.5 bg-blue-600/10 border border-blue-500/20 text-blue-500 rounded-full text-[10px] font-mono whitespace-nowrap">0 Cuts Synchronized</div>
                     </div>
                 </div>
@@ -699,7 +643,7 @@
             <div id="panelContainer" class="flex-1 overflow-y-auto p-10 pt-0 space-y-8 no-scrollbar"></div>
         </section>
         <section class="w-1/5 flex flex-col border-l border-white/5 bg-black/20 p-5 shrink-0">
-            <div class="flex justify-between items-center mb-6"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Project Memos</h4><button onclick="window.addNewProjectMemo()" class="w-7 h-7 flex items-center justify-center bg-blue-600 text-white rounded-full font-bold shadow-lg">+</button></div>
+            <div class="flex justify-between items-center mb-6"><h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Project Memos</h4><button onclick="window.addProjectMemo()" class="w-7 h-7 flex items-center justify-center bg-blue-600 text-white rounded-full font-bold shadow-lg">+</button></div>
             <div id="memoContainer" class="flex-1 overflow-y-auto no-scrollbar space-y-4"></div>
         </section>
     </main>
