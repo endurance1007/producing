@@ -4,162 +4,179 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>지혜의 용 | Sovereign Workstation v18.0</title>
+    <title>지혜의 용 | 워크스테이션 v19.0</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 기본 테마 설정 */
-        body { background-color: #050505; color: #e5e7eb; font-family: 'Pretendard', sans-serif; overflow: hidden; }
+        /* [공통 테마] */
+        body { background-color: #050505; color: #e2e8f0; font-family: 'Pretendard', sans-serif; overflow: hidden; }
         
-        /* 스크롤바 디자인 */
+        /* [스크롤바 제어] */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
         ::-webkit-scrollbar-track { background: transparent; }
 
-        /* 포커스 및 하이라이트 */
+        /* [카드 포커스 및 하이라이트] */
         .card-focused { border-color: #3b82f6 !important; background: #0a0a0a !important; box-shadow: 0 0 25px rgba(59,130,246,0.15); }
-        .hl-dialog { color: #60a5fa; font-weight: 600; }
+        .hl-dialog { color: #60a5fa; font-weight: 700; }
         .hl-sfx { color: #fbbf24; font-style: italic; }
         
-        /* 탭 디자인: 넓은 너비와 가독성 우선 */
-        .tab-active { background-color: #111 !important; color: #3b82f6 !important; border-top: 2px solid #3b82f6; }
-        .tab-item { transition: all 0.2s ease; white-space: nowrap; min-width: 120px; }
+        /* [탭 디자인] */
+        .tab-active { background-color: #0f172a !important; color: #3b82f6 !important; border-top: 3px solid #3b82f6; }
+        .tab-item { transition: all 0.2s ease; white-space: nowrap; min-width: 130px; }
         
-        /* 드래그 상태 시각화 */
-        .dragging { opacity: 0.4; transform: scale(0.98); }
-        .drag-over { border: 2px dashed #3b82f6 !important; }
+        /* [드래그 상태 시각화] */
+        .dragging { opacity: 0.3; transform: scale(0.98); }
+        .drag-over { border-top: 3px solid #3b82f6 !important; }
 
-        /* 에디터 설정 */
-        [contenteditable]:focus { outline: none; background: rgba(255,255,255,0.02); }
+        /* [에디터 및 기타] */
+        [contenteditable]:focus { outline: none; background: rgba(30, 41, 59, 0.2); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        
-        /* 레이아웃 고정 */
-        .memo-sidebar { width: 300px; transition: width 0.3s ease; }
-        .folded-content { display: none; }
+        .memo-sidebar { width: 320px; }
+        .hidden-content { display: none; }
     </style>
 </head>
-<body class="h-screen flex flex-col" onclick="clearAllFocus()">
+<body class="h-screen flex flex-col" onclick="clearActiveFocus()">
 
-    <nav class="h-12 border-b border-white/10 flex items-center px-4 bg-black/60 shrink-0 overflow-x-auto no-scrollbar">
-        <div class="flex items-center gap-2 mr-4">
-            <span class="text-blue-500 font-black italic text-sm tracking-tighter">DRAGON v18.0</span>
+    <nav class="h-12 border-b border-white/10 flex items-center px-4 bg-black/60 shrink-0">
+        <div class="flex items-center gap-2 mr-6">
+            <span class="text-blue-500 font-black italic tracking-tighter text-base">DRAGON v19.0</span>
         </div>
-        <div id="projectTabList" class="flex h-full items-center">
-            </div>
-        <button onclick="createNewProject()" class="ml-4 w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-blue-600 hover:text-white rounded-full transition-colors text-gray-500">+</button>
         
+        <div id="projectTabList" class="flex h-full items-center overflow-x-auto no-scrollbar">
+            </div>
+        
+        <button onclick="createNewProject()" class="ml-4 w-7 h-7 flex items-center justify-center bg-white/5 hover:bg-blue-600 rounded-full text-gray-400 transition-colors">+</button>
+
         <div class="ml-auto flex items-center gap-3">
-            <button onclick="exportFullData()" class="text-[10px] font-bold text-gray-500 hover:text-white uppercase tracking-widest">Backup JSON</button>
-            <button onclick="importFullData()" class="text-[10px] font-bold text-gray-500 hover:text-white uppercase tracking-widest">Restore</button>
+            <div class="flex items-center bg-white/5 rounded-lg px-2 mr-4">
+                <span class="text-[10px] text-gray-500 mr-2 uppercase font-black">Search</span>
+                <input type="text" id="boardSearch" placeholder="대사 검색..." oninput="filterCards()" class="bg-transparent border-none outline-none text-xs p-1 w-32">
+            </div>
+            <button onclick="exportDataWithDialog()" class="text-[10px] font-bold text-gray-500 hover:text-blue-400 uppercase tracking-widest">Save As</button>
+            <button onclick="importFullData()" class="text-[10px] font-bold text-gray-500 hover:text-gray-200 uppercase tracking-widest">Restore</button>
         </div>
     </nav>
 
-    <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-[#0a0a0a] shrink-0 overflow-x-auto no-scrollbar">
-        <div id="slotTabList" class="flex h-full items-center">
+    <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-[#0a0a0a] shrink-0">
+        <div id="slotTabList" class="flex h-full items-center overflow-x-auto no-scrollbar">
             </div>
         <button onclick="createNewSlot()" class="ml-4 px-3 h-full text-gray-600 hover:text-white font-bold text-lg">+</button>
+        
+        <div class="ml-auto flex gap-4">
+            <button onclick="performUndo()" class="text-[10px] font-bold text-gray-600 hover:text-yellow-500 uppercase">Undo</button>
+            <button onclick="performRedo()" class="text-[10px] font-bold text-gray-600 hover:text-yellow-500 uppercase">Redo</button>
+            <button onclick="resetCurrentBoard()" class="text-[10px] font-bold text-red-900 hover:text-red-500 uppercase ml-4">Reset Board</button>
+        </div>
     </nav>
 
     <main class="flex flex-1 overflow-hidden">
         
         <section class="w-80 flex flex-col border-r border-white/5 bg-black/20">
             <div class="h-1/2 flex flex-col border-b border-white/5">
-                <div class="p-3 text-[9px] font-black text-gray-600 uppercase tracking-widest bg-white/5 flex justify-between">
-                    Original History
-                    <button onclick="copyLogToClipboard()" class="hover:text-blue-400">Copy All</button>
+                <div class="p-3 text-[9px] font-black text-gray-600 uppercase bg-white/5 flex justify-between">
+                    History Record
+                    <button onclick="copyFullHistory()" class="text-blue-500 hover:text-blue-300">Copy</button>
                 </div>
                 <textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500" readonly></textarea>
             </div>
-            <div class="h-1/2 flex flex-col p-5 gap-4 bg-black/10">
-                <div class="text-[9px] font-black text-blue-500 uppercase tracking-widest">Script Input</div>
-                <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-2xl p-4 outline-none text-sm focus:ring-1 ring-blue-500 transition-all border border-white/5" placeholder="새 원고를 여기에 입력하세요..."></textarea>
+            <div class="h-1/2 flex flex-col p-5 gap-4">
+                <div class="text-[9px] font-black text-blue-500 uppercase tracking-widest">Input Engine</div>
+                <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-2xl p-4 outline-none text-sm focus:ring-1 ring-blue-500 transition-all border border-white/5" placeholder="원고 내용을 입력하세요..."></textarea>
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="processScript('append')" class="py-3 bg-blue-600 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-blue-900/20">맨 뒤 추가</button>
-                    <button onclick="processScript('insert')" class="py-3 bg-yellow-600 text-black rounded-xl text-[10px] font-black uppercase shadow-lg shadow-yellow-900/20">컷 뒤 삽입</button>
+                    <button onclick="processScript('append')" class="py-3 bg-blue-600 rounded-xl text-[10px] font-black uppercase">맨 뒤 추가</button>
+                    <button onclick="processScript('insert')" class="py-3 bg-yellow-600 text-black rounded-xl text-[10px] font-black uppercase">컷 뒤 삽입</button>
                 </div>
             </div>
         </section>
 
         <section class="flex-1 flex flex-col overflow-hidden">
-            <div class="p-10 pb-6 flex items-end gap-6 shrink-0 bg-transparent">
-                <div class="flex flex-col gap-1 flex-1">
-                    <div class="flex items-center gap-3 text-[10px] font-bold text-blue-800 uppercase tracking-widest mb-1">
-                        <span id="currentProjectPath">PROJECT</span> / <span id="currentSlotPath">WORKPLACE</span>
+            <div class="p-10 pb-4 flex items-end gap-6 shrink-0">
+                <div class="flex-1">
+                    <div class="text-[10px] font-bold text-blue-900 uppercase mb-1">
+                        <span id="pathProject">PROJECT</span> / <span id="pathSlot">SLOT</span>
                     </div>
-                    <input type="text" id="boardTitle" class="w-full bg-transparent text-5xl font-black outline-none tracking-tighter placeholder-gray-900" placeholder="회차 제목 입력..." oninput="updateSlotTitleSync()">
+                    <input type="text" id="boardTitle" class="w-full bg-transparent text-4xl font-black outline-none tracking-tighter placeholder-gray-900" placeholder="회차 제목..." oninput="syncSlotTitle()">
                 </div>
-                <div id="statsDisplay" class="text-[10px] font-mono text-blue-600 mb-2 border border-blue-900/30 px-3 py-1 rounded-full">0 Cuts Ready</div>
+                <div id="statsDisplay" class="text-[10px] font-mono text-blue-500 mb-2 px-3 py-1 border border-blue-900/30 rounded-full">0 Cuts Sovereign</div>
             </div>
-            
-            <div id="panelContainer" class="flex-1 overflow-y-auto p-10 pt-4 space-y-10 no-scrollbar">
+            <div id="panelContainer" class="flex-1 overflow-y-auto p-10 pt-4 space-y-8 no-scrollbar">
                 </div>
         </section>
 
-        <aside class="memo-sidebar border-l border-white/5 bg-black/30 p-5 shrink-0 flex flex-col gap-6">
+        <aside class="memo-sidebar border-l border-white/5 bg-black/40 p-5 shrink-0 flex flex-col gap-6">
             <div class="flex justify-between items-center border-b border-white/10 pb-4">
-                <h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Project Memos</h4>
-                <button onclick="addNewProjectMemo()" class="w-7 h-7 flex items-center justify-center bg-blue-600 rounded-full text-white font-bold shadow-lg hover:bg-blue-500">+</button>
+                <h4 class="text-[10px] font-black text-gray-500 uppercase italic">Project Settings</h4>
+                <button onclick="addProjectMemo()" class="w-7 h-7 flex items-center justify-center bg-blue-600 rounded-full text-white font-bold shadow-lg">+</button>
             </div>
-            <div id="memoListContainer" class="flex-1 overflow-y-auto no-scrollbar space-y-4">
+            <div id="memoListContainer" class="flex-1 overflow-y-auto no-scrollbar space-y-3">
                 </div>
         </aside>
     </main>
 
     <script>
         // -----------------------------------------------------------------------------------------
-        // [SOVEREIGN ENGINE] v18.0 JavaScript 핵심 로직 (정직하게 풀어서 코딩)
+        // [CORE LOGIC] Dragon Sovereign v19.0
         // -----------------------------------------------------------------------------------------
-        
-        // --- 1. 시스템 상태 변수 ---
-        let storage = JSON.parse(localStorage.getItem('dragon_sovereign_v18')) || {
+
+        // 1. 상태 변수 명시적 선언
+        let storage = JSON.parse(localStorage.getItem('dragon_sovereign_v19')) || {
             projects: [],
             currentProjectId: null,
             currentSlotId: null
         };
 
+        let undoStack = [];
+        let redoStack = [];
         let dragSourceId = null;
-        let dragSourceType = null; // 'project', 'slot', 'card'
+        let dragSourceType = null;
         let activeCardNode = null;
 
-        // --- 2. 초기 기동 (Initialization) ---
+        // 2. 초기 기동 시스템
         window.onload = function() {
             if (storage.projects.length === 0) {
-                // 최초 사용자용 초기화
                 const pId = Date.now();
                 const sId = pId + 1;
                 storage.projects.push({
-                    id: pId,
-                    name: "첫 작품",
-                    order: 0,
-                    memos: [{ title: '세계관 설정', content: '', folded: false }],
+                    id: pId, name: "첫 작품", order: 0, memos: [],
                     slots: [{ id: sId, title: '', original: '', cards: [], order: 0 }]
                 });
                 storage.currentProjectId = pId;
                 storage.currentSlotId = sId;
                 saveToDisk();
             }
-            refreshAllUI();
+            refreshUI();
         };
 
-        // --- 3. UI 갱신 엔진 (The Main Refresher) ---
-        function refreshAllUI() {
+        // 3. UI 리프레시 엔진 (데이터 침범 방지 로직 포함)
+        function refreshUI() {
             renderProjectTabs();
             renderSlotTabs();
             loadActiveSlotContent();
-            renderProjectMemos();
+            renderMemos();
+            updateStats();
             
-            // 경로 텍스트 업데이트
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
-            const s = p?.slots.find(x => x.id === storage.currentSlotId);
-            document.getElementById('currentProjectPath').innerText = p?.name || "Untitled";
-            document.getElementById('currentSlotPath').innerText = s?.title || "Workplace";
+            const p = getActiveProject();
+            const s = getActiveSlot();
+            document.getElementById('pathProject').innerText = p ? p.name : "UNTITLED";
+            document.getElementById('pathSlot').innerText = s ? s.title : "WORKPLACE";
         }
 
-        // --- 4. 작품(Project) 탭 로직 ---
+        // 4. 데이터 헬퍼 함수
+        function getActiveProject() {
+            return storage.projects.find(x => x.id === storage.currentProjectId);
+        }
+
+        function getActiveSlot() {
+            const p = getActiveProject();
+            return p ? p.slots.find(x => x.id === storage.currentSlotId) : null;
+        }
+
+        // 5. 탭 시스템 (정밀하게 분리된 드래그 앤 드롭)
         function renderProjectTabs() {
-            const list = document.getElementById('projectTabList');
-            list.innerHTML = "";
-            storage.projects.sort((a, b) => (a.order || 0) - (b.order || 0));
+            const container = document.getElementById('projectTabList');
+            container.innerHTML = "";
+            storage.projects.sort((a, b) => a.order - b.order);
 
             storage.projects.forEach(p => {
                 const isActive = (storage.currentProjectId === p.id);
@@ -169,15 +186,13 @@
                 tab.dataset.dragType = "project";
                 tab.dataset.dragId = p.id;
 
-                // 드래그 이벤트
-                tab.ondragstart = handleDragStart;
+                tab.ondragstart = onDragStart;
                 tab.ondragover = (e) => e.preventDefault();
-                tab.ondrop = handleDrop;
+                tab.ondrop = onDrop;
 
-                // 타이틀 입력 (여백 확보)
                 const input = document.createElement('input');
                 input.value = p.name;
-                input.className = "bg-transparent border-none outline-none font-black text-[11px] cursor-text mr-3";
+                input.className = "bg-transparent border-none outline-none font-black text-[11px] cursor-text mr-4";
                 input.oninput = function() {
                     p.name = this.value;
                     window.executeAutoTabResize(this);
@@ -185,66 +200,40 @@
                 };
                 input.onclick = (e) => e.stopPropagation();
 
-                // 삭제 버튼
                 const del = document.createElement('button');
                 del.innerHTML = "×";
-                del.className = "opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 font-black transition-opacity";
+                del.className = "opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 font-black";
                 del.onclick = (e) => { e.stopPropagation(); deleteProject(p.id); };
 
                 tab.onclick = () => switchProject(p.id);
                 tab.appendChild(input);
                 tab.appendChild(del);
-                list.appendChild(tab);
-                
+                container.appendChild(tab);
                 window.executeAutoTabResize(input);
             });
         }
 
-        function createNewProject() {
-            const pid = Date.now();
-            const sid = pid + 1;
-            storage.projects.push({
-                id: pid,
-                name: "새 작품",
-                order: storage.projects.length,
-                memos: [],
-                slots: [{ id: sid, title: '', original: '', cards: [], order: 0 }]
-            });
-            storage.currentProjectId = pid;
-            storage.currentSlotId = sid;
-            saveToDisk();
-            refreshAllUI();
-        }
-
         function switchProject(id) {
+            if (storage.currentProjectId === id) return;
+            // 1. 현재 화면 저장
+            saveCurrentContentToState();
+            // 2. 프로젝트 ID 변경
             storage.currentProjectId = id;
-            const p = storage.projects.find(x => x.id === id);
+            // 3. 해당 프로젝트의 첫 번째 슬롯으로 ID 변경
+            const p = getActiveProject();
             storage.currentSlotId = p.slots[0].id;
+            // 4. 화면 리프레시
             saveToDisk();
-            refreshAllUI();
+            refreshUI();
         }
 
-        function deleteProject(id) {
-            if (storage.projects.length <= 1) return;
-            if (confirm("이 작품의 모든 워크플레이스와 메모가 영구 삭제됩니다. 계속할까요?")) {
-                storage.projects = storage.projects.filter(x => x.id !== id);
-                if (storage.currentProjectId === id) {
-                    storage.currentProjectId = storage.projects[0].id;
-                    storage.currentSlotId = storage.projects[0].slots[0].id;
-                }
-                saveToDisk();
-                refreshAllUI();
-            }
-        }
-
-        // --- 5. 워크플레이스(Slot) 탭 로직 ---
         function renderSlotTabs() {
-            const list = document.getElementById('slotTabList');
-            list.innerHTML = "";
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            const container = document.getElementById('slotTabList');
+            container.innerHTML = "";
+            const p = getActiveProject();
             if (!p) return;
 
-            p.slots.sort((a, b) => (a.order || 0) - (b.order || 0));
+            p.slots.sort((a, b) => a.order - b.order);
 
             p.slots.forEach(s => {
                 const isActive = (storage.currentSlotId === s.id);
@@ -254,50 +243,31 @@
                 tab.dataset.dragType = "slot";
                 tab.dataset.dragId = s.id;
 
-                tab.ondragstart = handleDragStart;
+                tab.ondragstart = onDragStart;
                 tab.ondragover = (e) => e.preventDefault();
-                tab.ondrop = handleDrop;
+                tab.ondrop = onDrop;
 
                 tab.innerHTML = `
-                    <span class="mr-3">${s.title || 'WORKPLACE'}</span>
-                    <button onclick="event.stopPropagation(); deleteSlot(${s.id})" class="opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 font-black transition-opacity">×</button>
+                    <span class="mr-4">${s.title || 'WORKPLACE'}</span>
+                    <button onclick="event.stopPropagation(); deleteSlot(${s.id})" class="opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 font-black">×</button>
                 `;
-
                 tab.onclick = () => switchSlot(s.id);
-                list.appendChild(tab);
+                container.appendChild(tab);
             });
         }
 
-        function createNewSlot() {
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
-            const sid = Date.now();
-            p.slots.push({ id: sid, title: '', original: '', cards: [], order: p.slots.length });
-            storage.currentSlotId = sid;
-            saveToDisk();
-            refreshAllUI();
-        }
-
         function switchSlot(id) {
+            if (storage.currentSlotId === id) return;
+            saveCurrentContentToState();
             storage.currentSlotId = id;
             saveToDisk();
-            refreshAllUI();
+            refreshUI();
         }
 
-        function deleteSlot(id) {
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
-            if (p.slots.length <= 1) return;
-            if (confirm("이 슬롯을 삭제하시겠습니까?")) {
-                p.slots = p.slots.filter(x => x.id !== id);
-                if (storage.currentSlotId === id) storage.currentSlotId = p.slots[0].id;
-                saveToDisk();
-                refreshAllUI();
-            }
-        }
-
-        // --- 6. 에디터 엔진 (Card/Cut Management) ---
+        // 6. 에디터 메인 로직 (구조적 언두 포함)
         function loadActiveSlotContent() {
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
-            const s = p.slots.find(x => x.id === storage.currentSlotId);
+            const s = getActiveSlot();
+            if (!s) return;
             
             document.getElementById('boardTitle').value = s.title || "";
             document.getElementById('originalView').value = s.original || "";
@@ -305,42 +275,28 @@
             const container = document.getElementById('panelContainer');
             container.innerHTML = "";
             
-            s.cards.forEach(cardData => {
-                const card = createCardNode(cardData.id, cardData.text, cardData.tags, cardData.images);
-                container.appendChild(card);
+            s.cards.forEach(c => {
+                container.appendChild(createCardNode(c.id, c.text, c.tags, c.images));
             });
-            
-            recountStats();
         }
 
-        function processScript(mode) {
-            const input = document.getElementById('sourceInput');
-            const text = input.value.trim();
-            if (!text) return;
-
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
-            const s = p.slots.find(x => x.id === storage.currentSlotId);
+        function saveCurrentContentToState() {
+            const s = getActiveSlot();
+            if (!s) return;
             
-            const logEntry = `\n[${new Date().toLocaleTimeString()}] 추가 원고:\n${text}\n`;
-            s.original += logEntry;
-            document.getElementById('originalView').value = s.original;
-
-            const sentences = text.split(/(?<=[.!?])\s+/).filter(l => l.length > 0);
-            const container = document.getElementById('panelContainer');
-
-            sentences.forEach(line => {
-                const newId = Date.now() + Math.random();
-                const node = createCardNode(newId, line);
-                if (mode === 'insert' && activeCardNode) {
-                    activeCardNode.after(node);
-                } else {
-                    container.appendChild(node);
-                }
+            const cardData = [];
+            document.querySelectorAll('.card-unit').forEach(node => {
+                cardData.push({
+                    id: parseFloat(node.dataset.dragId),
+                    text: node.querySelector('.c-editor').innerText,
+                    tags: Array.from(node.querySelectorAll('.tag-input')).map(i => i.value),
+                    images: Array.from(node.querySelectorAll('.card-img-vault img')).map(img => img.src)
+                });
             });
-
-            input.value = "";
-            saveToDisk();
-            updateLiveRecountStats();
+            
+            s.title = document.getElementById('boardTitle').value;
+            s.original = document.getElementById('originalView').value;
+            s.cards = cardData;
         }
 
         function createCardNode(id, text, tags = [], images = []) {
@@ -350,10 +306,9 @@
             card.dataset.dragType = "card";
             card.draggable = true;
 
-            // 드래그 바인딩 (PC 최우선)
-            card.ondragstart = handleDragStart;
+            card.ondragstart = onDragStart;
             card.ondragover = (e) => e.preventDefault();
-            card.ondrop = handleDrop;
+            card.ondrop = onDrop;
             
             card.onclick = (e) => { e.stopPropagation(); focusCard(card); };
 
@@ -366,15 +321,15 @@
             images.forEach(src => {
                 imgHtml += `<div class="relative w-full aspect-square bg-black rounded overflow-hidden">
                     <img src="${src}" class="w-full h-full object-cover">
-                    <button onclick="this.parentElement.remove(); saveToDisk()" class="absolute top-0 right-0 bg-red-600 text-[8px] p-1 uppercase font-black">×</button>
+                    <button onclick="pushState(); this.parentElement.remove(); saveToDisk()" class="absolute top-0 right-0 bg-red-600 text-[8px] p-1 font-black">×</button>
                 </div>`;
             });
 
             card.innerHTML = `
                 <div class="flex justify-between items-center mb-6 pointer-events-none">
                     <div class="flex items-center gap-3">
-                        <span class="text-blue-900 font-black text-xs uppercase tracking-tighter opacity-40">☰</span>
-                        <span class="text-[10px] font-black text-gray-700 uppercase tracking-widest c-cut-badge">Cut 00</span>
+                        <span class="text-blue-900 font-black text-xs opacity-40">☰</span>
+                        <span class="text-[10px] font-black text-gray-700 uppercase c-cut-badge">Cut 00</span>
                     </div>
                     <div class="flex gap-4 pointer-events-auto">
                         <button onclick="addTag(this)" class="text-[9px] font-black text-gray-500 hover:text-white uppercase">+ TAG</button>
@@ -386,8 +341,8 @@
                     <div class="flex-1 space-y-4">
                         <div class="card-tag-area flex flex-wrap gap-2">${tagHtml}</div>
                         <div class="c-editor text-[17px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onblur="saveToDisk()">${applyHighlight(text)}</div>
-                        <div class="flex gap-6 pt-6 border-t border-white/5 opacity-20 group-hover:opacity-100 transition-opacity">
-                            <button onclick="copyCut(this)" class="text-[10px] font-black text-blue-500 hover:text-blue-300 uppercase">📋 Copy</button>
+                        <div class="flex gap-6 pt-6 border-t border-white/5 opacity-30 group-hover:opacity-100 transition-opacity">
+                            <button onclick="copyCut(this)" class="text-[10px] font-black text-blue-500 uppercase">Copy</button>
                             <button onclick="mergeCut(this)" class="text-[10px] font-black text-gray-600 hover:text-white uppercase">Merge Up</button>
                             <button onclick="splitCut(this)" class="text-[10px] font-black text-gray-600 hover:text-white uppercase">Split</button>
                             <button onclick="deleteCut(this)" class="text-[10px] font-black text-red-900 hover:text-red-500 uppercase ml-auto">Delete</button>
@@ -398,25 +353,19 @@
             return card;
         }
 
-        // --- 7. 카드 내부 기능 (Merge, Split, Copy, Image) ---
-        function copyCut(btn) {
-            const txt = btn.closest('.card-unit').querySelector('.c-editor').innerText;
-            navigator.clipboard.writeText(txt);
-            alert("대사가 복제되었습니다.");
-        }
-
+        // 7. 컷 물리적 조작 (언두 스택 연동)
         function mergeCut(btn) {
             const cur = btn.closest('.card-unit');
             const prev = cur.previousElementSibling;
             if (prev && prev.classList.contains('card-unit')) {
+                pushState();
                 const targetEd = prev.querySelector('.c-editor');
                 targetEd.innerText += " " + cur.querySelector('.c-editor').innerText;
                 targetEd.innerHTML = applyHighlight(targetEd.innerText);
-                // 이미지 병합
                 cur.querySelectorAll('.card-img-vault > div').forEach(div => prev.querySelector('.card-img-vault').appendChild(div));
                 cur.remove();
                 saveToDisk();
-                updateLiveRecountStats();
+                updateStats();
             }
         }
 
@@ -426,255 +375,178 @@
             const sel = window.getSelection();
             if (!sel.rangeCount) return;
             
+            pushState();
             const range = sel.getRangeAt(0);
-            const moveRange = document.createRange();
-            moveRange.setStart(range.endContainer, range.endOffset);
-            moveRange.setEnd(ed, ed.childNodes.length);
+            const extraRange = document.createRange();
+            extraRange.setStart(range.endContainer, range.endOffset);
+            extraRange.setEnd(ed, ed.childNodes.length);
             
-            const extraText = moveRange.toString();
-            moveRange.deleteContents();
+            const extraText = extraRange.toString();
+            extraRange.deleteContents();
             ed.innerHTML = applyHighlight(ed.innerText);
             
             const newNode = createCardNode(Date.now(), extraText);
             cur.after(newNode);
             saveToDisk();
-            updateLiveRecountStats();
+            updateStats();
         }
 
         function deleteCut(btn) {
-            if (confirm("이 컷을 삭제하시겠습니까?")) {
+            if (confirm("컷을 삭제할까요?")) {
+                pushState();
                 btn.closest('.card-unit').remove();
                 saveToDisk();
-                updateLiveRecountStats();
+                updateStats();
             }
         }
 
-        function addTag(btn) {
-            const area = btn.closest('.card-unit').querySelector('.card-tag-area');
-            const input = document.createElement('input');
-            input.className = 'tag-input bg-transparent border-b border-white/10 text-[11px] text-blue-400 outline-none w-24 mr-2';
-            input.placeholder = "태그...";
-            input.oninput = saveToDisk;
-            area.appendChild(input);
-            input.focus();
-        }
-
-        function addImage(btn) {
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = 'image/*';
-            fileInput.onchange = e => {
-                const reader = new FileReader();
-                reader.onload = re => {
-                    const vault = btn.closest('.card-unit').querySelector('.card-img-vault');
-                    const div = document.createElement('div');
-                    div.className = "relative w-full aspect-square bg-black rounded overflow-hidden";
-                    div.innerHTML = `<img src="${re.target.result}" class="w-full h-full object-cover">
-                                     <button onclick="this.parentElement.remove(); saveToDisk()" class="absolute top-0 right-0 bg-red-600 text-[8px] p-1 font-black">×</button>`;
-                    vault.appendChild(div);
-                    saveToDisk();
-                };
-                reader.readAsDataURL(e.target.files[0]);
-            };
-            fileInput.click();
-        }
-
-        // --- 8. 드래그 앤 드롭 통합 핸들러 (The Reorder Logic) ---
-        function handleDragStart(e) {
+        // 8. 드래그 앤 드롭 핸들러
+        function onDragStart(e) {
             dragSourceId = parseInt(this.dataset.dragId);
             dragSourceType = this.dataset.dragType;
             this.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
         }
 
-        function handleDrop(e) {
+        function onDrop(e) {
             e.preventDefault();
             this.classList.remove('dragging');
-            const targetId = parseInt(this.dataset.dragId);
-            const targetType = this.dataset.dragType;
+            const tid = parseInt(this.dataset.dragId);
+            const tType = this.dataset.dragType;
 
-            if (dragSourceType !== targetType || dragSourceId === targetId) return;
+            if (dragSourceType !== tType || dragSourceId === tid) return;
 
+            pushState();
             if (dragSourceType === 'project') {
                 const sIdx = storage.projects.findIndex(x => x.id === dragSourceId);
-                const tIdx = storage.projects.findIndex(x => x.id === targetId);
-                const [moved] = storage.projects.splice(sIdx, 1);
-                storage.projects.splice(tIdx, 0, moved);
+                const tIdx = storage.projects.findIndex(x => x.id === tid);
+                const [m] = storage.projects.splice(sIdx, 1);
+                storage.projects.splice(tIdx, 0, m);
                 storage.projects.forEach((p, i) => p.order = i);
-                saveToDisk();
                 renderProjectTabs();
             } else if (dragSourceType === 'slot') {
-                const p = storage.projects.find(x => x.id === storage.currentProjectId);
+                const p = getActiveProject();
                 const sIdx = p.slots.findIndex(x => x.id === dragSourceId);
-                const tIdx = p.slots.findIndex(x => x.id === targetId);
-                const [moved] = p.slots.splice(sIdx, 1);
-                p.slots.splice(tIdx, 0, moved);
+                const tIdx = p.slots.findIndex(x => x.id === tid);
+                const [m] = p.slots.splice(sIdx, 1);
+                p.slots.splice(tIdx, 0, m);
                 p.slots.forEach((s, i) => s.order = i);
-                saveToDisk();
                 renderSlotTabs();
             } else if (dragSourceType === 'card') {
-                const container = document.getElementById('panelContainer');
-                const srcNode = container.querySelector(`[data-drag-id="${dragSourceId}"]`);
-                const all = Array.from(container.querySelectorAll('.card-unit'));
-                const sIdx = all.indexOf(srcNode);
-                const tIdx = all.indexOf(this);
-                if (sIdx < tIdx) this.after(srcNode);
-                else container.insertBefore(srcNode, this);
-                saveToDisk();
-                updateLiveRecountStats();
+                const board = document.getElementById('panelContainer');
+                const src = board.querySelector(`[data-drag-id="${dragSourceId}"]`);
+                const all = Array.from(board.querySelectorAll('.card-unit'));
+                if (all.indexOf(src) < all.indexOf(this)) this.after(src);
+                else board.insertBefore(src, this);
             }
+            saveToDisk();
+            updateStats();
         }
 
-        // --- 9. 공유 메모 시스템 (Project-wide Memos) ---
-        function renderProjectMemos() {
+        // 9. 언두/리두 시스템 (스냅샷 방식)
+        function pushState() {
+            saveCurrentContentToState();
+            undoStack.push(JSON.stringify(storage));
+            if (undoStack.length > MAX_HISTORY_LIMIT) undoStack.shift();
+            redoStack = [];
+        }
+
+        function performUndo() {
+            if (undoStack.length === 0) return;
+            saveCurrentContentToState();
+            redoStack.push(JSON.stringify(storage));
+            storage = JSON.parse(undoStack.pop());
+            saveToDisk();
+            refreshUI();
+        }
+
+        function performRedo() {
+            if (redoStack.length === 0) return;
+            saveCurrentContentToState();
+            undoStack.push(JSON.stringify(storage));
+            storage = JSON.parse(redoStack.pop());
+            saveToDisk();
+            refreshUI();
+        }
+
+        // 10. 메모 및 기타 유틸리티
+        function renderMemos() {
             const container = document.getElementById('memoListContainer');
             container.innerHTML = "";
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            const p = getActiveProject();
             if (!p || !p.memos) return;
 
             p.memos.forEach((m, idx) => {
                 const div = document.createElement('div');
                 div.className = "bg-white/5 border border-white/10 rounded-2xl overflow-hidden";
                 div.innerHTML = `
-                    <div class="flex items-center justify-between p-4 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors" onclick="toggleMemoFold(${idx})">
-                        <input value="${m.title}" class="bg-transparent border-none outline-none font-black text-[11px] text-blue-400 w-full" 
-                               oninput="updateMemoData(${idx}, 'title', this.value)" onclick="event.stopPropagation()">
-                        <button onclick="event.stopPropagation(); deleteProjectMemo(${idx})" class="text-red-900 font-black ml-2">×</button>
+                    <div class="flex items-center justify-between p-4 cursor-pointer" onclick="toggleFold(${idx})">
+                        <input value="${m.title}" class="bg-transparent border-none outline-none font-bold text-[11px] text-blue-400 w-full" 
+                               oninput="updateMData(${idx}, 'title', this.value)" onclick="event.stopPropagation()">
+                        <button onclick="event.stopPropagation(); deleteM(${idx})" class="text-red-900 font-black ml-2">×</button>
                     </div>
                     <div class="p-4 ${m.folded ? 'hidden' : ''}">
-                        <textarea class="w-full bg-transparent text-[11px] text-gray-500 outline-none h-40 leading-relaxed resize-none" 
-                                  oninput="updateMemoData(${idx}, 'content', this.value)">${m.content}</textarea>
+                        <textarea class="w-full bg-transparent text-[11px] text-gray-500 outline-none h-32 resize-none" 
+                                  oninput="updateMData(${idx}, 'content', this.value)">${m.content}</textarea>
                     </div>
                 `;
                 container.appendChild(div);
             });
         }
 
-        function addNewProjectMemo() {
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+        function addProjectMemo() {
+            const p = getActiveProject();
             if (!p.memos) p.memos = [];
-            p.memos.unshift({ title: '신규 메모', content: '', folded: false });
+            p.memos.unshift({ title: 'New Memo', content: '', folded: false });
             saveToDisk();
-            renderProjectMemos();
+            renderMemos();
         }
 
-        window.updateMemoData = function(idx, key, val) {
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
-            p.memos[idx][key] = val;
-            saveToDisk();
-        };
-
-        window.toggleMemoFold = function(idx) {
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+        window.toggleFold = (idx) => {
+            const p = getActiveProject();
             p.memos[idx].folded = !p.memos[idx].folded;
             saveToDisk();
-            renderProjectMemos();
+            renderMemos();
         };
 
-        window.deleteProjectMemo = function(idx) {
-            if (confirm("메모를 삭제할까요?")) {
-                const p = storage.projects.find(x => x.id === storage.currentProjectId);
-                p.memos.splice(idx, 1);
-                saveToDisk();
-                renderProjectMemos();
-            }
-        };
-
-        // --- 10. 저장 및 데이터 관리 (The Disk Engine) ---
-        function saveToDisk() {
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
-            if (!p) return;
-            
-            const s = p.slots.find(x => x.id === storage.currentSlotId);
-            if (s) {
-                const cards = [];
-                document.querySelectorAll('.card-unit').forEach(node => {
-                    cards.push({
-                        id: parseFloat(node.dataset.dragId),
-                        text: node.querySelector('.c-editor').innerText,
-                        tags: Array.from(node.querySelectorAll('.tag-input')).map(i => i.value),
-                        images: Array.from(node.querySelectorAll('.card-img-vault img')).map(img => img.src)
-                    });
-                });
-                s.title = document.getElementById('boardTitle').value;
-                s.original = document.getElementById('originalView').value;
-                s.cards = cards;
-            }
-            
-            localStorage.setItem('dragon_sovereign_v18', JSON.stringify(storage));
-        }
-
-        window.updateSlotTitleSync = function() {
-            const title = document.getElementById('boardTitle').value;
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
-            const s = p.slots.find(x => x.id === storage.currentSlotId);
-            s.title = title;
-            document.getElementById('currentSlotPath').innerText = title || "Workplace";
-            renderSlotTabs(); // 워크플레이스 탭 제목 즉시 업데이트
+        window.updateMData = (idx, k, v) => {
+            getActiveProject().memos[idx][k] = v;
             saveToDisk();
         };
 
-        // --- 11. 유틸리티 및 인터페이스 제어 ---
-        function updateLiveRecountStats() {
-            const all = document.querySelectorAll('.card-unit');
-            all.forEach((node, i) => {
-                const badge = node.querySelector('.c-cut-badge');
-                if (badge) badge.innerText = `Cut ${String(i + 1).padStart(2, '0')}`;
-            });
-            document.getElementById('statsDisplay').innerText = `${all.length} Cuts Sovereign Protected`;
+        function resetCurrentBoard() {
+            if (confirm("현재 보드의 모든 컷을 삭제할까요?")) {
+                pushState();
+                document.getElementById('panelContainer').innerHTML = "";
+                saveToDisk();
+                updateStats();
+            }
         }
 
-        function recountStats() { updateLiveRecountStats(); }
-
-        function focusCard(node) {
-            document.querySelectorAll('.card-unit').forEach(c => c.classList.remove('card-focused'));
-            node.classList.add('card-focused');
-            activeCardNode = node;
-        }
-
-        window.clearAllFocus = function() {
-            document.querySelectorAll('.card-unit').forEach(c => c.classList.remove('card-focused'));
-            activeCardNode = null;
-        };
-
-        function applyHighlight(t) {
-            if (!t) return "";
-            return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>')
-                    .replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
-        }
-
-        function applyGlobalHotkeys() {
-            window.addEventListener('keydown', e => {
-                if (e.ctrlKey && e.key === 'Enter') processScript('append');
+        function filterCards() {
+            const query = document.getElementById('boardSearch').value.toLowerCase();
+            document.querySelectorAll('.card-unit').forEach(card => {
+                const text = card.querySelector('.c-editor').innerText.toLowerCase();
+                card.style.display = text.includes(query) ? "block" : "none";
             });
         }
-        applyGlobalHotkeys();
 
-        window.executeAutoTabResize = function(input) {
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
-            ctx.font = window.getComputedStyle(input).font;
-            input.style.width = (ctx.measureText(input.value).width + 30) + "px";
-        };
-
-        function resetBoard() {
-            document.getElementById('boardTitle').value = "";
-            document.getElementById('originalView').value = "";
-            document.getElementById('panelContainer').innerHTML = "";
-            updateLiveRecountStats();
+        // 11. 저장 엔진
+        function saveToDisk() {
+            localStorage.setItem('dragon_sovereign_v19', JSON.stringify(storage));
         }
 
-        // 데이터 백업 및 복구
-        window.exportFullData = function() {
-            const p = storage.projects.find(x => x.id === storage.currentProjectId);
-            const s = p.slots.find(x => x.id === storage.currentSlotId);
-            const fileName = `[${p.name}] ${s.title || 'Workplace'}_${new Date().toLocaleDateString()}.json`;
+        window.exportDataWithDialog = function() {
+            saveCurrentContentToState();
+            const p = getActiveProject();
+            const s = getActiveSlot();
+            const fileName = `[${p.name}] ${s.title || 'Draft'}_${new Date().toLocaleDateString()}.json`;
+            
             const blob = new Blob([JSON.stringify(storage)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = fileName;
-            a.click();
+            a.click(); // 브라우저 설정에 따라 저장 위치 창이 뜹니다.
         };
 
         window.importFullData = function() {
@@ -684,7 +556,7 @@
                 const reader = new FileReader();
                 reader.onload = re => {
                     storage = JSON.parse(re.target.result);
-                    localStorage.setItem('dragon_sovereign_v18', JSON.stringify(storage));
+                    saveToDisk();
                     window.location.reload();
                 };
                 reader.readAsText(e.target.files[0]);
@@ -692,11 +564,36 @@
             input.click();
         };
 
-        function copyLogToClipboard() {
-            const log = document.getElementById('originalView').value;
-            navigator.clipboard.writeText(log);
-            alert("전체 기록이 클립보드에 저장되었습니다.");
+        // 12. 보조 함수
+        function updateStats() {
+            const all = document.querySelectorAll('.card-unit');
+            all.forEach((n, i) => {
+                const b = n.querySelector('.c-cut-badge');
+                if (b) b.innerText = `Cut ${String(i + 1).padStart(2, '0')}`;
+            });
+            document.getElementById('statsDisplay').innerText = `${all.length} Cuts Sovereign`;
         }
+
+        function applyHighlight(t) {
+            return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>')
+                    .replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
+        }
+
+        window.executeAutoTabResize = function(i) {
+            const c = document.createElement("canvas");
+            const x = c.getContext("2d");
+            x.font = window.getComputedStyle(i).font;
+            i.style.width = (x.measureText(i.value).width + 40) + "px";
+        };
+
+        function applyGlobalHotkeys() {
+            window.addEventListener('keydown', e => {
+                if (e.ctrlKey && e.key === 'Enter') processScript('append');
+                if (e.ctrlKey && e.key === 'z') { e.preventDefault(); performUndo(); }
+                if (e.ctrlKey && e.key === 'y') { e.preventDefault(); performRedo(); }
+            });
+        }
+        applyGlobalHotkeys();
 
     </script>
 </body>
