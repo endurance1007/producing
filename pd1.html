@@ -721,7 +721,55 @@ if (document.getElementById('btnRestore')) {
 if (document.getElementById('btnRestore')) {
     document.getElementById('btnRestore').onclick = window.executeRestoreProcess;
 }
+// --- [탭 삭제 실행 엔진: 이 내용을 코드 하단 함수 구역에 넣으세요] ---
+
+// 1. 작품(Project) 삭제 실제 기능
+window.executeKillProjectProcess = function(id) {
+    if (window.sovereignDb.projects.length <= 1) {
+        alert("최소 하나의 작품은 남겨두어야 합니다.");
+        return;
+    }
+    
+    if (confirm("이 작품의 모든 워크플레이스와 원고가 영구 삭제됩니다. 정말 삭제할까요?")) {
+        window.executeDeepSnapshot(); // 삭제 전 상태 저장 (언두 가능)
         
+        // 데이터에서 해당 ID 삭제
+        window.sovereignDb.projects = window.sovereignDb.projects.filter(function(p) { return p.id !== id; });
+        
+        // 현재 보고 있던 작품을 지웠다면 다른 작품으로 강제 이동
+        if (window.sovereignDb.activeProjectId === id) {
+            window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
+            window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
+        }
+        
+        window.executeInternalDiskSave(); // 로컬 저장소 저장
+        window.executeFullUIRenderCycle(); // 화면 새로고침
+    }
+};
+
+// 2. 워크플레이스(Slot) 삭제 실제 기능
+window.executeKillSlotProcess = function(id) {
+    const p = window.getSafeActiveProject();
+    if (!p) return;
+    
+    if (p.slots.length <= 1) {
+        alert("최소 하나의 워크플레이스는 남겨두어야 합니다.");
+        return;
+    }
+    
+    if (confirm("이 슬롯의 원고가 모두 사라집니다. 정말 삭제할까요?")) {
+        window.executeDeepSnapshot();
+        
+        p.slots = p.slots.filter(function(s) { return s.id !== id; });
+        
+        if (window.sovereignDb.activeSlotId === id) {
+            window.sovereignDb.activeSlotId = p.slots[0].id;
+        }
+        
+        window.executeInternalDiskSave();
+        window.executeFullUIRenderCycle();
+    }
+};        
         window.bootSovereign();
 
     </script>
