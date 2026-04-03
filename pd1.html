@@ -27,8 +27,8 @@
             <button onclick="createNewSlot()" class="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-full text-gray-400">+</button>
         </div>
         <div class="ml-auto flex items-center gap-4">
-            <button onclick="exportData()" class="text-[10px] font-bold text-gray-500 hover:text-white">데이터 내보내기(백업)</button>
-            <button onclick="importData()" class="text-[10px] font-bold text-gray-500 hover:text-white">불러오기</button>
+            <button onclick="exportData()" class="text-[10px] font-bold text-gray-500 hover:text-white uppercase">데이터 내보내기</button>
+            <button onclick="importData()" class="text-[10px] font-bold text-gray-500 hover:text-white uppercase">불러오기</button>
         </div>
     </nav>
 
@@ -36,7 +36,7 @@
         
         <section class="w-80 flex flex-col border-r border-white/5 bg-black/20">
             <div class="h-1/2 flex flex-col border-b border-white/5">
-                <div class="p-3 text-[10px] font-black text-gray-600 uppercase tracking-widest bg-white/5">Original Record</div>
+                <div class="p-3 text-[10px] font-black text-gray-600 uppercase bg-white/5">Original Record</div>
                 <textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500" readonly></textarea>
             </div>
             <div class="h-1/2 flex flex-col p-4 gap-4">
@@ -70,11 +70,14 @@
 
     <script>
         // -----------------------------------------------------------------------------------------
-        // [JS] v2.3 핵심 로직: 로컬 저장 및 안정성 최우선
+        // [Logic] v2.3 핵심 엔진
         // -----------------------------------------------------------------------------------------
         let currentSlotId = localStorage.getItem('dragon_v2_current_slot') || 'slot_1';
-        let slots = JSON.parse(localStorage.getItem('dragon_v2_slots')) || { 'slot_1': { title: '', original: '', cards: [], memos: [] } };
+        let slots = JSON.parse(localStorage.getItem('dragon_v2_slots')) || { 
+            'slot_1': { title: '', original: '', cards: [], memos: [] } 
+        };
         let activeCard = null;
+        let dragSrc = null;
 
         window.onload = function() {
             renderSlots();
@@ -108,17 +111,18 @@
             loadSlotData();
         }
 
-        // --- 데이터 로드 및 저장 ---
+        // --- 데이터 관리 ---
         function loadSlotData() {
             const data = slots[currentSlotId];
+            if (!data) return;
             document.getElementById('episodeTitle').value = data.title || "";
             document.getElementById('originalView').value = data.original || "";
             document.getElementById('panelContainer').innerHTML = "";
             
-            if (data.cards && data.cards.length > 0) {
-                data.cards.forEach(cardData => {
-                    const card = createCardElement(cardData.text, cardData.memos, cardData.images);
-                    document.getElementById('panelContainer').appendChild(card);
+            if (data.cards) {
+                data.cards.forEach(c => {
+                    const node = createCardElement(c.text, c.memos, c.images);
+                    document.getElementById('panelContainer').appendChild(node);
                 });
             }
             renderMemos();
@@ -126,19 +130,19 @@
         }
 
         function saveData() {
-            const cardElements = document.querySelectorAll('.card-unit');
-            const cardData = Array.from(cardElements).map(card => {
-                return {
-                    text: card.querySelector('.c-editor').innerText,
-                    memos: Array.from(card.querySelectorAll('.memo-tag-input')).map(i => i.value),
-                    images: Array.from(card.querySelectorAll('.img-item img')).map(img => img.src)
-                };
+            const cards = [];
+            document.querySelectorAll('.card-unit').forEach(el => {
+                cards.push({
+                    text: el.querySelector('.c-editor').innerText,
+                    memos: Array.from(el.querySelectorAll('.memo-tag-input')).map(i => i.value),
+                    images: Array.from(el.querySelectorAll('.img-item img')).map(img => img.src)
+                });
             });
 
             slots[currentSlotId] = {
                 title: document.getElementById('episodeTitle').value,
                 original: document.getElementById('originalView').value,
-                cards: cardData,
+                cards: cards,
                 memos: slots[currentSlotId].memos || []
             };
 
@@ -146,36 +150,32 @@
             recountStats();
         }
 
-        // --- 원고 처리 핵심 ---
+        // --- 원고 처리 ---
         function processManuscript(mode) {
             const input = document.getElementById('sourceInput');
             const text = input.value.trim();
             if (!text) return;
 
             const log = document.getElementById('originalView');
-            log.value += `\n[${new Date().toLocaleTimeString()}] 추가 원고:\n${text}\n`;
+            log.value += `\n[${new Date().toLocaleTimeString()}] 추가:\n${text}\n`;
 
             const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
             sentences.forEach(s => {
-                const card = createCardElement(s);
-                if (mode === 'insert' && activeCard) {
-                    activeCard.after(card);
-                } else {
-                    document.getElementById('panelContainer').appendChild(card);
-                }
+                const node = createCardElement(s);
+                if (mode === 'insert' && activeCard) activeCard.after(node);
+                else document.getElementById('panelContainer').appendChild(node);
             });
 
             input.value = "";
             saveData();
         }
 
-        // --- 카드(컷) 생성 및 기능 ---
+        // --- 카드 엘리먼트 생성 ---
         function createCardElement(text, savedMemos = [], savedImages = []) {
             const card = document.createElement('div');
             card.className = 'card-unit bg-[#0d0d0d] border border-white/5 rounded-2xl p-6 transition relative cursor-move';
             card.draggable = true;
             
-            // 카드 클릭 포커스
             card.onclick = (e) => {
                 e.stopPropagation();
                 document.querySelectorAll('.card-unit').forEach(c => c.classList.remove('card-focused'));
@@ -183,13 +183,12 @@
                 activeCard = card;
             };
 
-            // 드래그 앤 드롭 (로컬 안정화 버전)
             card.ondragstart = (e) => {
-                if (e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return e.preventDefault();
+                if (e.target.isContentEditable) return e.preventDefault();
                 dragSrc = card;
                 card.style.opacity = "0.4";
             };
-            card.ondragend = () => { card.style.opacity = "1"; };
+            card.ondragend = () => card.style.opacity = "1";
             card.ondragover = (e) => e.preventDefault();
             card.ondrop = (e) => {
                 e.preventDefault();
@@ -211,13 +210,13 @@
             savedImages.forEach(src => {
                 imgHtml += `<div class="img-item relative aspect-square bg-gray-900 rounded overflow-hidden">
                     <img src="${src}" class="w-full h-full object-cover">
-                    <button onclick="this.parentElement.remove(); saveData()" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5">×</button>
+                    <button onclick="this.parentElement.remove(); saveData()" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5 font-black">×</button>
                 </div>`;
             });
 
             card.innerHTML = `
                 <div class="flex justify-between items-center mb-4 pointer-events-none">
-                    <span class="text-[10px] font-black text-gray-600 uppercase tracking-widest c-cut-badge">Cut 00</span>
+                    <span class="text-[10px] font-black text-gray-600 uppercase c-cut-badge">Cut 00</span>
                     <div class="flex gap-2 pointer-events-auto">
                         <button onclick="addCardMemo(this)" class="text-[9px] text-gray-500 hover:text-white uppercase">+ Memo</button>
                         <button onclick="addCardImage(this)" class="text-[9px] text-gray-500 hover:text-white uppercase">+ Image</button>
@@ -228,7 +227,7 @@
                     <div class="flex-1">
                         <div class="memo-tags-area flex flex-wrap gap-2 mb-3">${memoHtml}</div>
                         <div class="c-editor text-lg leading-relaxed text-gray-300 outline-none" contenteditable="true" onblur="saveData()">${highlightDialogue(text)}</div>
-                        <div class="flex gap-4 mt-4 pt-4 border-t border-white/5 opacity-40 hover:opacity-100 transition-opacity">
+                        <div class="flex gap-4 mt-4 pt-4 border-t border-white/5 opacity-40 hover:opacity-100">
                             <button onclick="copyCut(this)" class="text-[9px] font-bold text-blue-500 uppercase">Copy</button>
                             <button onclick="mergeUp(this)" class="text-[9px] font-bold text-gray-500 uppercase">Merge Up</button>
                             <button onclick="splitCut(this)" class="text-[9px] font-bold text-gray-500 uppercase">Split</button>
@@ -240,12 +239,11 @@
             return card;
         }
 
-        // --- 카드 기능 세부 ---
+        // --- 세부 기능 함수 ---
         function addCardMemo(btn) {
             const area = btn.closest('.card-unit').querySelector('.memo-tags-area');
             const input = document.createElement('input');
             input.className = 'memo-tag-input bg-transparent border-b border-white/10 text-[11px] text-blue-400 outline-none w-24';
-            input.placeholder = "메모 입력...";
             input.oninput = saveData;
             area.appendChild(input);
             input.focus();
@@ -256,7 +254,6 @@
             input.type = 'file';
             input.accept = 'image/*';
             input.onchange = (e) => {
-                const file = e.target.files[0];
                 const reader = new FileReader();
                 reader.onload = (re) => {
                     const vault = btn.closest('.card-unit').querySelector('.img-vault');
@@ -266,7 +263,7 @@
                     vault.appendChild(div);
                     saveData();
                 };
-                reader.readAsDataURL(file);
+                reader.readAsDataURL(e.target.files[0]);
             };
             input.click();
         }
@@ -274,7 +271,7 @@
         function copyCut(btn) {
             const text = btn.closest('.card-unit').querySelector('.c-editor').innerText;
             navigator.clipboard.writeText(text);
-            alert("대사가 클립보드에 복사되었습니다.");
+            alert("복사됨");
         }
 
         function mergeUp(btn) {
@@ -289,8 +286,7 @@
         }
 
         function splitCut(btn) {
-            const cur = btn.closest('.card-unit');
-            const ed = cur.querySelector('.c-editor');
+            const ed = btn.closest('.card-unit').querySelector('.c-editor');
             const sel = window.getSelection();
             if (!sel.rangeCount) return;
             const range = sel.getRangeAt(0);
@@ -300,18 +296,14 @@
             const text = extra.toString();
             extra.deleteContents();
             ed.innerHTML = highlightDialogue(ed.innerText);
-            cur.after(createCardElement(text));
+            btn.closest('.card-unit').after(createCardElement(text));
             saveData();
         }
 
         function deleteCut(btn) {
-            if (confirm("이 컷을 삭제하시겠습니까?")) {
-                btn.closest('.card-unit').remove();
-                saveData();
-            }
+            if (confirm("삭제?")) { btn.closest('.card-unit').remove(); saveData(); }
         }
 
-        // --- 공유 메모 ---
         function renderMemos() {
             const container = document.getElementById('memoContainer');
             container.innerHTML = "";
@@ -321,8 +313,8 @@
                 div.className = "bg-white/5 border border-white/10 rounded-xl p-3";
                 div.innerHTML = `
                     <div class="flex justify-between items-center mb-2">
-                        <input class="bg-transparent font-bold text-[11px] outline-none text-blue-400" value="${m.title}" oninput="updateMemo(${idx}, 'title', this.value)">
-                        <button onclick="deleteMemo(${idx})" class="text-red-900 font-black">×</button>
+                        <input class="bg-transparent font-bold text-[11px] outline-none text-blue-400 w-full" value="${m.title}" oninput="updateMemo(${idx}, 'title', this.value)">
+                        <button onclick="deleteMemo(${idx})" class="text-red-900 font-black ml-2">×</button>
                     </div>
                     <textarea class="w-full bg-transparent text-[11px] text-gray-500 outline-none h-20 resize-none" oninput="updateMemo(${idx}, 'content', this.value)">${m.content}</textarea>
                 `;
@@ -333,27 +325,15 @@
         function addMemo() {
             if (!slots[currentSlotId].memos) slots[currentSlotId].memos = [];
             slots[currentSlotId].memos.push({ title: 'New Memo', content: '' });
-            saveData();
-            renderMemos();
+            saveData(); renderMemos();
         }
 
-        function updateMemo(idx, key, val) {
-            slots[currentSlotId].memos[idx][key] = val;
-            saveData();
-        }
+        function updateMemo(idx, key, val) { slots[currentSlotId].memos[idx][key] = val; saveData(); }
+        function deleteMemo(idx) { slots[currentSlotId].memos.splice(idx, 1); saveData(); renderMemos(); }
 
-        function deleteMemo(idx) {
-            slots[currentSlotId].memos.splice(idx, 1);
-            saveData();
-            renderMemos();
-        }
-
-        // --- 유틸리티 ---
         function recountStats() {
             const cards = document.querySelectorAll('.card-unit');
-            cards.forEach((c, i) => {
-                c.querySelector('.c-cut-badge').innerText = `Cut ${String(i + 1).padStart(2, '0')}`;
-            });
+            cards.forEach((c, i) => { c.querySelector('.c-cut-badge').innerText = `Cut ${String(i + 1).padStart(2, '0')}`; });
             document.getElementById('cutCountDisplay').innerText = `${cards.length} Cuts Locked`;
         }
 
@@ -367,36 +347,23 @@
                        .replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
         }
 
-        function applyGlobalHotkeys() {
-            window.addEventListener('keydown', e => {
-                if (e.ctrlKey && e.key === 'Enter') processManuscript('append');
-            });
-        }
-        applyGlobalHotkeys();
-
-        window.exportData = () => {
+        function exportData() {
             const blob = new Blob([JSON.stringify(slots)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `dragon_backup_${new Date().toLocaleDateString()}.json`;
-            a.click();
-        };
+            a.href = url; a.download = `backup_${new Date().toLocaleDateString()}.json`; a.click();
+        }
 
-        window.importData = () => {
+        function importData() {
             const input = document.createElement('input');
             input.type = 'file';
             input.onchange = (e) => {
                 const reader = new FileReader();
-                reader.onload = (re) => {
-                    slots = JSON.parse(re.target.result);
-                    saveData();
-                    window.location.reload();
-                };
+                reader.onload = (re) => { slots = JSON.parse(re.target.result); saveData(); window.location.reload(); };
                 reader.readAsText(e.target.files[0]);
             };
             input.click();
-        };
+        }
     </script>
 </body>
 </html>
