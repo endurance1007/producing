@@ -976,7 +976,7 @@ window.executeCopyToNotion = function() {
             ? card.tags.filter(m => m.trim() !== "").join(" / ") 
             : "";
             
-        tableText += `| ${cutNum} | ${cleanText} | ${cleanMemos} |\n`;
+        tableText += `| ${cutNum} | ${cleanMemos}| ${cleanText} |\n`;
     });
 
     // 4. 클립보드 복사
