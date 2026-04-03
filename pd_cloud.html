@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>지혜의 용 | 워크스테이션 v9.3</title>
+    <title>지혜의 용 | 워크스테이션 v9.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
+        // ---------------------------------------------------------
+        // 1. Firebase 라이브러리 및 모듈 로드 (절대 생략 없음)
+        // ---------------------------------------------------------
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { 
             getAuth, 
@@ -35,7 +38,9 @@
             enableIndexedDbPersistence 
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // [인증] Firebase 설정
+        // ---------------------------------------------------------
+        // 2. Firebase 설정 및 초기화
+        // ---------------------------------------------------------
         const firebaseConfig = {
             apiKey: "AIzaSyDIpM-V52irW0N0Em8qAItvI6L5LYJg8Ik",
             authDomain: "wisdomdragonadapter.firebaseapp.com",
@@ -50,16 +55,21 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        // [핵심] iOS 인증 유지력 강화 설정
+        // [중요] 사파리/크롬 iOS에서 인증 루프를 방지하기 위해 로컬 지속성 강제 적용
         setPersistence(auth, browserLocalPersistence);
 
-        // [심리스] 오프라인 작업 모드 활성화
-        enableIndexedDbPersistence(db).catch((err) => {
-            if (err.code == 'failed-precondition') { console.warn("Persistence failed: Multiple tabs open."); }
-            else if (err.code == 'unimplemented') { console.warn("Persistence failed: Browser not supported."); }
+        // [오프라인] 데이터 지속성 활성화 (인터넷 끊김 대응)
+        enableIndexedDbPersistence(db).catch(function(err) {
+            if (err.code == 'failed-precondition') {
+                console.warn("오프라인 모드 중복 실행 경고: 탭이 여러 개 열려있음.");
+            } else if (err.code == 'unimplemented') {
+                console.warn("오프라인 모드 미지원 브라우저.");
+            }
         });
 
-        // 시스템 전역 상태 변수 (풀어서 명시)
+        // ---------------------------------------------------------
+        // 3. 시스템 전역 상태 변수 (풀어서 명시적 선언)
+        // ---------------------------------------------------------
         let currentUser = null;
         let currentProjectId = null;
         let currentTabId = null;
@@ -70,670 +80,1106 @@
         let redoStack = [];
         const MAX_HISTORY = 50;
         let isGridView = false;
-        
-        // iOS 무한 로그인 루프 방지용 가드 변수
-        let isAuthProcessing = true; 
 
-        // 드래그 상태 관리 변수
+        // iOS 로그인 루프 방지용 가드 변수
+        let isWaitingForRedirectResult = true; 
+
+        // 드래그앤드롭 상태 변수
         let dragCardSrc = null;
         let dragProjectSrcId = null;
         let dragSlotSrcId = null;
         let dragSnapshotSrcId = null;
 
-        // --- 1. 초기화 및 iOS 로그인 세션 복구 로직 ---
+        // ---------------------------------------------------------
+        // 4. 초기 시동 로직 (iOS 로그인 문제 완전 해결판)
+        // ---------------------------------------------------------
         window.onload = function() {
-            console.log("System Initialization...");
+            console.log("Sovereign System v9.4 initializing...");
             
-            // iOS 사파리 대응: 리다이렉트 결과를 명시적으로 처리할 때까지 UI 판단을 보류합니다.
+            // [핵심] 리다이렉트 결과를 먼저 확인하고 그 결과가 나오기 전까지는 UI 판단을 잠금
             getRedirectResult(auth)
-                .then((result) => {
+                .then(function(result) {
                     if (result) {
-                        console.log("Redirect result processed for user:", result.user.displayName);
+                        console.log("Redirect result processed for:", result.user.displayName);
                     }
-                    // 결과 확인이 끝났으므로 가드 해제
-                    isAuthProcessing = false;
-                    checkFinalAuthState();
+                    isWaitingForRedirectResult = false;
+                    evaluateAuthState();
                 })
-                .catch((error) => {
-                    console.error("Auth Error:", error.message);
-                    isAuthProcessing = false;
-                    checkFinalAuthState();
+                .catch(function(error) {
+                    console.error("Auth redirect error handled:", error.message);
+                    isWaitingForRedirectResult = false;
+                    evaluateAuthState();
                 });
 
-            // 인증 상태 실시간 감시
-            onAuthStateChanged(auth, (user) => {
+            // 인증 상태 감시자
+            onAuthStateChanged(auth, function(user) {
                 if (user) {
                     currentUser = user;
+                    isWaitingForRedirectResult = false;
                     document.getElementById('loginOverlay').classList.add('hidden');
                     document.getElementById('userName').innerText = user.displayName;
-                    isAuthProcessing = false;
-                    startDatabaseEngine();
+                    // 데이터베이스 엔진 가동
+                    bootUserDatabaseEngine();
                 } else {
                     currentUser = null;
-                    if (!isAuthProcessing) {
-                        document.getElementById('loginOverlay').classList.remove('hidden');
-                    }
+                    evaluateAuthState();
                 }
             });
 
-            // 시스템 예외 처리: 5초 이상 응답 없으면 강제 잠금 해제
-            setTimeout(() => {
-                if (isAuthProcessing) {
-                    console.log("Force releasing auth guard...");
-                    isAuthProcessing = false;
-                    if (!currentUser) document.getElementById('loginOverlay').classList.remove('hidden');
-                }
-            }, 5000);
-
-            initHotkeys();
+            // 핫키 등록
+            registerSystemHotkeys();
         };
 
-        function checkFinalAuthState() {
-            if (!currentUser && !isAuthProcessing) {
-                document.getElementById('loginOverlay').classList.remove('hidden');
-                document.getElementById('authLoadingIndicator').classList.add('hidden');
+        function evaluateAuthState() {
+            const overlay = document.getElementById('loginOverlay');
+            const loader = document.getElementById('authProgressUI');
+            
+            if (isWaitingForRedirectResult) {
+                // 리다이렉트 결과를 기다리는 중에는 아무것도 하지 않음 (로그인 창 띄우지 않음)
+                return;
+            }
+            
+            if (!currentUser) {
+                overlay.classList.remove('hidden');
+                loader.classList.add('hidden');
             }
         }
 
-        async function startDatabaseEngine() {
-            const metaRef = doc(db, "users", currentUser.uid, "config", "metadata");
-            onSnapshot(metaRef, (docSnap) => {
+        // ---------------------------------------------------------
+        // 5. 데이터베이스 초기화 및 메타데이터 동기화
+        // ---------------------------------------------------------
+        async function bootUserDatabaseEngine() {
+            const configRef = doc(db, "users", currentUser.uid, "config", "metadata");
+            
+            // 실시간 리스너 시작
+            onSnapshot(configRef, function(docSnap) {
                 if (docSnap.exists()) {
                     projectsMetadata = docSnap.data().projects || [];
                 } else {
-                    projectsMetadata = [{ id: Date.now(), name: "새 작품", order: 0, tabs: [{ id: Date.now() + 1, order: 0, title: "" }] }];
-                    saveGlobalMeta();
+                    // 신규 작가를 위한 명시적 초기 구조
+                    projectsMetadata = [{ 
+                        id: Date.now(), 
+                        name: "새 작품", 
+                        order: 0, 
+                        tabs: [{ id: Date.now() + 1, order: 0, title: "" }] 
+                    }];
+                    saveGlobalMetaToFirestore();
                 }
-                
+
+                // 현재 선택 정보 정합성 체크
                 if (!currentProjectId || !projectsMetadata.find(p => p.id === currentProjectId)) {
                     if (projectsMetadata.length > 0) {
                         currentProjectId = projectsMetadata[0].id;
                         currentTabId = projectsMetadata[0].tabs[0].id;
                     }
                 }
-                refreshAllUI();
+                
+                // 전체 UI 리프레시 사이클
+                executeFullUIRefresh();
             });
         }
 
-        async function saveGlobalMeta() {
+        async function saveGlobalMetaToFirestore() {
             if (!currentUser) return;
-            await setDoc(doc(db, "users", currentUser.uid, "config", "metadata"), { projects: projectsMetadata });
+            try {
+                await setDoc(doc(db, "users", currentUser.uid, "config", "metadata"), { projects: projectsMetadata });
+            } catch (err) {
+                console.error("Meta write failure:", err);
+            }
         }
 
-        function refreshAllUI() {
-            renderProjectTabs();
-            renderSlotTabs();
-            loadActiveWorkspace();
-            syncMemos();
+        function executeFullUIRefresh() {
+            renderProjectTabEngine();
+            renderSlotTabEngine();
+            loadMainWorkspaceContent();
+            syncProjectSharedMemos();
         }
 
-        // --- 2. 가변 탭 너비 계산 엔진 ---
-        function getPixelWidth(text, font) {
+        // ---------------------------------------------------------
+        // 6. 가변 탭 너비 계산 엔진 (압축 금지 원칙)
+        // ---------------------------------------------------------
+        function calculateTextWidthForTab(text, font) {
             const canvas = document.createElement("canvas");
             const context = canvas.getContext("2d");
             context.font = font;
             return context.measureText(text).width;
         }
 
-        window.adjustTabWidth = function(input) {
-            const style = window.getComputedStyle(input);
-            const w = getPixelWidth(input.value, style.font);
-            input.style.width = (w + 25) + "px"; // 사파리 대응 여유 공간
+        window.applyAutoWidthToTabInput = function(inputElement) {
+            const style = window.getComputedStyle(inputElement);
+            const fontSetting = style.font;
+            const textWidth = calculateTextWidthForTab(inputElement.value, fontSetting);
+            // 사파리 특유의 패딩 문제를 해결하기 위해 25px의 넉넉한 여유 공간 확보
+            inputElement.style.width = (textWidth + 25) + "px";
         };
 
-        // --- 3. 작품 탭 관리 (드래그앤드롭 및 전환) ---
-        function renderProjectTabs() {
+        // ---------------------------------------------------------
+        // 7. 작품 탭 렌더링 시스템 (드래그앤드롭 무결성)
+        // ---------------------------------------------------------
+        function renderProjectTabEngine() {
             const container = document.getElementById('projectTabContainer');
             container.innerHTML = "";
-            projectsMetadata.sort((a, b) => (a.order || 0) - (b.order || 0));
+            
+            // 작품 순서 정렬
+            projectsMetadata.sort(function(a, b) {
+                return (a.order || 0) - (b.order || 0);
+            });
 
-            projectsMetadata.forEach(p => {
-                const active = currentProjectId === p.id;
-                const tab = document.createElement('div');
-                tab.className = `group flex items-center h-full px-4 border-r border-white/5 cursor-move transition-all ${active ? 'bg-white/10 text-blue-400' : 'text-gray-500 hover:bg-white/5'}`;
-                tab.draggable = true;
+            projectsMetadata.forEach(function(project) {
+                const active = (currentProjectId === project.id);
+                const tabDiv = document.createElement('div');
+                tabDiv.className = `group flex items-center h-full px-4 border-r border-white/5 cursor-move transition-all ${active ? 'bg-white/10 text-blue-400' : 'text-gray-500 hover:bg-white/5'}`;
+                tabDiv.draggable = true;
 
-                // 작품 탭 드래그 로직 (풀어서 작성)
-                tab.ondragstart = function(e) {
-                    dragProjectSrcId = p.id;
+                // 작품 탭 드래그 이벤트 (풀어서 작성)
+                tabDiv.ondragstart = function(e) {
+                    dragProjectSrcId = project.id;
                     e.dataTransfer.effectAllowed = 'move';
-                    tab.classList.add('opacity-30');
+                    tabDiv.classList.add('opacity-30');
                 };
-                tab.ondragover = function(e) { e.preventDefault(); };
-                tab.ondrop = async function(e) {
+
+                tabDiv.ondragover = function(e) {
                     e.preventDefault();
-                    if (dragProjectSrcId && dragProjectSrcId !== p.id) {
-                        const sIdx = projectsMetadata.findIndex(x => x.id === dragProjectSrcId);
-                        const dIdx = projectsMetadata.findIndex(x => x.id === p.id);
-                        const [moved] = projectsMetadata.splice(sIdx, 1);
-                        projectsMetadata.splice(dIdx, 0, moved);
-                        projectsMetadata.forEach((item, index) => item.order = index);
-                        await saveGlobalMeta();
+                };
+
+                tabDiv.ondrop = async function(e) {
+                    e.preventDefault();
+                    if (dragProjectSrcId && dragProjectSrcId !== project.id) {
+                        const fromIdx = projectsMetadata.findIndex(x => x.id === dragProjectSrcId);
+                        const toIdx = projectsMetadata.findIndex(x => x.id === project.id);
+                        
+                        const [movedItem] = projectsMetadata.splice(fromIdx, 1);
+                        projectsMetadata.splice(toIdx, 0, movedItem);
+                        
+                        // 새로운 정렬 순서값(order) 부여
+                        for (let i = 0; i < projectsMetadata.length; i++) {
+                            projectsMetadata[i].order = i;
+                        }
+                        
+                        await saveGlobalMetaToFirestore();
                     }
                 };
-                tab.ondragend = () => tab.classList.remove('opacity-30');
 
-                // 싱크 점 (●) - 클릭 전환 영역 확보
-                const dot = document.createElement('span');
-                dot.className = `w-2 h-2 rounded-full mr-2 flex-shrink-0 ${active ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-gray-700'}`;
+                tabDiv.ondragend = function() {
+                    tabDiv.classList.remove('opacity-30');
+                    dragProjectSrcId = null;
+                };
+
+                // 작품명 왼쪽 싱크 도트 (●)
+                const syncDot = document.createElement('span');
+                syncDot.className = `w-2 h-2 rounded-full mr-2 flex-shrink-0 ${active ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-gray-700'}`;
                 
-                const input = document.createElement('input');
-                input.value = p.name;
-                input.className = "bg-transparent border-none outline-none font-bold text-[11px] cursor-text";
-                input.oninput = () => adjustTabWidth(input);
-                input.onchange = () => { p.name = input.value; saveGlobalMeta(); };
-                input.onclick = (e) => e.stopPropagation();
+                const titleInput = document.createElement('input');
+                titleInput.value = project.name;
+                titleInput.className = "bg-transparent border-none outline-none font-bold text-[11px] cursor-text";
+                titleInput.oninput = function() { applyAutoWidthToTabInput(titleInput); };
+                titleInput.onchange = function() {
+                    project.name = titleInput.value;
+                    saveGlobalMetaToFirestore();
+                };
+                titleInput.onclick = function(e) { e.stopPropagation(); };
 
-                const delBtn = document.createElement('button');
-                delBtn.innerHTML = "×";
-                delBtn.className = "ml-2 opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 text-xs";
-                delBtn.onclick = (e) => { e.stopPropagation(); window.removeProject(p.id); };
+                // 삭제 버튼 로직
+                const delButton = document.createElement('button');
+                delButton.innerHTML = "×";
+                delButton.className = "ml-2 opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 text-xs transition-opacity";
+                delButton.onclick = function(e) {
+                    e.stopPropagation();
+                    window.killProjectEntry(project.id);
+                };
 
-                tab.onclick = () => { currentProjectId = p.id; currentTabId = p.tabs[0].id; refreshAllUI(); };
-                tab.appendChild(dot);
-                tab.appendChild(input);
-                tab.appendChild(delBtn);
-                container.appendChild(tab);
-                adjustTabWidth(input);
+                // 탭 클릭 전환
+                tabDiv.onclick = function() {
+                    currentProjectId = project.id;
+                    currentTabId = project.tabs[0].id;
+                    executeFullUIRefresh();
+                };
+
+                tabDiv.appendChild(syncDot);
+                tabDiv.appendChild(titleInput);
+                tabDiv.appendChild(delButton);
+                container.appendChild(tabDiv);
+                
+                // 렌더링 직후 너비 자동 조절
+                applyAutoWidthToTabInput(titleInput);
             });
         }
 
-        // --- 4. 슬롯 탭 관리 (드래그앤드롭 및 전환) ---
-        function renderSlotTabs() {
+        // ---------------------------------------------------------
+        // 8. 슬롯 탭 렌더링 시스템 (드래그앤드롭 무결성)
+        // ---------------------------------------------------------
+        function renderSlotTabEngine() {
             const container = document.getElementById('workspaceTabContainer');
             container.innerHTML = "";
-            const proj = projectsMetadata.find(p => p.id === currentProjectId);
-            if (!proj) return;
-            proj.tabs.sort((a, b) => (a.order || 0) - (b.order || 0));
+            const currentProjObj = projectsMetadata.find(p => p.id === currentProjectId);
+            if (!currentProjObj) return;
 
-            proj.tabs.forEach(t => {
-                const active = currentTabId === t.id;
-                const slot = document.createElement('div');
-                slot.className = `px-5 h-full flex items-center border-r border-white/5 cursor-move text-[10px] font-bold whitespace-nowrap flex-shrink-0 transition-all ${active ? 'bg-black text-blue-400 border-t-2 border-t-blue-500 shadow-xl' : 'text-gray-600 bg-white/5 hover:text-gray-400'}`;
-                slot.draggable = true;
+            // 슬롯 순서 정렬
+            currentProjObj.tabs.sort(function(a, b) {
+                return (a.order || 0) - (b.order || 0);
+            });
 
-                // 슬롯 탭 드래그 로직 (풀어서 작성)
-                slot.ondragstart = function(e) {
-                    dragSlotSrcId = t.id;
+            currentProjObj.tabs.forEach(function(slot) {
+                const isActiveSlot = (currentTabId === slot.id);
+                const slotDiv = document.createElement('div');
+                slotDiv.className = `px-5 h-full flex items-center border-r border-white/5 cursor-move text-[10px] font-bold whitespace-nowrap flex-shrink-0 transition-all ${isActiveSlot ? 'bg-black text-blue-400 border-t-2 border-t-blue-500 shadow-xl' : 'text-gray-600 bg-white/5 hover:text-gray-400'}`;
+                slotDiv.draggable = true;
+
+                // 슬롯 탭 드래그 앤 드롭 시작
+                slotDiv.ondragstart = function(e) {
+                    dragSlotSrcId = slot.id;
                     e.dataTransfer.effectAllowed = 'move';
-                    slot.classList.add('opacity-30');
+                    slotDiv.classList.add('opacity-30');
                 };
-                slot.ondragover = function(e) { e.preventDefault(); };
-                slot.ondrop = async function(e) {
+
+                slotDiv.ondragover = function(e) {
                     e.preventDefault();
-                    if (dragSlotSrcId && dragSlotSrcId !== t.id) {
-                        const sIdx = proj.tabs.findIndex(x => x.id === dragSlotSrcId);
-                        const dIdx = proj.tabs.findIndex(x => x.id === t.id);
-                        const [moved] = proj.tabs.splice(sIdx, 1);
-                        proj.tabs.splice(dIdx, 0, moved);
-                        proj.tabs.forEach((item, index) => item.order = index);
-                        await saveGlobalMeta();
+                };
+
+                slotDiv.ondrop = async function(e) {
+                    e.preventDefault();
+                    if (dragSlotSrcId && dragSlotSrcId !== slot.id) {
+                        const fromIndex = currentProjObj.tabs.findIndex(x => x.id === dragSlotSrcId);
+                        const toIndex = currentProjObj.tabs.findIndex(x => x.id === slot.id);
+                        
+                        const [movedTab] = currentProjObj.tabs.splice(fromIndex, 1);
+                        currentProjObj.tabs.splice(toIndex, 0, movedTab);
+                        
+                        // 새로운 순서 부여
+                        for (let i = 0; i < currentProjObj.tabs.length; i++) {
+                            currentProjObj.tabs[i].order = i;
+                        }
+                        
+                        await saveGlobalMetaToFirestore();
                     }
                 };
-                slot.ondragend = () => slot.classList.remove('opacity-30');
 
-                slot.innerHTML = `
-                    <span class="sync-dot-${t.id} w-1.5 h-1.5 rounded-full bg-green-500 mr-3 flex-shrink-0"></span>
-                    <span class="mr-2">${t.title || 'SLOT ' + (proj.tabs.indexOf(t) + 1)}</span>
-                    <button onclick="event.stopPropagation(); window.removeSlot(${t.id})" class="ml-2 opacity-40 hover:opacity-100 hover:text-red-500">×</button>
+                slotDiv.ondragend = function() {
+                    slotDiv.classList.remove('opacity-30');
+                    dragSlotSrcId = null;
+                };
+
+                slotDiv.innerHTML = `
+                    <span class="sync-dot-${slot.id} w-1.5 h-1.5 rounded-full bg-green-500 mr-3 flex-shrink-0"></span>
+                    <span class="mr-2">${slot.title || 'SLOT ' + (currentProjObj.tabs.indexOf(slot) + 1)}</span>
+                    <button onclick="event.stopPropagation(); window.killSlotEntry(${slot.id})" class="ml-2 opacity-40 hover:opacity-100 hover:text-red-500 transition-opacity">×</button>
                 `;
-                slot.onclick = () => { currentTabId = t.id; loadActiveWorkspace(); };
-                container.appendChild(slot);
+
+                slotDiv.onclick = function() {
+                    currentTabId = slot.id;
+                    loadMainWorkspaceContent();
+                };
+
+                container.appendChild(slotDiv);
             });
         }
 
-        // --- 5. 메인 에디터 엔진 (기능 부활 리바인딩 핵심) ---
-        function loadActiveWorkspace() {
+        // ---------------------------------------------------------
+        // 9. 에디터 엔진 (소환 후 기능 재주입 핵심)
+        // ---------------------------------------------------------
+        function loadMainWorkspaceContent() {
             if (!currentProjectId || !currentTabId) return;
-            const docRef = doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${currentTabId}`);
-            getDoc(docRef).then((docSnap) => {
+            const contentRef = doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${currentTabId}`);
+            
+            getDoc(contentRef).then(function(docSnap) {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     document.getElementById('episodeTitle').value = data.title || "";
                     document.getElementById('originalView').value = data.originalText || "";
                     document.getElementById('panelContainer').innerHTML = data.boardHTML || "";
                     
-                    // [불러오기 핵심] 화면이 완전히 그려진 뒤에 리스너를 다시 연결합니다.
-                    requestAnimationFrame(() => {
-                        requestAnimationFrame(() => {
-                            reviveAllEditorEvents();
-                            updateStats(); // 컷수 카운팅
+                    // [핵심] 불러온 직후 기능을 심습니다 (2단계 렌더링 대기)
+                    requestAnimationFrame(function() {
+                        requestAnimationFrame(function() {
+                            reviveFullEditorFunctionalEvents();
+                            updateLiveCutStatsEngine(); // 카운팅 엔진 재가동
                         });
                     });
-                } else { clearMainEditor(); }
-                undoStack = []; redoStack = []; saveState();
-                renderSlotTabs();
+                } else {
+                    resetWorkspaceUI();
+                }
+                
+                // 로드 시점 언두 스택 초기화 및 첫 지점 저장
+                undoStack = []; 
+                redoStack = []; 
+                window.captureStateForUndo();
+                renderSlotTabEngine();
             });
         }
 
-        function reviveAllEditorEvents() {
+        // 모든 컷(Card)에 기능을 다시 주입하는 '소생' 엔진
+        function reviveFullEditorFunctionalEvents() {
             const cards = document.querySelectorAll('.card-unit');
-            cards.forEach(card => {
+            cards.forEach(function(card) {
                 card.draggable = true;
-                card.onclick = (e) => { e.stopPropagation(); focusCard(card); };
+                card.onclick = function(e) {
+                    e.stopPropagation();
+                    focusSpecifiedCard(card);
+                };
                 
-                // 드래그앤드롭 강제 리바인딩
+                // 드래그앤드롭 리스너 강제 재바인딩
                 card.ondragstart = function(e) {
                     if (e.target.tagName === 'IMG' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
                     dragCardSrc = card;
                     e.dataTransfer.effectAllowed = 'move';
-                    setTimeout(() => { card.classList.add('opacity-20'); }, 0);
+                    // 찰나의 지연을 주어 투명도 조절
+                    setTimeout(function() { card.classList.add('opacity-20'); }, 0);
                 };
-                card.ondragover = function(e) { e.preventDefault(); };
+
+                card.ondragover = function(e) {
+                    e.preventDefault();
+                };
+
                 card.ondrop = function(e) {
                     e.preventDefault();
                     if (dragCardSrc && dragCardSrc !== card) {
-                        saveState();
-                        const container = document.getElementById('panelContainer');
-                        if ([...container.children].indexOf(dragCardSrc) < [...container.children].indexOf(card)) card.after(dragCardSrc);
-                        else card.before(dragCardSrc);
-                        updateStats(); 
-                        window.saveCloud(); 
-                        saveState();
+                        window.captureStateForUndo();
+                        const parent = document.getElementById('panelContainer');
+                        const allChildCards = Array.from(parent.children);
+                        if (allChildCards.indexOf(dragCardSrc) < allChildCards.indexOf(card)) {
+                            card.after(dragCardSrc);
+                        } else {
+                            card.before(dragCardSrc);
+                        }
+                        updateLiveCutStatsEngine(); 
+                        window.forceCloudSave(); 
+                        window.captureStateForUndo();
                     }
                 };
-                card.ondragend = () => { card.classList.remove('opacity-20'); dragCardSrc = null; };
 
-                // 편집기 내부 텍스트 이벤트
-                const ed = card.querySelector('.c-editor');
-                if (ed) {
-                    ed.onblur = function() { saveState(); window.saveCloud(); };
-                    ed.onpaste = function(e) { window.handlePaste(e, ed); };
+                card.ondragend = function() {
+                    card.classList.remove('opacity-20');
+                    dragCardSrc = null;
+                };
+
+                // 내부 텍스트 편집기 기능 다시 연결
+                const internalEditor = card.querySelector('.c-editor');
+                if (internalEditor) {
+                    internalEditor.onblur = function() {
+                        window.captureStateForUndo();
+                        window.forceCloudSave();
+                    };
+                    internalEditor.onpaste = function(e) {
+                        window.handleClipboardPasteEngine(e, internalEditor);
+                    };
                 }
             });
-            console.log("Editor Features Revived.");
+            console.log(cards.length + " cuts successfully revived.");
         }
 
-        window.saveCloud = async function() {
+        window.forceCloudSave = async function() {
             if (!currentUser || !currentProjectId || !currentTabId) return;
-            setSyncStatus('saving');
+            setSyncStatusIndicatorUI('saving');
             
-            // 모든 체크박스와 입력값의 최신 상태를 DOM 속성에 박아넣음
-            document.querySelectorAll('.card-unit').forEach(card => {
-                card.querySelectorAll('input[type="text"]').forEach(i => i.setAttribute('value', i.value));
-                card.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked ? c.setAttribute('checked', 'true') : c.removeAttribute('checked'));
+            // 모든 컷의 실제 입력값(value)을 HTML 속성(setAttribute)으로 고정 (이게 없으면 소환 시 텍스트가 사라짐)
+            document.querySelectorAll('.card-unit').forEach(function(card) {
+                card.querySelectorAll('input[type="text"]').forEach(function(input) {
+                    input.setAttribute('value', input.value);
+                });
+                card.querySelectorAll('input[type="checkbox"]').forEach(function(check) {
+                    if (check.checked) {
+                        check.setAttribute('checked', 'true');
+                    } else {
+                        check.removeAttribute('checked');
+                    }
+                });
             });
 
             const titleVal = document.getElementById('episodeTitle').value;
-            const docRef = doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${currentTabId}`);
+            const contentRef = doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "tabs", `t_${currentTabId}`);
             
-            await setDoc(docRef, {
-                title: titleVal, originalText: document.getElementById('originalView').value,
-                boardHTML: document.getElementById('panelContainer').innerHTML, lastUpdated: new Date()
+            await setDoc(contentRef, {
+                title: titleVal,
+                originalText: document.getElementById('originalView').value,
+                boardHTML: document.getElementById('panelContainer').innerHTML,
+                lastUpdated: new Date()
             }, { merge: true });
 
-            const p = projectsMetadata.find(x => x.id === currentProjectId);
-            const t = p?.tabs.find(x => x.id === currentTabId);
-            if (t && t.title !== titleVal) { t.title = titleVal; saveGlobalMeta(); }
-            setSyncStatus('synced');
+            const projectObj = projectsMetadata.find(x => x.id === currentProjectId);
+            const tabObj = projectObj?.tabs.find(x => x.id === currentTabId);
+            if (tabObj && tabObj.title !== titleVal) {
+                tabObj.title = titleVal;
+                await saveGlobalMetaToFirestore();
+            }
+            setSyncStatusIndicatorUI('synced');
         };
 
-        // --- 6. 히스토리 & 언두 엔진 ---
-        window.saveState = function() {
-            const snap = {
+        // ---------------------------------------------------------
+        // 10. 히스토리 시스템 (Undo/Redo 무결성)
+        // ---------------------------------------------------------
+        window.captureStateForUndo = function() {
+            const currentSnapshot = {
                 title: document.getElementById('episodeTitle').value,
                 originalText: document.getElementById('originalView').value,
                 boardHTML: document.getElementById('panelContainer').innerHTML
             };
+            
             if (undoStack.length > 0) {
                 const last = undoStack[undoStack.length - 1];
-                if (last.boardHTML === snap.boardHTML && last.title === snap.title) return;
+                if (last.boardHTML === currentSnapshot.boardHTML && last.title === currentSnapshot.title) {
+                    return; // 변경이 없으면 스택에 쌓지 않음
+                }
             }
-            undoStack.push(snap);
-            if (undoStack.length > MAX_HISTORY) undoStack.shift();
-            redoStack = [];
+            
+            undoStack.push(currentSnapshot);
+            if (undoStack.length > MAX_HISTORY) {
+                undoStack.shift();
+            }
+            redoStack = []; // 새 동작 발생 시 리두 비움
         };
 
         window.performUndo = function() {
             if (undoStack.length <= 1) return;
             redoStack.push(undoStack.pop());
-            applySnapshot(undoStack[undoStack.length - 1]);
+            const previousState = undoStack[undoStack.length - 1];
+            applyStateFromStack(previousState);
         };
 
         window.performRedo = function() {
             if (redoStack.length === 0) return;
-            const next = redoStack.pop();
-            undoStack.push(next);
-            applySnapshot(next);
+            const nextState = redoStack.pop();
+            undoStack.push(nextState);
+            applyStateFromStack(nextState);
         };
 
-        function applySnapshot(state) {
+        function applyStateFromStack(state) {
             document.getElementById('episodeTitle').value = state.title;
             document.getElementById('originalView').value = state.originalText;
             document.getElementById('panelContainer').innerHTML = state.boardHTML;
-            requestAnimationFrame(() => {
-                reviveAllEditorEvents(); 
-                updateStats(); // 언두 후 카운팅
-                window.saveCloud();
+            
+            // 상태 적용 후 기능을 즉시 재활성화
+            requestAnimationFrame(function() {
+                reviveFullEditorFunctionalEvents();
+                updateLiveCutStatsEngine();
+                window.forceCloudSave();
             });
         }
 
-        // --- 7. 편집 및 컷 가공 (카운팅 누락 전수 수리) ---
-        window.processRawText = (mode) => {
-            const input = document.getElementById('sourceInput');
-            const text = input.value.trim();
-            if (!text && mode !== 'overwrite') return;
-            if (mode === 'overwrite' && !confirm("전체 초기화하시겠습니까?")) return;
+        // ---------------------------------------------------------
+        // 11. 원고 가공 및 컷 생성 로직 (카운팅 수리)
+        // ---------------------------------------------------------
+        window.processSourceInputText = function(mode) {
+            const sourceInput = document.getElementById('sourceInput');
+            const rawText = sourceInput.value.trim();
             
-            window.saveState();
-            const histBox = document.getElementById('originalView');
+            if (!rawText && mode !== 'overwrite') return;
+            if (mode === 'overwrite' && !confirm("정말 보드를 초기화하시겠습니까? 되돌릴 수 있습니다.")) return;
+            
+            window.captureStateForUndo();
+            const originalViewArea = document.getElementById('originalView');
+            
             if (mode === 'overwrite') { 
-                histBox.value = text; 
+                originalViewArea.value = rawText; 
                 document.getElementById('panelContainer').innerHTML = ""; 
             } else {
-                histBox.value += `\n[${new Date().toLocaleTimeString()}] 추가 원고:\n${text}\n`;
+                originalViewArea.value += `\n[${new Date().toLocaleTimeString()}] 추가됨:\n${rawText}\n`;
             }
 
-            const sentenceArray = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
-            sentenceArray.forEach(s => {
-                const newUnit = createCutUnit(s);
-                if (mode === 'insert' && activeCard) activeCard.after(newUnit);
-                else document.getElementById('panelContainer').appendChild(newUnit);
+            // 문장 단위로 분할하여 컷 생성
+            const rawLines = rawText.split(/(?<=[.!?])\s+/).filter(line => line.length > 0);
+            
+            rawLines.forEach(function(line) {
+                const newCutUnit = buildCutUnitElement(line);
+                if (mode === 'insert' && activeCard) {
+                    activeCard.after(newCutUnit);
+                } else {
+                    document.getElementById('panelContainer').appendChild(newCutUnit);
+                }
             });
 
-            updateStats(); // 컷 추가 후 카운팅
-            if (mode !== 'overwrite') input.value = "";
-            window.saveCloud(); window.saveState();
+            // 컷 추가 직후 카운팅 갱신
+            updateLiveCutStatsEngine();
+            
+            if (mode !== 'overwrite') sourceInput.value = "";
+            
+            window.forceCloudSave(); 
+            window.captureStateForUndo();
         };
 
-        function createCutUnit(content) {
+        function buildCutUnitElement(textContent) {
             const card = document.createElement('div');
             card.className = 'bg-[#0d0d0d] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition group relative cursor-move card-unit';
             
             card.innerHTML = `
                 <div class="flex flex-col gap-3 pointer-events-none">
                     <div class="flex justify-between items-center pointer-events-auto">
-                        <div class="flex items-center gap-2 text-gray-600"><span class="text-sm">☰</span><span class="text-[10px] font-black uppercase tracking-widest c-badge">Cut 00</span></div>
+                        <div class="flex items-center gap-2 text-gray-600">
+                            <span class="text-sm">☰</span>
+                            <span class="text-[10px] font-black uppercase tracking-widest cut-id-label-text">Cut 00</span>
+                        </div>
                         <div class="flex gap-3">
-                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="window.toggleMemo(this, '앵글/샷')" class="hidden"> 앵글/샷</label>
-                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="window.toggleMemo(this, '배경')" class="hidden"> 배경</label>
-                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="window.toggleMemo(this, '참고')" class="hidden"> 참고</label>
+                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="window.toggleCardMemoOption(this, '앵글/샷')" class="hidden"> 앵글/샷</label>
+                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="window.toggleCardMemoOption(this, '배경')" class="hidden"> 배경</label>
+                            <label class="text-[10px] cursor-pointer hover:text-blue-400 flex items-center gap-1"><input type="checkbox" onchange="window.toggleCardMemoOption(this, '참고')" class="hidden"> 참고</label>
                         </div>
                     </div>
                     <div class="flex gap-6 pointer-events-auto layout-row">
                         <div class="w-32 shrink-0 flex flex-col gap-2">
-                             <div class="img-box grid grid-cols-2 gap-1 bg-black/50 rounded p-1 min-h-[60px]" ondragover="event.preventDefault()" ondrop="window.handleImageDrop(event, this)"></div>
-                             <button onclick="event.stopPropagation(); window.openPicker(this)" class="text-[9px] bg-white/5 hover:bg-white/10 py-1.5 rounded text-gray-500 transition">+ Image</button>
+                             <div class="img-slot-drop-box grid grid-cols-2 gap-1 bg-black/50 rounded p-1 min-h-[60px]" ondragover="event.preventDefault()" ondrop="window.handleImageDropOnSlot(event, this)"></div>
+                             <button onclick="event.stopPropagation(); window.openCutImgPicker(this)" class="text-[9px] bg-white/5 hover:bg-white/10 py-1.5 rounded text-gray-500 transition">+ Image</button>
                         </div>
                         <div class="flex-1 space-y-4">
-                            <div class="memo-wrap flex flex-wrap gap-2"></div>
-                            <div class="c-editor text-[16px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="window.handlePaste(event, this)">${highlightText(content)}</div>
+                            <div class="memo-tags-container flex flex-wrap gap-2"></div>
+                            <div class="c-editor text-[16px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onpaste="window.handleClipboardPasteEngine(event, this)">${highlightDialogueInText(textContent)}</div>
                             <div class="flex gap-4 pt-3 border-t border-white/5">
-                                <button onclick="event.stopPropagation(); window.copyLine(this)" class="text-[9px] text-blue-500 font-bold uppercase">📋 Copy</button>
-                                <button onclick="event.stopPropagation(); window.mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase">Merge Up</button>
-                                <button onclick="event.stopPropagation(); window.splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase">Split</button>
-                                <button onclick="event.stopPropagation(); window.killCard(this)" class="text-[9px] text-red-900 font-bold uppercase ml-auto">Delete</button>
+                                <button onclick="event.stopPropagation(); window.copyThisCut(this)" class="text-[9px] text-blue-500 font-bold uppercase">📋 Copy</button>
+                                <button onclick="event.stopPropagation(); window.mergeCutWithAbove(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase">Merge Up</button>
+                                <button onclick="event.stopPropagation(); window.splitCutAtCursorPos(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase">Split</button>
+                                <button onclick="event.stopPropagation(); window.killCardUnitDirectly(this)" class="text-[9px] text-red-900 font-bold uppercase ml-auto">Delete</button>
                             </div>
                         </div>
                     </div>
                 </div>`;
             
-            setTimeout(() => { reviveSingleCard(card); updateStats(); }, 0);
+            // 생성 직후 리스너 주입 사이클 대기
+            setTimeout(function() { 
+                reviveSpecificCardFeatures(card); 
+                updateLiveCutStatsEngine(); 
+            }, 0);
             return card;
         }
 
-        function reviveSingleCard(card) {
+        // 단일 카드 생성/복구용 소생 엔진
+        function reviveSpecificCardFeatures(card) {
             card.draggable = true;
-            card.onclick = (e) => { e.stopPropagation(); focusCard(card); };
-            card.addEventListener('dragstart', (e) => {
-                if (e.target.tagName === 'IMG' || e.target.tagName === 'INPUT') return;
+            card.onclick = function(e) { 
+                e.stopPropagation(); 
+                focusSpecifiedCard(card); 
+            };
+            card.addEventListener('dragstart', function(e) {
+                if (e.target.tagName === 'IMG' || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
                 dragCardSrc = card;
                 e.dataTransfer.effectAllowed = 'move';
-                setTimeout(() => card.classList.add('opacity-20'), 0);
+                setTimeout(function() { card.classList.add('opacity-20'); }, 0);
             });
-            const editor = card.querySelector('.c-editor');
-            if (editor) {
-                editor.onblur = function() { window.saveState(); window.saveCloud(); };
-                editor.onpaste = function(e) { window.handlePaste(e, editor); };
+            
+            const textEditor = card.querySelector('.c-editor');
+            if (textEditor) {
+                textEditor.onblur = function() { 
+                    window.captureStateForUndo(); 
+                    window.forceCloudSave(); 
+                };
+                textEditor.onpaste = function(e) { 
+                    window.handleClipboardPasteEngine(e, textEditor); 
+                };
             }
         }
 
-        // --- 8. 창고 관리 엔진 (iOS 정렬 무반응 해결 및 드래그) ---
-        window.openArchiveManager = async function() {
-            const modal = document.getElementById('archiveModal');
-            modal.classList.remove('hidden');
-            const list = document.getElementById('archiveList');
-            list.innerHTML = "<div class='p-10 text-center opacity-50 font-black text-xs uppercase tracking-widest'>Accessing Archives...</div>";
+        // ---------------------------------------------------------
+        // 12. 창고(Archive) 관리 엔진 (드래그 정렬 및 루프 박멸)
+        // ---------------------------------------------------------
+        window.openArchiveManagerUI = async function() {
+            const archiveModal = document.getElementById('archiveModal');
+            archiveModal.classList.remove('hidden');
+            const listContainer = document.getElementById('archiveList');
+            listContainer.innerHTML = "<div class='p-10 text-center opacity-50 font-black text-xs tracking-widest uppercase'>RETRIEVING SNAPSHOTS...</div>";
             
             try {
-                const q_simple = query(collection(db, "users", currentUser.uid, "archives"), orderBy("timestamp", "desc"), limit(60));
-                const qs = await getDocs(q_simple);
-                list.innerHTML = "";
-                if (qs.empty) { list.innerHTML = "<div class='p-10 text-center opacity-30 text-xs'>No archives found.</div>"; return; }
+                // 사파리 ITP 보호 정책을 회피하기 위해 단순 쿼리 후 수동 정렬
+                const archiveQuery = query(collection(db, "users", currentUser.uid, "archives"), orderBy("timestamp", "desc"), limit(60));
+                const querySnap = await getDocs(archiveQuery);
+                listContainer.innerHTML = "";
+                
+                if (querySnap.empty) { 
+                    listContainer.innerHTML = "<div class='p-10 text-center opacity-30 text-xs'>창고가 비어있습니다.</div>"; 
+                    return; 
+                }
 
-                const items = [];
-                qs.forEach(docSnap => items.push({ id: docSnap.id, ...docSnap.data() }));
-                items.sort((a, b) => (a.order || 0) - (b.order || 0));
+                const snapList = [];
+                querySnap.forEach(function(docSnap) {
+                    snapList.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                
+                // 작가가 설정한 순서(order)가 있으면 적용
+                snapList.sort(function(a, b) {
+                    return (a.order || 0) - (b.order || 0);
+                });
 
-                items.forEach((item) => {
-                    const div = document.createElement('div');
-                    div.className = "bg-[#111] p-5 rounded-2xl border border-white/5 flex justify-between items-center hover:border-blue-500 transition mb-3 cursor-move snapshot-entry";
-                    div.draggable = true;
-                    div.dataset.id = item.id;
+                snapList.forEach(function(item) {
+                    const entryDiv = document.createElement('div');
+                    entryDiv.className = "bg-[#111] p-5 rounded-2xl border border-white/5 flex justify-between items-center hover:border-blue-500 transition mb-3 cursor-move snapshot-entry-unit";
+                    entryDiv.draggable = true;
+                    entryDiv.dataset.id = item.id;
 
-                    div.ondragstart = (e) => { dragSnapshotSrcId = item.id; e.dataTransfer.effectAllowed = 'move'; div.classList.add('opacity-30'); };
-                    div.ondragover = (e) => e.preventDefault();
-                    div.ondrop = async (e) => {
+                    // 스냅샷 리스트 드래그 로직 (풀어서 작성)
+                    entryDiv.ondragstart = function(e) {
+                        dragSnapshotSrcId = item.id;
+                        e.dataTransfer.effectAllowed = 'move';
+                        entryDiv.classList.add('opacity-30');
+                    };
+
+                    entryDiv.ondragover = function(e) {
+                        e.preventDefault();
+                    };
+
+                    entryDiv.ondrop = async function(e) {
                         e.preventDefault();
                         if (dragSnapshotSrcId && dragSnapshotSrcId !== item.id) {
-                            const entries = [...list.querySelectorAll('.snapshot-entry')];
-                            const sIdx = entries.findIndex(u => u.dataset.id === dragSnapshotSrcId);
-                            const tIdx = entries.findIndex(u => u.dataset.id === item.id);
-                            const srcEl = entries[sIdx];
-                            if (sIdx < tIdx) div.after(srcEl); else div.before(srcEl);
-                            await commitArchiveOrder(list);
+                            const currentEntries = [...listContainer.querySelectorAll('.snapshot-entry-unit')];
+                            const fromIdx = currentEntries.findIndex(u => u.dataset.id === dragSnapshotSrcId);
+                            const toIdx = currentEntries.findIndex(u => u.dataset.id === item.id);
+                            
+                            const movedEl = currentEntries[fromIdx];
+                            if (fromIdx < toIdx) {
+                                entryDiv.after(movedEl);
+                            } else {
+                                entryDiv.before(movedEl);
+                            }
+                            
+                            await commitSnapshotOrderChanges(listContainer);
                         }
                     };
-                    div.ondragend = () => div.classList.remove('opacity-30');
 
-                    div.innerHTML = `<div><div class="text-[9px] text-blue-500 font-bold uppercase tracking-widest">${item.projectName || '미분류'}</div>
-                        <div class="text-base font-black text-white">${item.title}</div>
-                        <div class="text-[10px] text-gray-600">${item.timestamp.toDate().toLocaleString()}</div></div>
-                        <div class="flex gap-2"><button onclick="window.summonSnapshot('${item.id}')" class="bg-blue-600/20 text-blue-400 px-5 py-2 rounded-xl font-bold hover:bg-blue-600 transition">소환</button>
-                        <button onclick="window.killSnapshot('${item.id}')" class="bg-red-900/10 text-red-700 px-4 py-2 rounded-xl font-bold hover:bg-red-900 transition">삭제</button></div>`;
-                    list.appendChild(div);
+                    entryDiv.ondragend = function() {
+                        entryDiv.classList.remove('opacity-30');
+                        dragSnapshotSrcId = null;
+                    };
+
+                    entryDiv.innerHTML = `
+                        <div>
+                            <div class="text-[9px] text-blue-500 font-bold uppercase tracking-widest">${item.projectName || '프로젝트 미지정'}</div>
+                            <div class="text-base font-black text-white">${item.title}</div>
+                            <div class="text-[10px] text-gray-600">${item.timestamp.toDate().toLocaleString()}</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="window.summonSnapshotDirectly('${item.id}')" class="bg-blue-600/20 text-blue-400 px-5 py-2 rounded-xl font-bold hover:bg-blue-600 transition">소환</button>
+                            <button onclick="window.killArchiveSnapshot('${item.id}')" class="bg-red-900/10 text-red-700 px-4 py-2 rounded-xl font-bold hover:bg-red-900 transition">삭제</button>
+                        </div>`;
+                    listContainer.appendChild(entryDiv);
                 });
-            } catch (err) { list.innerHTML = `<div class='p-10 text-center text-red-500'>Error: ${err.message}</div>`; }
+            } catch (err) { 
+                listContainer.innerHTML = `<div class='p-10 text-center text-red-500'>DB 연결 오류: ${err.message}</div>`; 
+            }
         };
 
-        async function commitArchiveOrder(container) {
+        async function commitSnapshotOrderChanges(container) {
             const batch = writeBatch(db);
-            const items = container.querySelectorAll('.snapshot-entry');
-            items.forEach((item, index) => {
-                const ref = doc(db, "users", currentUser.uid, "archives", item.dataset.id);
-                batch.update(ref, { order: index });
+            const entryUnits = container.querySelectorAll('.snapshot-entry-unit');
+            entryUnits.forEach(function(unitEl, index) {
+                const docRef = doc(db, "users", currentUser.uid, "archives", unitEl.dataset.id);
+                batch.update(docRef, { order: index });
             });
             await batch.commit();
         }
 
-        window.summonSnapshot = async function(id) {
-            if (!confirm("소환하시겠습니까? 모든 편집 기능이 즉시 재가동됩니다.")) return;
+        window.summonSnapshotDirectly = async function(id) {
+            if (!confirm("현재 슬롯의 데이터를 교체하고 스냅샷을 소환하시겠습니까?")) return;
             const docSnap = await getDoc(doc(db, "users", currentUser.uid, "archives", id));
+            
             if (docSnap.exists()) {
-                window.saveState();
-                const d = docSnap.data();
-                document.getElementById('episodeTitle').value = d.title;
-                document.getElementById('originalView').value = d.originalText;
-                document.getElementById('panelContainer').innerHTML = d.boardHTML;
+                window.captureStateForUndo();
+                const snapData = docSnap.data();
+                document.getElementById('episodeTitle').value = snapData.title;
+                document.getElementById('originalView').value = snapData.originalText;
+                document.getElementById('panelContainer').innerHTML = snapData.boardHTML;
                 
-                // 소환 즉시 이벤트 재주입 및 카운팅 리프레시
-                setTimeout(() => { 
-                    reviveAllEditorEvents(); 
-                    updateStats(); 
-                    window.saveCloud(); 
-                    window.saveState(); 
+                // 소환 즉시 '소생 사이클' 가동 (150ms 대기 후 확실히 주입)
+                setTimeout(function() { 
+                    reviveFullEditorFunctionalEvents(); 
+                    updateLiveCutStatsEngine(); 
+                    window.forceCloudSave(); 
+                    window.captureStateForUndo(); 
                 }, 150);
+                
                 document.getElementById('archiveModal').classList.add('hidden');
             }
         };
 
-        // --- 9. 전역 함수 바인딩 (TypeError 완전 박멸 / 생략 없음) ---
-        window.googleLoginAction = function() {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-            if (isIOS) {
-                // iOS 전용: 리다이렉트만 수행
+        // ---------------------------------------------------------
+        // 13. 전역 윈도우 함수 바인딩 (TypeError 완전 박멸 / 생략 없음)
+        // ---------------------------------------------------------
+        
+        // [iOS 로그인 엔진] 리다이렉트와 지속성을 결합한 방식
+        window.googleSignInAction = function() {
+            const isIOSPlatform = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            
+            if (isIOSPlatform) {
+                console.log("iOS detected. Using Redirect login...");
                 signInWithRedirect(auth, provider);
             } else {
-                // PC: 팝업 시도 후 실패 시 리다이렉트
-                signInWithPopup(auth, provider).catch(err => {
-                    if(err.code === 'auth/popup-blocked') signInWithRedirect(auth, provider);
+                console.log("PC/Android detected. Using Popup login...");
+                signInWithPopup(auth, provider).catch(function(err) {
+                    if (err.code === 'auth/popup-blocked') {
+                        signInWithRedirect(auth, provider);
+                    }
                 });
             }
         };
 
-        window.logoutAction = function() {
-            signOut(auth).then(() => location.reload());
+        window.globalLogoutProcess = function() {
+            signOut(auth).then(function() {
+                location.reload();
+            });
         };
 
-        window.removeProject = async function(id) {
+        window.killProjectEntry = async function(projectId) {
             if (projectsMetadata.length <= 1) return;
-            if (confirm("정말 삭제합니까?")) {
-                projectsMetadata = projectsMetadata.filter(p => p.id !== id);
-                await saveGlobalMeta();
+            if (confirm("정말 작품을 삭제하시겠습니까? 하위 원고 데이터가 모두 지워집니다.")) {
+                projectsMetadata = projectsMetadata.filter(p => p.id !== projectId);
+                await saveGlobalMetaToFirestore();
             }
         };
 
-        window.removeSlot = async function(id) {
-            const p = projectsMetadata.find(x => x.id === currentProjectId);
-            if (p && p.tabs.length > 1) {
-                if (confirm("정말 삭제합니까?")) {
-                    p.tabs = p.tabs.filter(t => t.id !== id);
-                    if (currentTabId === id) currentTabId = p.tabs[0].id;
-                    await saveGlobalMeta();
+        window.killSlotEntry = async function(slotId) {
+            const project = projectsMetadata.find(x => x.id === currentProjectId);
+            if (project && project.tabs.length > 1) {
+                if (confirm("이 슬롯을 삭제하시겠습니까?")) {
+                    project.tabs = project.tabs.filter(t => t.id !== slotId);
+                    if (currentTabId === slotId) {
+                        currentTabId = project.tabs[0].id;
+                    }
+                    await saveGlobalMetaToFirestore();
                 }
             }
         };
 
-        window.killProjectEntry = (id) => window.removeProject(id);
-        window.killSlotEntry = (id) => window.removeSlot(id);
         window.createProject = async function() {
-            const id = Date.now();
-            projectsMetadata.push({ id, name: "새 작품", order: projectsMetadata.length, tabs: [{ id: id + 1, order: 0, title: "" }] });
-            currentProjectId = id; currentTabId = id + 1;
-            await saveGlobalMeta();
+            const newProjId = Date.now();
+            projectsMetadata.push({ 
+                id: newProjId, 
+                name: "새 작품", 
+                order: projectsMetadata.length, 
+                tabs: [{ id: newProjId + 1, order: 0, title: "" }] 
+            });
+            currentProjectId = newProjId;
+            currentTabId = newProjId + 1;
+            await saveGlobalMetaToFirestore();
         };
+
         window.createSlot = async function() {
-            const p = projectsMetadata.find(x => x.id === currentProjectId);
-            if (p) {
-                const id = Date.now();
-                p.tabs.push({ id, order: p.tabs.length, title: "" });
-                currentTabId = id;
-                await saveGlobalMeta();
+            const project = projectsMetadata.find(x => x.id === currentProjectId);
+            if (project) {
+                const newSlotId = Date.now();
+                project.tabs.push({ 
+                    id: newSlotId, 
+                    order: project.tabs.length, 
+                    title: "" 
+                });
+                currentTabId = newSlotId;
+                await saveGlobalMetaToFirestore();
             }
         };
         
-        window.killCard = function(btn) { 
-            window.saveState(); 
-            btn.closest('.card-unit').remove(); 
-            updateStats(); 
-            window.saveCloud(); 
-            window.saveState(); 
+        window.killCardUnitDirectly = function(buttonEl) { 
+            window.captureStateForUndo(); 
+            buttonEl.closest('.card-unit').remove(); 
+            updateLiveCutStatsEngine(); 
+            window.forceCloudSave(); 
+            window.captureStateForUndo(); 
         };
         
-        window.mergeUp = function(btn) {
-            const cur = btn.closest('.card-unit'); const prev = cur.previousElementSibling;
-            if (prev) {
-                window.saveState();
-                const ed = prev.querySelector('.c-editor');
-                ed.innerText += " " + cur.querySelector('.c-editor').innerText;
-                ed.innerHTML = highlightText(ed.innerText);
-                cur.querySelectorAll('.img-box > div').forEach(img => prev.querySelector('.img-box').appendChild(img));
-                cur.remove();
-                updateStats(); window.saveCloud(); 
+        window.mergeCutWithAbove = function(buttonEl) {
+            const currentCard = buttonEl.closest('.card-unit');
+            const previousCard = currentCard.previousElementSibling;
+            if (previousCard) {
+                window.captureStateForUndo();
+                const prevEditor = previousCard.querySelector('.c-editor');
+                const currEditor = currentCard.querySelector('.c-editor');
+                
+                prevEditor.innerText += " " + currEditor.innerText;
+                prevEditor.innerHTML = highlightDialogueInText(prevEditor.innerText);
+                
+                // 이미지 슬롯 병합
+                currentCard.querySelectorAll('.img-slot-drop-box > div').forEach(function(imgDiv) {
+                    previousCard.querySelector('.img-slot-drop-box').appendChild(imgDiv);
+                });
+                
+                currentCard.remove();
+                updateLiveCutStatsEngine(); 
+                window.forceCloudSave(); 
+                window.captureStateForUndo();
             }
         };
 
-        window.splitAtCursor = function(btn) {
-            const cur = btn.closest('.card-unit'); const ed = cur.querySelector('.c-editor');
-            const sel = window.getSelection(); if (!sel.rangeCount || !ed.contains(sel.getRangeAt(0).commonAncestorContainer)) return;
-            window.saveState();
-            const r = sel.getRangeAt(0); const ext = document.createRange();
-            ext.setStart(r.endContainer, r.endOffset); ext.setEnd(ed, ed.childNodes.length);
-            const rem = ext.toString(); ext.deleteContents();
-            ed.innerHTML = highlightText(ed.innerText);
-            cur.after(createCutUnit(rem));
-            updateStats(); window.saveCloud(); 
+        window.splitCutAtCursorPos = function(buttonEl) {
+            const currentCard = buttonEl.closest('.card-unit');
+            const textEditor = currentCard.querySelector('.c-editor');
+            const selection = window.getSelection();
+            
+            if (!selection.rangeCount || !textEditor.contains(selection.getRangeAt(0).commonAncestorContainer)) return;
+            
+            window.captureStateForUndo();
+            const range = selection.getRangeAt(0);
+            const extraRange = document.createRange();
+            extraRange.setStart(range.endContainer, range.endOffset);
+            extraRange.setEnd(textEditor, textEditor.childNodes.length);
+            
+            const extraText = extraRange.toString();
+            extraRange.deleteContents();
+            
+            textEditor.innerHTML = highlightDialogueInText(textEditor.innerText);
+            
+            const splitCard = buildCutUnitElement(extraText);
+            currentCard.after(splitCard);
+            
+            updateLiveCutStatsEngine(); 
+            window.forceCloudSave(); 
+            window.captureStateForUndo();
         };
 
-        window.toggleMemo = function(cb, label) {
-            window.saveState();
-            const wrap = cb.closest('.card-unit').querySelector('.memo-wrap');
-            if (cb.checked) {
-                const i = document.createElement('input');
-                i.className = 'bg-transparent border-b border-white/10 text-[11px] text-gray-500 outline-none w-24';
-                i.placeholder = label + "..."; i.dataset.type = label;
-                i.onblur = () => { window.saveState(); window.saveCloud(); };
-                wrap.appendChild(i); i.focus();
-            } else { const ex = wrap.querySelector(`input[data-type="${label}"]`); if (ex) ex.remove(); }
-            window.saveCloud();
+        window.toggleCardMemoOption = function(checkbox, label) {
+            window.captureStateForUndo();
+            const memoContainer = checkbox.closest('.card-unit').querySelector('.memo-tags-container');
+            
+            if (checkbox.checked) {
+                const tagInput = document.createElement('input');
+                tagInput.className = 'bg-transparent border-b border-white/10 text-[11px] text-gray-500 outline-none w-24 focus:border-blue-500';
+                tagInput.placeholder = label + "...";
+                tagInput.dataset.type = label;
+                tagInput.onblur = function() {
+                    window.captureStateForUndo();
+                    window.forceCloudSave();
+                };
+                memoContainer.appendChild(tagInput);
+                tagInput.focus();
+            } else {
+                const existingTag = memoContainer.querySelector(`input[data-type="${label}"]`);
+                if (existingTag) existingTag.remove();
+            }
+            window.forceCloudSave();
         };
 
-        window.saveSnapshot = async function() {
-            const title = document.getElementById('episodeTitle').value || "무제";
-            const name = prompt("이름을 정해주세요", title); if (!name) return;
+        window.saveCurrentSnapshotToArchive = async function() {
+            const epTitle = document.getElementById('episodeTitle').value || "무제";
+            const saveName = prompt("보관용 이름을 입력해 주세요.", epTitle);
+            if (!saveName) return;
+            
             try {
-                const qs = await getDocs(collection(db, "users", currentUser.uid, "archives"));
-                await addDoc(collection(db, "users", currentUser.uid, "archives"), { title: name, originalText: document.getElementById('originalView').value, boardHTML: document.getElementById('panelContainer').innerHTML, timestamp: new Date(), projectName: projectsMetadata.find(p => p.id === currentProjectId)?.name, order: qs.size });
-                alert("보관되었습니다.");
-            } catch (err) { alert("Error: " + err.message); }
+                const archiveRef = collection(db, "users", currentUser.uid, "archives");
+                const allArchives = await getDocs(archiveRef);
+                
+                await addDoc(archiveRef, { 
+                    title: saveName, 
+                    originalText: document.getElementById('originalView').value, 
+                    boardHTML: document.getElementById('panelContainer').innerHTML, 
+                    timestamp: new Date(), 
+                    projectName: projectsMetadata.find(p => p.id === currentProjectId)?.name || "Unknown", 
+                    order: allArchives.size 
+                });
+                alert("창고에 안전하게 보관되었습니다.");
+            } catch (err) {
+                alert("저장 중 오류 발생: " + err.message);
+            }
         };
 
-        window.killSnapshot = async function(id) { if (confirm("삭제?")) { await deleteDoc(doc(db, "users", currentUser.uid, "archives", id)); window.openArchiveManager(); } };
-        window.copyLine = async function(btn) { await navigator.clipboard.writeText(btn.closest('.card-unit').querySelector('.c-editor').innerText); alert("복사됨"); };
-        window.clipCopy = async function(id) { await navigator.clipboard.writeText(document.getElementById(id).value); alert("복사됨"); };
-        window.toggleGridView = function() { isGridView = !isGridView; document.getElementById('panelContainer').classList.toggle('grid-view', isGridView); document.getElementById('gridBtn').innerText = isGridView ? "리스트 뷰" : "그리드 뷰"; document.getElementById('gridBtn').classList.toggle('text-blue-400', isGridView); };
-        window.openPicker = function(btn) { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = e => { if (e.target.files[0]) compressAndAttach(e.target.files[0], btn.closest('.card-unit')); }; input.click(); };
-        
-        function compressAndAttach(f, c) {
-            const r = new FileReader(); r.readAsDataURL(f);
-            r.onload = (e) => {
-                const img = new Image(); img.src = e.target.result;
-                img.onload = () => {
-                    const cvs = document.createElement('canvas'); cvs.width = 500; cvs.height = img.height * (500 / img.width);
-                    cvs.getContext('2d').drawImage(img, 0, 0, cvs.width, cvs.height);
-                    const src = cvs.toDataURL('image/jpeg', 0.6);
-                    window.saveState();
-                    const slot = c.querySelector('.img-box');
-                    const wrap = document.createElement('div');
-                    wrap.className = "relative aspect-square bg-gray-900 rounded overflow-hidden cursor-pointer";
-                    wrap.innerHTML = `<img src="${src}" class="w-full h-full object-cover"><button onclick="window.saveState(); this.parentElement.remove(); window.saveCloud(); window.saveState();" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5">×</button>`;
-                    slot.appendChild(wrap); window.saveCloud(); window.saveState();
-                }
+        window.killArchiveSnapshot = async function(docId) {
+            if (confirm("이 스냅샷을 영구적으로 삭제하시겠습니까?")) {
+                await deleteDoc(doc(db, "users", currentUser.uid, "archives", docId));
+                window.openArchiveManagerUI();
             }
+        };
+
+        window.copyThisCut = async function(button) {
+            const text = button.closest('.card-unit').querySelector('.c-editor').innerText;
+            await navigator.clipboard.writeText(text);
+            alert("대사가 복사되었습니다.");
+        };
+
+        window.clipCopyRawViewData = async function(id) {
+            const el = document.getElementById(id);
+            await navigator.clipboard.writeText(el.value);
+            alert("원문 기록이 복사되었습니다.");
+        };
+
+        window.toggleGridViewMode = function() {
+            isGridView = !isGridView;
+            const panel = document.getElementById('panelContainer');
+            const btn = document.getElementById('gridBtn');
+            
+            if (isGridView) {
+                panel.classList.add('grid-view');
+                btn.innerText = "리스트 뷰";
+                btn.classList.add('text-blue-400');
+            } else {
+                panel.classList.remove('grid-view');
+                btn.innerText = "그리드 뷰";
+                btn.classList.remove('text-blue-400');
+            }
+        };
+
+        window.openCutImgPicker = function(button) {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'image/*';
+            fileInput.onchange = function(e) {
+                if (e.target.files[0]) {
+                    processAndAttachImageToCut(e.target.files[0], button.closest('.card-unit'));
+                }
+            };
+            fileInput.click();
+        };
+
+        function processAndAttachImageToCut(file, card) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function(e) {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    // 모바일 업로드를 위한 최적 압축
+                    const maxWidth = 500;
+                    canvas.width = maxWidth;
+                    canvas.height = img.height * (maxWidth / img.width);
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                    window.captureStateForUndo();
+                    
+                    const imgSlot = card.querySelector('.img-slot-drop-box');
+                    const imgWrapper = document.createElement('div');
+                    imgWrapper.className = "relative aspect-square bg-gray-900 rounded overflow-hidden cursor-pointer";
+                    imgWrapper.innerHTML = `
+                        <img src="${compressedDataUrl}" class="w-full h-full object-cover">
+                        <button onclick="window.captureStateForUndo(); this.parentElement.remove(); window.forceCloudSave(); window.captureStateForUndo();" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5">×</button>`;
+                    
+                    imgSlot.appendChild(imgWrapper);
+                    window.forceCloudSave();
+                    window.captureStateForUndo();
+                };
+            };
         }
 
-        window.handleImageDrop = function(e, slot) { e.preventDefault(); if (e.dataTransfer.files[0]) compressAndAttach(e.dataTransfer.files[0], slot.closest('.card-unit')); };
-        window.handlePaste = function(e, el) { const items = (e.clipboardData || e.originalEvent.clipboardData).items; for (let item of items) { if (item.kind === 'file') { e.preventDefault(); compressAndAttach(item.getAsFile(), el.closest('.card-unit')); } } };
+        window.handleImageDropOnSlot = function(e, slotEl) {
+            e.preventDefault();
+            if (e.dataTransfer.files[0]) {
+                processAndAttachImageToCut(e.dataTransfer.files[0], slotEl.closest('.card-unit'));
+            }
+        };
 
-        async function syncMemos() { if (!currentProjectId) return; const q = query(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), orderBy("order", "asc")); onSnapshot(q, (qs) => { memos = []; qs.forEach(doc => memos.push({id: doc.id, ...doc.data()})); renderMemoUIList(); }); }
-        window.addProjectMemo = async function() { const title = document.getElementById('episodeTitle').value || "새 슬롯"; await addDoc(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), { title: `[${title}] 메모`, content: "", order: memos.length }); };
-        function renderMemoUIList() {
-            const container = document.getElementById('memoContainer'); container.innerHTML = "";
-            memos.forEach(m => {
-                const div = document.createElement('div'); div.className = "bg-white/5 border border-white/10 rounded-xl mb-4 overflow-hidden shadow-lg transition hover:border-white/20";
-                div.innerHTML = `<div class="flex items-center justify-between p-3 bg-white/5 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('hidden')">
-                        <input value="${m.title}" class="bg-transparent border-none outline-none text-[11px] font-bold w-full truncate" onchange="window.saveMemoData('${m.id}', 'title', this.value)" onclick="event.stopPropagation()">
-                        <button onclick="event.stopPropagation(); window.killMemoEntry('${m.id}')" class="text-red-900 ml-2 font-black text-lg">×</button>
-                    </div><textarea class="w-full bg-transparent p-3 text-[11px] text-gray-400 outline-none h-28" onchange="window.saveMemoData('${m.id}', 'content', this.value)">${m.content}</textarea>`;
-                container.appendChild(div);
+        window.handleClipboardPasteEngine = function(e, editorEl) {
+            const clipboardItems = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let item of clipboardItems) {
+                if (item.kind === 'file') {
+                    e.preventDefault();
+                    processAndAttachImageToCut(item.getAsFile(), editorEl.closest('.card-unit'));
+                }
+            }
+        };
+
+        // ---------------------------------------------------------
+        // 14. 프로젝트 공유 메모 시스템
+        // ---------------------------------------------------------
+        async function syncProjectSharedMemos() {
+            if (!currentProjectId) return;
+            const memoQuery = query(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), orderBy("order", "asc"));
+            
+            onSnapshot(memoQuery, function(querySnap) {
+                memos = [];
+                querySnap.forEach(function(docSnap) {
+                    memos.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                renderProjectMemoListUI();
             });
         }
-        window.saveMemoData = async (id, f, v) => { await setDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id), { [f]: v }, { merge: true }); };
-        window.killMemoEntry = async (id) => { if (confirm("메모 삭제?")) await deleteDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id)); };
 
-        function initHotkeys() { window.addEventListener('keydown', (e) => { if (e.ctrlKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); window.performUndo(); } if ((e.ctrlKey && e.shiftKey && e.key === 'Z') || (e.ctrlKey && e.key === 'y')) { e.preventDefault(); window.performRedo(); } if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); window.processRawText('append'); } if (e.altKey && e.key === 's') { e.preventDefault(); window.saveSnapshot(); } if (e.ctrlKey && e.key === 'f') { e.preventDefault(); document.getElementById('boardSearchInput').focus(); } }); }
-        function setSyncStatus(s) { const dot = document.querySelector(`.sync-dot-${currentTabId}`); if (dot) { dot.style.backgroundColor = (s === 'saving' ? '#eab308' : '#22c55e'); if(s==='saving') dot.classList.add('animate-pulse'); else dot.classList.remove('animate-pulse'); } }
-        
-        function updateStats() {
-            const units = document.getElementById('panelContainer').querySelectorAll('.card-unit');
-            units.forEach((u, i) => { const label = u.querySelector('.c-badge'); if(label) label.innerText = `Cut ${String(i+1).padStart(2, '0')}`; });
-            const counter = document.getElementById('globalCutCount'); if(counter) counter.innerText = `${units.length} Cuts Synchronized`;
+        window.addNewProjectMemo = async function() {
+            const currentSlotTitle = document.getElementById('episodeTitle').value || "새 슬롯";
+            await addDoc(collection(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos"), { 
+                title: `[${currentSlotTitle}] 메모`, 
+                content: "", 
+                order: memos.length 
+            });
+        };
+
+        function renderProjectMemoListUI() {
+            const container = document.getElementById('memoContainer');
+            container.innerHTML = "";
+            
+            memos.forEach(function(memo) {
+                const memoDiv = document.createElement('div');
+                memoDiv.className = "bg-white/5 border border-white/10 rounded-xl mb-4 overflow-hidden shadow-lg transition hover:border-white/20";
+                memoDiv.innerHTML = `
+                    <div class="flex items-center justify-between p-3 bg-white/5 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                        <input value="${memo.title}" class="bg-transparent border-none outline-none text-[11px] font-bold w-full truncate" onchange="window.updateSharedMemoData('${memo.id}', 'title', this.value)" onclick="event.stopPropagation()">
+                        <button onclick="event.stopPropagation(); window.removeSharedMemoEntry('${memo.id}')" class="text-red-900 ml-2 font-black text-lg">×</button>
+                    </div>
+                    <textarea class="w-full bg-transparent p-3 text-[11px] text-gray-400 outline-none h-28" onchange="window.updateSharedMemoData('${memo.id}', 'content', this.value)">${memo.content}</textarea>`;
+                container.appendChild(memoDiv);
+            });
         }
 
-        function focusCard(c) { document.querySelectorAll('.card-unit').forEach(u => u.classList.remove('card-focused')); c.classList.add('card-focused'); activeCard = c; }
-        window.clearFocus = function() { document.querySelectorAll('.card-unit').forEach(u => u.classList.remove('card-focused')); activeCard = null; };
-        function highlightText(t) { return t ? t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>') : ""; }
-        function clearMainEditor() { document.getElementById('episodeTitle').value = ""; document.getElementById('originalView').value = ""; document.getElementById('panelContainer').innerHTML = ""; updateStats(); }
+        window.updateSharedMemoData = async function(id, fieldName, newValue) {
+            await setDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id), { [fieldName]: newValue }, { merge: true });
+        };
+
+        window.removeSharedMemoEntry = async function(id) {
+            if (confirm("공유 메모를 삭제하시겠습니까?")) {
+                await deleteDoc(doc(db, "users", currentUser.uid, "projects", `p_${currentProjectId}`, "memos", id));
+            }
+        };
+
+        // ---------------------------------------------------------
+        // 15. 유틸리티 및 카운팅 시스템 (수리 완료)
+        // ---------------------------------------------------------
+        function registerSystemHotkeys() {
+            window.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); window.performUndo(); }
+                if ((e.ctrlKey && e.shiftKey && e.key === 'Z') || (e.ctrlKey && e.key === 'y')) { e.preventDefault(); window.performRedo(); }
+                if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); window.processSourceInputText('append'); }
+                if (e.altKey && e.key === 's') { e.preventDefault(); window.saveCurrentSnapshotToArchive(); }
+                if (e.ctrlKey && e.key === 'f') { e.preventDefault(); document.getElementById('boardSearchInput').focus(); }
+            });
+        }
+
+        function setSyncStatusIndicatorUI(status) {
+            const syncDot = document.querySelector(`.sync-dot-${currentTabId}`);
+            if (syncDot) {
+                if (status === 'saving') {
+                    syncDot.style.backgroundColor = '#eab308';
+                    syncDot.classList.add('animate-pulse');
+                } else {
+                    syncDot.style.backgroundColor = '#22c55e';
+                    syncDot.classList.remove('animate-pulse');
+                }
+            }
+        }
+
+        function updateLiveCutStatsEngine() {
+            const allCuts = document.getElementById('panelContainer').querySelectorAll('.card-unit');
+            allCuts.forEach(function(cut, idx) {
+                const label = cut.querySelector('.cut-id-label-text');
+                if (label) {
+                    label.innerText = `Cut ${String(idx + 1).padStart(2, '0')}`;
+                }
+            });
+            const counterUI = document.getElementById('globalCutCount');
+            if (counterUI) {
+                counterUI.innerText = `${allCuts.length} Cuts Synchronized`;
+            }
+            console.log("Stats updated: " + allCuts.length + " cuts.");
+        }
+
+        function focusSpecifiedCard(cardElement) {
+            document.querySelectorAll('.card-unit').forEach(u => u.classList.remove('card-focused'));
+            cardElement.classList.add('card-focused');
+            activeCard = cardElement;
+        }
+
+        window.clearFullWorkspaceFocus = function() {
+            document.querySelectorAll('.card-unit').forEach(u => u.classList.remove('card-focused'));
+            activeCard = null;
+        };
+
+        function highlightDialogueInText(text) {
+            if (!text) return "";
+            return text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>')
+                       .replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
+        }
+
+        function resetMainEditorUI() {
+            document.getElementById('episodeTitle').value = "";
+            document.getElementById('originalView').value = "";
+            document.getElementById('panelContainer').innerHTML = "";
+            updateLiveCutStatsEngine();
+        }
+
+        function clearAllEditorState() {
+            resetMainEditorUI();
+        }
 
     </script>
     <style>
@@ -745,18 +1191,21 @@
         .grid-view .card-unit { height: 380px; overflow: hidden; }
         .grid-view .c-editor { font-size: 14px; max-height: 120px; overflow-y: auto; }
         .grid-view .layout-row { flex-direction: column !important; }
+        #authProgressUI { transition: opacity 0.5s ease-out; }
     </style>
 </head>
-<body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans" onclick="window.clearFocus()">
+<body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans" onclick="window.clearFullWorkspaceFocus()">
     
     <div id="loginOverlay" class="fixed inset-0 z-[500] bg-black flex flex-col items-center justify-center gap-6">
-        <div id="authLoadingIndicator" class="flex flex-col items-center gap-4">
+        <div id="authProgressUI" class="flex flex-col items-center gap-4">
             <span class="text-6xl animate-pulse">🐲</span>
-            <p class="text-blue-500 font-black tracking-widest uppercase text-[10px]">Verifying Sovereign Authority...</p>
+            <p class="text-blue-500 font-black tracking-widest uppercase text-[10px]">Verifying Authority...</p>
         </div>
-        <h1 class="text-2xl font-black italic uppercase tracking-tighter text-blue-500">Dragon Adapter v9.3</h1>
-        <button onclick="window.googleLoginAction()" class="px-10 py-4 bg-white text-black font-black rounded-full shadow-2xl hover:bg-blue-500 transition-all">Google 로그인</button>
-        <p class="text-gray-600 text-[9px] uppercase tracking-widest px-10 text-center">iOS/Safari: 로그인 후 2~3초간 기다려주세요. 시스템이 자동으로 권한을 확인합니다.</p>
+        <h1 class="text-2xl font-black italic uppercase tracking-tighter text-blue-500">Dragon Adapter v9.4</h1>
+        <button onclick="window.googleSignInAction()" class="px-10 py-4 bg-white text-black font-black rounded-full shadow-2xl hover:bg-blue-500 transition-all">Google 로그인</button>
+        <p class="text-gray-600 text-[9px] uppercase tracking-widest px-10 text-center leading-relaxed">
+            iOS/Safari: 로그인 후 2~3초간 기다려주세요.<br>시스템이 리다이렉트 결과를 자동으로 승인합니다.
+        </p>
     </div>
 
     <div id="archiveModal" class="fixed inset-0 z-[400] bg-black/95 flex items-center justify-center p-6 hidden">
@@ -775,7 +1224,7 @@
         <button onclick="window.createProject()" class="px-5 text-blue-500 font-black text-lg hover:text-white transition-colors">+</button>
         <div class="ml-auto flex items-center gap-4 shrink-0">
             <span id="userName" class="text-[9px] font-bold text-gray-600 uppercase tracking-widest"></span>
-            <button onclick="window.logoutAction()" class="text-[9px] text-red-900 font-bold hover:text-red-500">LOGOUT</button>
+            <button onclick="window.globalLogoutProcess()" class="text-[9px] text-red-900 font-bold hover:text-red-500">LOGOUT</button>
         </div>
     </nav>
     
@@ -783,34 +1232,34 @@
         <div id="workspaceTabContainer" class="flex h-full items-center"></div>
         <button onclick="window.createSlot()" class="px-6 text-gray-600 font-bold hover:text-white transition-colors">+</button>
         <div class="ml-auto flex h-full items-center shrink-0">
-            <button id="gridBtn" onclick="window.toggleGridView()" class="px-4 text-[9px] font-bold border-l border-white/5 hover:text-blue-400 uppercase">그리드 뷰</button>
-            <button onclick="window.saveSnapshot()" class="px-5 h-full bg-blue-600/10 text-blue-400 text-[9px] font-black border-l border-white/5 hover:bg-blue-600 transition uppercase">스냅샷 저장</button>
-            <button onclick="window.openArchiveManager()" class="px-5 h-full bg-white/5 text-gray-400 text-[9px] font-black border-l border-white/5 hover:bg-white/10 transition uppercase">📜 창고 관리</button>
+            <button id="gridBtn" onclick="window.toggleGridViewMode()" class="px-4 text-[9px] font-bold border-l border-white/5 hover:text-blue-400 uppercase transition-colors">그리드 뷰</button>
+            <button onclick="window.saveCurrentSnapshotToArchive()" class="px-5 h-full bg-blue-600/10 text-blue-400 text-[9px] font-black border-l border-white/5 hover:bg-blue-600 transition uppercase">스냅샷 저장</button>
+            <button onclick="window.openArchiveManagerUI()" class="px-5 h-full bg-white/5 text-gray-400 text-[9px] font-black border-l border-white/5 hover:bg-white/10 transition uppercase">📜 창고 관리</button>
         </div>
     </nav>
 
     <main class="flex flex-1 overflow-hidden relative">
         <section class="w-1/4 flex flex-col border-r border-white/5 bg-black/10">
             <div class="h-1/2 flex flex-col border-b border-white/5">
-                <div class="p-2 text-[9px] font-black text-gray-500 flex justify-between bg-white/5 italic">ORIGINAL HISTORY <button onclick="window.clipCopy('originalView')">📋</button></div>
+                <div class="p-2 text-[9px] font-black text-gray-500 flex justify-between bg-white/5 italic">ORIGINAL HISTORY <button onclick="window.clipCopyRawViewData('originalView')">📋</button></div>
                 <textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500" readonly></textarea>
             </div>
             <div class="h-1/2 flex flex-col p-4 gap-4">
                 <div class="text-[9px] font-black text-blue-500 uppercase tracking-widest">Active Input</div>
                 <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-2xl p-4 outline-none text-sm placeholder-gray-800 focus:ring-1 ring-blue-500 transition-all" placeholder="새 원고 입력..."></textarea>
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="window.processRawText('append')" class="py-2.5 bg-blue-600 text-[10px] font-black rounded-xl uppercase shadow-lg shadow-blue-900/10">맨 뒤에 추가</button>
-                    <button onclick="window.processRawText('insert')" class="py-2.5 bg-yellow-600 text-[10px] font-black rounded-xl uppercase text-black shadow-lg shadow-yellow-900/10">컷 뒤 삽입</button>
+                    <button onclick="window.processSourceInputText('append')" class="py-2.5 bg-blue-600 text-[10px] font-black rounded-xl uppercase shadow-lg shadow-blue-900/10">맨 뒤에 추가</button>
+                    <button onclick="window.processSourceInputText('insert')" class="py-2.5 bg-yellow-600 text-[10px] font-black rounded-xl uppercase text-black shadow-lg shadow-yellow-900/10">컷 뒤 삽입</button>
                 </div>
-                <button onclick="window.processRawText('overwrite')" class="py-2 bg-red-900/10 text-red-700 text-[10px] font-black rounded-xl uppercase hover:bg-red-900 transition border border-red-900/30">⚠️ 보드 초기화</button>
+                <button onclick="window.processSourceInputText('overwrite')" class="py-2 bg-red-900/10 text-red-700 text-[10px] font-black rounded-xl uppercase hover:bg-red-900 transition border border-red-900/30">⚠️ 보드 초기화</button>
             </div>
         </section>
 
-        <section class="flex-1 flex flex-col overflow-hidden bg-black/5 relative" onclick="window.clearFocus()">
+        <section class="flex-1 flex flex-col overflow-hidden bg-black/5 relative" onclick="window.clearFullWorkspaceFocus()">
             <div class="p-8 flex items-center gap-6 shrink-0 bg-transparent">
                 <div class="flex flex-col gap-1 w-full">
                     <div class="flex items-center gap-4">
-                        <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-4xl font-black outline-none tracking-tighter" oninput="window.saveCloud()">
+                        <input type="text" id="episodeTitle" placeholder="회차 제목을 입력하세요" class="w-full bg-transparent text-4xl font-black outline-none tracking-tighter" oninput="window.forceCloudSave()">
                         <div id="globalCutCount" class="px-4 py-1.5 bg-blue-600/10 border border-blue-500/20 text-blue-500 rounded-full text-[10px] font-mono whitespace-nowrap">0 Cuts Synchronized</div>
                     </div>
                 </div>
@@ -824,7 +1273,7 @@
         <section class="w-1/5 flex flex-col border-l border-white/5 bg-black/20 p-5 shrink-0">
             <div class="flex justify-between items-center mb-6">
                 <h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Project Memos</h4>
-                <button onclick="window.addProjectMemo()" class="w-7 h-7 flex items-center justify-center bg-blue-600 text-white rounded-full font-bold shadow-lg">+</button>
+                <button onclick="window.addNewProjectMemo()" class="w-7 h-7 flex items-center justify-center bg-blue-600 text-white rounded-full font-bold shadow-lg">+</button>
             </div>
             <div id="memoContainer" class="flex-1 overflow-y-auto no-scrollbar space-y-4"></div>
         </section>
