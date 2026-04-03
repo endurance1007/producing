@@ -6,10 +6,11 @@
     <title>지혜의 용 | 워크스테이션 v2.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background-color: #050505; color: #e5e7eb; font-family: sans-serif; overflow: hidden; }
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { background-color: #050505; color: #e5e7eb; font-family: 'Pretendard', sans-serif; overflow: hidden; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-        .card-focused { border-color: #3b82f6 !important; background: #111 !important; box-shadow: 0 0 20px rgba(59,130,246,0.1); }
+        .card-focused { border-color: #3b82f6 !important; background: #0a0a0a !important; box-shadow: 0 0 20px rgba(59,130,246,0.1); }
         .hl-dialog { color: #60a5fa; font-weight: 600; }
         .hl-sfx { color: #fbbf24; font-style: italic; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -17,18 +18,18 @@
         .cursor-move { cursor: move; }
     </style>
 </head>
-<body class="h-screen flex flex-col" onclick="clearFocus()">
+<body class="h-screen flex flex-col" onclick="clearActiveFocus()">
 
     <nav class="h-12 border-b border-white/10 flex items-center px-6 bg-black/40 shrink-0">
         <div class="flex items-center gap-4">
-            <h1 class="text-blue-500 font-black italic tracking-tighter text-lg">DRAGON v2.3</h1>
-            <div id="slotContainer" class="flex gap-2">
+            <h1 class="text-blue-500 font-black italic tracking-tighter text-lg">DRAGON ADAPTER</h1>
+            <div id="slotTabContainer" class="flex gap-2">
                 </div>
             <button onclick="createNewSlot()" class="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-full text-gray-400">+</button>
         </div>
         <div class="ml-auto flex items-center gap-4">
-            <button onclick="exportData()" class="text-[10px] font-bold text-gray-500 hover:text-white uppercase">데이터 내보내기</button>
-            <button onclick="importData()" class="text-[10px] font-bold text-gray-500 hover:text-white uppercase">불러오기</button>
+            <button onclick="exportData()" class="text-[10px] font-bold text-gray-500 hover:text-white uppercase tracking-widest">JSON Export</button>
+            <button onclick="importData()" class="text-[10px] font-bold text-gray-500 hover:text-white uppercase tracking-widest">Restore</button>
         </div>
     </nav>
 
@@ -36,29 +37,29 @@
         
         <section class="w-80 flex flex-col border-r border-white/5 bg-black/20">
             <div class="h-1/2 flex flex-col border-b border-white/5">
-                <div class="p-3 text-[10px] font-black text-gray-600 uppercase bg-white/5">Original Record</div>
+                <div class="p-3 text-[10px] font-black text-gray-600 uppercase tracking-widest bg-white/5">Original Record</div>
                 <textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500" readonly></textarea>
             </div>
-            <div class="h-1/2 flex flex-col p-4 gap-4">
-                <div class="text-[10px] font-black text-blue-500 uppercase tracking-widest">Script Input</div>
-                <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-xl p-4 outline-none text-sm focus:ring-1 ring-blue-500 transition-all" placeholder="원고를 입력하세요..."></textarea>
+            <div class="h-1/2 flex flex-col p-5 gap-4">
+                <div class="text-[10px] font-black text-blue-500 uppercase tracking-widest">Manuscript Input</div>
+                <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-2xl p-4 outline-none text-sm focus:ring-1 ring-blue-500 transition-all border border-white/5" placeholder="원고를 입력하세요..."></textarea>
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="processManuscript('append')" class="py-3 bg-blue-600 rounded-xl text-[10px] font-black uppercase">맨 뒤 추가</button>
-                    <button onclick="processManuscript('insert')" class="py-3 bg-yellow-600 text-black rounded-xl text-[10px] font-black uppercase">컷 뒤 삽입</button>
+                    <button onclick="processScript('append')" class="py-3 bg-blue-600 rounded-xl text-[10px] font-black uppercase shadow-lg">맨 뒤 추가</button>
+                    <button onclick="processScript('insert')" class="py-3 bg-yellow-600 text-black rounded-xl text-[10px] font-black uppercase shadow-lg">컷 뒤 삽입</button>
                 </div>
             </div>
         </section>
 
         <section class="flex-1 flex flex-col overflow-hidden bg-black/5">
-            <div class="p-10 pb-4 flex items-end gap-6 shrink-0">
-                <input type="text" id="episodeTitle" class="flex-1 bg-transparent text-4xl font-black outline-none tracking-tighter placeholder-gray-800" placeholder="회차 제목을 입력하세요" oninput="saveData()">
-                <div id="cutCountDisplay" class="text-[10px] font-mono text-blue-500 mb-2">0 Cuts Locked</div>
+            <div class="p-10 pb-4 flex items-end gap-6 shrink-0 bg-transparent">
+                <input type="text" id="episodeTitle" class="flex-1 bg-transparent text-4xl font-black outline-none tracking-tighter placeholder-gray-800" placeholder="회차 제목" oninput="saveAll()">
+                <div id="cutCountDisplay" class="text-[10px] font-mono text-blue-500 mb-2 border border-blue-900/30 px-3 py-1 rounded-full">0 Cuts Ready</div>
             </div>
             <div id="panelContainer" class="flex-1 overflow-y-auto p-10 pt-4 space-y-6 no-scrollbar">
                 </div>
         </section>
 
-        <aside class="w-64 border-l border-white/5 bg-black/20 p-5 shrink-0 flex flex-col gap-6">
+        <aside class="w-72 border-l border-white/5 bg-black/20 p-5 shrink-0 flex flex-col gap-6">
             <div class="flex justify-between items-center">
                 <h4 class="text-[10px] font-black text-gray-600 uppercase tracking-widest">Shared Memos</h4>
                 <button onclick="addMemo()" class="w-6 h-6 flex items-center justify-center bg-blue-600 rounded-full text-white">+</button>
@@ -70,7 +71,7 @@
 
     <script>
         // -----------------------------------------------------------------------------------------
-        // [Logic] v2.3 핵심 엔진
+        // [SOVEREIGN LOGIC] v2.3 오리지널 코어
         // -----------------------------------------------------------------------------------------
         let currentSlotId = localStorage.getItem('dragon_v2_current_slot') || 'slot_1';
         let slots = JSON.parse(localStorage.getItem('dragon_v2_slots')) || { 
@@ -80,18 +81,18 @@
         let dragSrc = null;
 
         window.onload = function() {
-            renderSlots();
+            renderSlotTabs();
             loadSlotData();
         };
 
-        // --- 슬롯 시스템 ---
-        function renderSlots() {
-            const container = document.getElementById('slotContainer');
+        // --- 슬롯 엔진 ---
+        function renderSlotTabs() {
+            const container = document.getElementById('slotTabContainer');
             container.innerHTML = "";
             Object.keys(slots).forEach(id => {
                 const btn = document.createElement('button');
-                btn.className = `px-4 py-1 rounded-full text-[10px] font-bold transition-all ${currentSlotId === id ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-500 hover:bg-white/10'}`;
-                btn.innerText = slots[id].title || id.toUpperCase().replace('_', ' ');
+                btn.className = `px-4 py-1.5 rounded-full text-[10px] font-bold transition-all ${currentSlotId === id ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-500 hover:bg-white/10'}`;
+                btn.innerText = slots[id].title || id.toUpperCase();
                 btn.onclick = () => switchSlot(id);
                 container.appendChild(btn);
             });
@@ -99,19 +100,19 @@
 
         function createNewSlot() {
             const newId = 'slot_' + Date.now();
-            slots[newId] = { title: '', original: '', cards: [], memos: [] };
-            saveData();
+            slots[newId] = { title: '새 슬롯', original: '', cards: [], memos: [] };
+            saveAll();
             switchSlot(newId);
         }
 
         function switchSlot(id) {
             currentSlotId = id;
             localStorage.setItem('dragon_v2_current_slot', id);
-            renderSlots();
+            renderSlotTabs();
             loadSlotData();
         }
 
-        // --- 데이터 관리 ---
+        // --- 데이터 로드 및 저장 ---
         function loadSlotData() {
             const data = slots[currentSlotId];
             if (!data) return;
@@ -121,15 +122,15 @@
             
             if (data.cards) {
                 data.cards.forEach(c => {
-                    const node = createCardElement(c.text, c.memos, c.images);
+                    const node = buildCardElement(c.text, c.memos, c.images);
                     document.getElementById('panelContainer').appendChild(node);
                 });
             }
             renderMemos();
-            recountStats();
+            recount();
         }
 
-        function saveData() {
+        function saveAll() {
             const cards = [];
             document.querySelectorAll('.card-unit').forEach(el => {
                 cards.push({
@@ -147,11 +148,11 @@
             };
 
             localStorage.setItem('dragon_v2_slots', JSON.stringify(slots));
-            recountStats();
+            recount();
         }
 
-        // --- 원고 처리 ---
-        function processManuscript(mode) {
+        // --- 원고 처리 핵심 (찢기 로직) ---
+        function processScript(mode) {
             const input = document.getElementById('sourceInput');
             const text = input.value.trim();
             if (!text) return;
@@ -159,21 +160,21 @@
             const log = document.getElementById('originalView');
             log.value += `\n[${new Date().toLocaleTimeString()}] 추가:\n${text}\n`;
 
-            const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
-            sentences.forEach(s => {
-                const node = createCardElement(s);
+            const lines = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
+            lines.forEach(s => {
+                const node = buildCardElement(s);
                 if (mode === 'insert' && activeCard) activeCard.after(node);
                 else document.getElementById('panelContainer').appendChild(node);
             });
 
             input.value = "";
-            saveData();
+            saveAll();
         }
 
-        // --- 카드 엘리먼트 생성 ---
-        function createCardElement(text, savedMemos = [], savedImages = []) {
+        // --- 카드(컷) 빌더 ---
+        function buildCardElement(text, savedMemos = [], savedImages = []) {
             const card = document.createElement('div');
-            card.className = 'card-unit bg-[#0d0d0d] border border-white/5 rounded-2xl p-6 transition relative cursor-move';
+            card.className = 'card-unit bg-[#0d0d0d] border border-white/5 rounded-2xl p-8 transition-all relative cursor-move';
             card.draggable = true;
             
             card.onclick = (e) => {
@@ -183,11 +184,8 @@
                 activeCard = card;
             };
 
-            card.ondragstart = (e) => {
-                if (e.target.isContentEditable) return e.preventDefault();
-                dragSrc = card;
-                card.style.opacity = "0.4";
-            };
+            // 드래그 앤 드롭
+            card.ondragstart = (e) => { if (e.target.isContentEditable) return e.preventDefault(); dragSrc = card; card.style.opacity = "0.3"; };
             card.ondragend = () => card.style.opacity = "1";
             card.ondragover = (e) => e.preventDefault();
             card.ondrop = (e) => {
@@ -197,41 +195,41 @@
                     const all = Array.from(board.children);
                     if (all.indexOf(dragSrc) < all.indexOf(card)) card.after(dragSrc);
                     else board.insertBefore(dragSrc, card);
-                    saveData();
+                    saveAll();
                 }
             };
 
             let memoHtml = "";
             savedMemos.forEach(m => {
-                memoHtml += `<input class="memo-tag-input bg-transparent border-b border-white/10 text-[11px] text-blue-400 outline-none w-24" value="${m}" oninput="saveData()">`;
+                memoHtml += `<input class="memo-tag-input bg-transparent border-b border-white/10 text-[11px] text-blue-400 outline-none w-24 mr-2" value="${m}" oninput="saveAll()">`;
             });
 
             let imgHtml = "";
             savedImages.forEach(src => {
-                imgHtml += `<div class="img-item relative aspect-square bg-gray-900 rounded overflow-hidden">
+                imgHtml += `<div class="img-item relative aspect-square bg-black rounded-lg overflow-hidden border border-white/5">
                     <img src="${src}" class="w-full h-full object-cover">
-                    <button onclick="this.parentElement.remove(); saveData()" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5 font-black">×</button>
+                    <button onclick="this.parentElement.remove(); saveAll()" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5 font-black">×</button>
                 </div>`;
             });
 
             card.innerHTML = `
-                <div class="flex justify-between items-center mb-4 pointer-events-none">
-                    <span class="text-[10px] font-black text-gray-600 uppercase c-cut-badge">Cut 00</span>
-                    <div class="flex gap-2 pointer-events-auto">
-                        <button onclick="addCardMemo(this)" class="text-[9px] text-gray-500 hover:text-white uppercase">+ Memo</button>
-                        <button onclick="addCardImage(this)" class="text-[9px] text-gray-500 hover:text-white uppercase">+ Image</button>
+                <div class="flex justify-between items-center mb-6 pointer-events-none">
+                    <span class="text-[10px] font-black text-gray-700 uppercase tracking-widest c-cut-badge">Cut 00</span>
+                    <div class="flex gap-3 pointer-events-auto">
+                        <button onclick="addCardTag(this)" class="text-[9px] text-gray-500 hover:text-white uppercase">+ Tag</button>
+                        <button onclick="addCardImg(this)" class="text-[9px] text-gray-500 hover:text-white uppercase">+ Image</button>
                     </div>
                 </div>
                 <div class="flex gap-6">
                     <div class="img-vault w-32 grid grid-cols-2 gap-1 empty:hidden">${imgHtml}</div>
                     <div class="flex-1">
-                        <div class="memo-tags-area flex flex-wrap gap-2 mb-3">${memoHtml}</div>
-                        <div class="c-editor text-lg leading-relaxed text-gray-300 outline-none" contenteditable="true" onblur="saveData()">${highlightDialogue(text)}</div>
-                        <div class="flex gap-4 mt-4 pt-4 border-t border-white/5 opacity-40 hover:opacity-100">
-                            <button onclick="copyCut(this)" class="text-[9px] font-bold text-blue-500 uppercase">Copy</button>
-                            <button onclick="mergeUp(this)" class="text-[9px] font-bold text-gray-500 uppercase">Merge Up</button>
-                            <button onclick="splitCut(this)" class="text-[9px] font-bold text-gray-500 uppercase">Split</button>
-                            <button onclick="deleteCut(this)" class="text-[9px] font-bold text-red-900 uppercase ml-auto">Delete</button>
+                        <div class="memo-tags-area flex flex-wrap gap-1 mb-4">${memoHtml}</div>
+                        <div class="c-editor text-[17px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onblur="saveAll()">${applyHl(text)}</div>
+                        <div class="flex gap-4 mt-6 pt-4 border-t border-white/5 opacity-30 hover:opacity-100 transition-opacity">
+                            <button onclick="copyContent(this)" class="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Copy</button>
+                            <button onclick="mergeUp(this)" class="text-[9px] font-bold text-gray-600 hover:text-white uppercase tracking-widest">Merge Up</button>
+                            <button onclick="splitCut(this)" class="text-[9px] font-bold text-gray-600 hover:text-white uppercase tracking-widest">Split</button>
+                            <button onclick="killCut(this)" class="text-[9px] font-bold text-red-900 hover:text-red-500 uppercase tracking-widest ml-auto">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -239,17 +237,17 @@
             return card;
         }
 
-        // --- 세부 기능 함수 ---
-        function addCardMemo(btn) {
+        // --- 세부 기능 ---
+        function addCardTag(btn) {
             const area = btn.closest('.card-unit').querySelector('.memo-tags-area');
             const input = document.createElement('input');
-            input.className = 'memo-tag-input bg-transparent border-b border-white/10 text-[11px] text-blue-400 outline-none w-24';
-            input.oninput = saveData;
+            input.className = 'memo-tag-input bg-transparent border-b border-white/10 text-[11px] text-blue-400 outline-none w-24 mr-2';
+            input.oninput = saveAll;
             area.appendChild(input);
             input.focus();
         }
 
-        function addCardImage(btn) {
+        function addCardImg(btn) {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/*';
@@ -258,19 +256,19 @@
                 reader.onload = (re) => {
                     const vault = btn.closest('.card-unit').querySelector('.img-vault');
                     const div = document.createElement('div');
-                    div.className = "img-item relative aspect-square bg-gray-900 rounded overflow-hidden";
-                    div.innerHTML = `<img src="${re.target.result}" class="w-full h-full object-cover"><button onclick="this.parentElement.remove(); saveData()" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5">×</button>`;
+                    div.className = "img-item relative aspect-square bg-black rounded-lg overflow-hidden border border-white/5";
+                    div.innerHTML = `<img src="${re.target.result}" class="w-full h-full object-cover"><button onclick="this.parentElement.remove(); saveAll()" class="absolute top-0 right-0 bg-red-600 text-[8px] p-0.5">×</button>`;
                     vault.appendChild(div);
-                    saveData();
+                    saveAll();
                 };
                 reader.readAsDataURL(e.target.files[0]);
             };
             input.click();
         }
 
-        function copyCut(btn) {
-            const text = btn.closest('.card-unit').querySelector('.c-editor').innerText;
-            navigator.clipboard.writeText(text);
+        function copyContent(btn) {
+            const t = btn.closest('.card-unit').querySelector('.c-editor').innerText;
+            navigator.clipboard.writeText(t);
             alert("복사됨");
         }
 
@@ -278,10 +276,11 @@
             const cur = btn.closest('.card-unit');
             const prev = cur.previousElementSibling;
             if (prev) {
-                prev.querySelector('.c-editor').innerText += " " + cur.querySelector('.c-editor').innerText;
-                prev.querySelector('.c-editor').innerHTML = highlightDialogue(prev.querySelector('.c-editor').innerText);
+                const target = prev.querySelector('.c-editor');
+                target.innerText += " " + cur.querySelector('.c-editor').innerText;
+                target.innerHTML = applyHl(target.innerText);
                 cur.remove();
-                saveData();
+                saveAll();
             }
         }
 
@@ -295,28 +294,27 @@
             extra.setEnd(ed, ed.childNodes.length);
             const text = extra.toString();
             extra.deleteContents();
-            ed.innerHTML = highlightDialogue(ed.innerText);
-            btn.closest('.card-unit').after(createCardElement(text));
-            saveData();
+            ed.innerHTML = applyHl(ed.innerText);
+            btn.closest('.card-unit').after(buildCardElement(text));
+            saveAll();
         }
 
-        function deleteCut(btn) {
-            if (confirm("삭제?")) { btn.closest('.card-unit').remove(); saveData(); }
-        }
+        function killCut(btn) { if (confirm("삭제?")) { btn.closest('.card-unit').remove(); saveAll(); } }
 
+        // --- 메모 엔진 ---
         function renderMemos() {
             const container = document.getElementById('memoContainer');
             container.innerHTML = "";
             const memoList = slots[currentSlotId].memos || [];
             memoList.forEach((m, idx) => {
                 const div = document.createElement('div');
-                div.className = "bg-white/5 border border-white/10 rounded-xl p-3";
+                div.className = "bg-white/5 border border-white/10 rounded-xl p-4";
                 div.innerHTML = `
                     <div class="flex justify-between items-center mb-2">
                         <input class="bg-transparent font-bold text-[11px] outline-none text-blue-400 w-full" value="${m.title}" oninput="updateMemo(${idx}, 'title', this.value)">
                         <button onclick="deleteMemo(${idx})" class="text-red-900 font-black ml-2">×</button>
                     </div>
-                    <textarea class="w-full bg-transparent text-[11px] text-gray-500 outline-none h-20 resize-none" oninput="updateMemo(${idx}, 'content', this.value)">${m.content}</textarea>
+                    <textarea class="w-full bg-transparent text-[11px] text-gray-500 outline-none h-24 resize-none leading-relaxed" oninput="updateMemo(${idx}, 'content', this.value)">${m.content}</textarea>
                 `;
                 container.appendChild(div);
             });
@@ -324,25 +322,27 @@
 
         function addMemo() {
             if (!slots[currentSlotId].memos) slots[currentSlotId].memos = [];
-            slots[currentSlotId].memos.push({ title: 'New Memo', content: '' });
-            saveData(); renderMemos();
+            slots[currentSlotId].memos.unshift({ title: 'New Memo', content: '' });
+            saveAll(); renderMemos();
         }
 
-        function updateMemo(idx, key, val) { slots[currentSlotId].memos[idx][key] = val; saveData(); }
-        function deleteMemo(idx) { slots[currentSlotId].memos.splice(idx, 1); saveData(); renderMemos(); }
+        function updateMemo(idx, key, val) { slots[currentSlotId].memos[idx][key] = val; saveAll(); }
+        function deleteMemo(idx) { slots[currentSlotId].memos.splice(idx, 1); saveAll(); renderMemos(); }
 
-        function recountStats() {
+        // --- 유틸리티 ---
+        function recount() {
             const cards = document.querySelectorAll('.card-unit');
             cards.forEach((c, i) => { c.querySelector('.c-cut-badge').innerText = `Cut ${String(i + 1).padStart(2, '0')}`; });
             document.getElementById('cutCountDisplay').innerText = `${cards.length} Cuts Locked`;
         }
 
-        function clearFocus() {
+        function clearActiveFocus() {
             document.querySelectorAll('.card-unit').forEach(c => c.classList.remove('card-focused'));
             activeCard = null;
         }
 
-        function highlightDialogue(text) {
+        function applyHl(text) {
+            if (!text) return "";
             return text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>')
                        .replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
         }
@@ -351,7 +351,7 @@
             const blob = new Blob([JSON.stringify(slots)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = `backup_${new Date().toLocaleDateString()}.json`; a.click();
+            a.href = url; a.download = `dragon_backup_${new Date().toLocaleDateString()}.json`; a.click();
         }
 
         function importData() {
@@ -359,11 +359,21 @@
             input.type = 'file';
             input.onchange = (e) => {
                 const reader = new FileReader();
-                reader.onload = (re) => { slots = JSON.parse(re.target.result); saveData(); window.location.reload(); };
+                reader.onload = (re) => { 
+                    try {
+                        slots = JSON.parse(re.target.result); 
+                        saveAll(); 
+                        window.location.reload(); 
+                    } catch(e) { alert("잘못된 파일입니다."); }
+                };
                 reader.readAsText(e.target.files[0]);
             };
             input.click();
         }
+        
+        window.addEventListener('keydown', e => {
+            if (e.ctrlKey && e.key === 'Enter') processScript('append');
+        });
     </script>
 </body>
 </html>
