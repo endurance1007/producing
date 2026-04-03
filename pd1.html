@@ -2,443 +2,395 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지혜의 용 | 각색 워크스테이션 v2.1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="robots" content="noindex, nofollow">
+    <title>지혜의 용 | Sovereign Workstation v18.0</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        /* 기본 테마 설정 */
+        body { background-color: #050505; color: #e5e7eb; font-family: 'Pretendard', sans-serif; overflow: hidden; }
+        
+        /* 스크롤바 디자인 */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+
+        /* 포커스 및 하이라이트 */
+        .card-focused { border-color: #3b82f6 !important; background: #0a0a0a !important; box-shadow: 0 0 25px rgba(59,130,246,0.15); }
         .hl-dialog { color: #60a5fa; font-weight: 600; }
         .hl-sfx { color: #fbbf24; font-style: italic; }
-        .card-anim { animation: fadeIn 0.15s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        [contenteditable]:focus { outline: none; background: rgba(59, 130, 246, 0.05); }
-        .memo-input { background: transparent; border-bottom: 1px solid #333; font-size: 11px; padding: 2px 0; color: #888; width: 120px; outline: none; transition: all 0.2s; }
-        .memo-input:focus { border-bottom-color: #3b82f6; color: #fff; }
-        .overlay-active { overflow: hidden; }
-        .card-selected { border-color: #3b82f6 !important; background-color: #111 !important; }
-        .dragging { opacity: 0.5; border: 2px dashed #555; }
-        .img-dragging { opacity: 0.4; transform: scale(0.9); border: 2px solid #3b82f6; }
-        .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 4px; }
-        .img-drag-over { background-color: rgba(59, 130, 246, 0.2) !important; border-color: #3b82f6 !important; }
-        ::selection { background: #2563eb; color: white; }
+        
+        /* 탭 디자인: 넓은 너비와 가독성 우선 */
+        .tab-active { background-color: #111 !important; color: #3b82f6 !important; border-top: 2px solid #3b82f6; }
+        .tab-item { transition: all 0.2s ease; white-space: nowrap; min-width: 120px; }
+        
+        /* 드래그 상태 시각화 */
+        .dragging { opacity: 0.4; transform: scale(0.98); }
+        .drag-over { border: 2px dashed #3b82f6 !important; }
 
-        /* 탭 활성화 스타일 */
-        .tab-active { background-color: #0a0a0a !important; color: #60a5fa !important; border-color: rgba(255,255,255,0.1) !important; border-bottom-color: transparent !important; z-index: 10; }
+        /* 에디터 설정 */
+        [contenteditable]:focus { outline: none; background: rgba(255,255,255,0.02); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        /* 레이아웃 고정 */
+        .memo-sidebar { width: 300px; transition: width 0.3s ease; }
+        .folded-content { display: none; }
     </style>
 </head>
-<body class="bg-[#050505] text-gray-200 h-screen overflow-hidden flex flex-col font-sans">
+<body class="h-screen flex flex-col" onclick="clearAllFocus()">
 
-    <header class="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#080808] shrink-0 z-20">
-        <div class="flex items-center gap-3">
-            <span class="text-2xl">🐲</span>
-            <h1 class="font-black tracking-tighter text-blue-500 uppercase">Dragon Adapter <span class="text-gray-600 font-light ml-2 text-xs">v2.1 Multi-Tab</span></h1>
+    <nav class="h-12 border-b border-white/10 flex items-center px-4 bg-black/60 shrink-0 overflow-x-auto no-scrollbar">
+        <div class="flex items-center gap-2 mr-4">
+            <span class="text-blue-500 font-black italic text-sm tracking-tighter">DRAGON v18.0</span>
         </div>
-        <div class="flex gap-4 items-center">
-            <div class="flex gap-2 mr-4 border-r border-white/10 pr-4">
-                <button onclick="downloadBackup()" class="px-3 py-1.5 rounded bg-green-900/30 text-green-400 border border-green-900/50 text-[10px] font-bold hover:bg-green-900/50 transition flex items-center gap-1">
-                    💾 전체 백업 (Save)
-                </button>
-                <button onclick="document.getElementById('fileInput').click()" class="px-3 py-1.5 rounded bg-gray-800 text-gray-300 border border-gray-700 text-[10px] font-bold hover:bg-gray-700 transition flex items-center gap-1">
-                    📂 불러오기
-                </button>
-                <input type="file" id="fileInput" class="hidden" accept=".json" onchange="loadBackup(this)">
+        <div id="projectTabList" class="flex h-full items-center">
             </div>
-
-            <div class="text-[10px] text-gray-600 flex gap-2">
-                <span>Undo: Ctrl+Z</span>
-                <span>Redo: Ctrl+Y</span>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="copyToClipboard()" class="px-4 py-1.5 rounded-full bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-500 transition shadow-lg shadow-blue-900/20 flex items-center gap-2">
-                    <span>📋</span> 현재 탭 노션 복사
-                </button>
-            </div>
+        <button onclick="createNewProject()" class="ml-4 w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-blue-600 hover:text-white rounded-full transition-colors text-gray-500">+</button>
+        
+        <div class="ml-auto flex items-center gap-3">
+            <button onclick="exportFullData()" class="text-[10px] font-bold text-gray-500 hover:text-white uppercase tracking-widest">Backup JSON</button>
+            <button onclick="importFullData()" class="text-[10px] font-bold text-gray-500 hover:text-white uppercase tracking-widest">Restore</button>
         </div>
-    </header>
+    </nav>
 
-    <div class="h-10 bg-[#080808] border-b border-white/5 flex items-end px-6 gap-1 shrink-0 z-10 pt-2">
-        <button id="tabBtn1" onclick="switchTab(1)" class="tab-btn px-6 py-2 text-xs font-bold rounded-t-lg bg-[#050505] text-gray-500 border border-transparent border-b-0 translate-y-[1px] hover:text-gray-300 transition tab-active">Workspace 1</button>
-        <button id="tabBtn2" onclick="switchTab(2)" class="tab-btn px-6 py-2 text-xs font-bold rounded-t-lg bg-[#050505] text-gray-500 border border-transparent border-b-0 translate-y-[1px] hover:text-gray-300 transition">Workspace 2</button>
-        <button id="tabBtn3" onclick="switchTab(3)" class="tab-btn px-6 py-2 text-xs font-bold rounded-t-lg bg-[#050505] text-gray-500 border border-transparent border-b-0 translate-y-[1px] hover:text-gray-300 transition">Workspace 3</button>
-    </div>
+    <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-[#0a0a0a] shrink-0 overflow-x-auto no-scrollbar">
+        <div id="slotTabList" class="flex h-full items-center">
+            </div>
+        <button onclick="createNewSlot()" class="ml-4 px-3 h-full text-gray-600 hover:text-white font-bold text-lg">+</button>
+    </nav>
 
     <main class="flex flex-1 overflow-hidden">
         
-        <section class="w-1/4 flex flex-col border-r border-white/5 bg-[#080808] z-10">
-            <div class="h-1/2 flex flex-col border-b border-white/10">
-                <div class="p-2 bg-white/5 text-[9px] uppercase tracking-widest text-gray-500 font-bold flex justify-between">
-                    <span>Original History</span>
-                    <span class="text-xs">🔒</span>
+        <section class="w-80 flex flex-col border-r border-white/5 bg-black/20">
+            <div class="h-1/2 flex flex-col border-b border-white/5">
+                <div class="p-3 text-[9px] font-black text-gray-600 uppercase tracking-widest bg-white/5 flex justify-between">
+                    Original History
+                    <button onclick="copyLogToClipboard()" class="hover:text-blue-400">Copy All</button>
                 </div>
-                <textarea id="originalView" 
-                          class="flex-1 bg-[#0a0a0a] p-4 outline-none resize-none leading-relaxed text-gray-500 text-xs border-none select-text"
-                          readonly
-                          placeholder="작업 히스토리가 여기에 누적됩니다."></textarea>
+                <textarea id="originalView" class="flex-1 bg-transparent p-4 outline-none resize-none text-[11px] leading-relaxed text-gray-500" readonly></textarea>
             </div>
-
-            <div class="h-1/2 flex flex-col">
-                <div class="p-2 bg-blue-900/10 text-[9px] uppercase tracking-widest text-blue-400 font-bold">
-                    Active Input
-                </div>
-                <textarea id="sourceInput" 
-                          class="flex-1 bg-transparent p-4 outline-none resize-none leading-relaxed text-gray-300 focus:text-white text-sm border-none placeholder-gray-700"
-                          placeholder="추가할 텍스트 입력..."></textarea>
-                
-                <div class="p-3 grid grid-cols-1 gap-2 border-t border-white/5 bg-[#0a0a0a]">
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="processSource('append')" class="py-2 bg-gray-800 hover:bg-blue-900 rounded text-[11px] font-bold transition text-blue-100">맨 뒤에 추가</button>
-                        <button onclick="processSource('insert')" class="py-2 bg-gray-800 hover:bg-yellow-900 rounded text-[11px] font-bold transition text-yellow-100">선택 컷 뒤 삽입</button>
-                    </div>
-                    <button onclick="processSource('overwrite')" class="py-2 bg-red-900/20 hover:bg-red-900 text-red-500 hover:text-white rounded text-[11px] font-bold transition">⚠️ 전체 초기화</button>
+            <div class="h-1/2 flex flex-col p-5 gap-4 bg-black/10">
+                <div class="text-[9px] font-black text-blue-500 uppercase tracking-widest">Script Input</div>
+                <textarea id="sourceInput" class="flex-1 bg-white/5 rounded-2xl p-4 outline-none text-sm focus:ring-1 ring-blue-500 transition-all border border-white/5" placeholder="새 원고를 여기에 입력하세요..."></textarea>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="processScript('append')" class="py-3 bg-blue-600 rounded-xl text-[10px] font-black uppercase shadow-lg shadow-blue-900/20">맨 뒤 추가</button>
+                    <button onclick="processScript('insert')" class="py-3 bg-yellow-600 text-black rounded-xl text-[10px] font-black uppercase shadow-lg shadow-yellow-900/20">컷 뒤 삽입</button>
                 </div>
             </div>
         </section>
 
-        <section class="flex-1 flex flex-col relative" onclick="clearSelection(event)">
-            
-            <div class="p-3 bg-black/40 text-[9px] uppercase tracking-widest text-blue-500 font-bold flex justify-between items-center shrink-0 border-b border-white/5">
-                <div class="flex items-center gap-4">
-                    <span>Adapter Board <span id="selectionMsg" class="ml-2 text-gray-500 normal-case font-normal hidden">선택 컷 뒤 삽입 대기</span></span>
-                    
-                    <div class="flex items-center gap-1 bg-gray-900 rounded-md border border-gray-800 px-2 py-0.5 ml-4" onclick="event.stopPropagation()">
-                        <input id="boardSearchInput" type="text" placeholder="단어 검색..." 
-                               class="bg-transparent border-none text-xs text-white w-24 outline-none placeholder-gray-600"
-                               onkeydown="if(event.key === 'Enter') findNext()">
-                        <button onclick="findPrev()" class="text-gray-500 hover:text-white px-1 text-xs">▲</button>
-                        <button onclick="findNext()" class="text-gray-500 hover:text-white px-1 text-xs">▼</button>
-                        <span id="searchStatus" class="text-[9px] text-gray-600 w-8 text-center ml-1">0/0</span>
+        <section class="flex-1 flex flex-col overflow-hidden">
+            <div class="p-10 pb-6 flex items-end gap-6 shrink-0 bg-transparent">
+                <div class="flex flex-col gap-1 flex-1">
+                    <div class="flex items-center gap-3 text-[10px] font-bold text-blue-800 uppercase tracking-widest mb-1">
+                        <span id="currentProjectPath">PROJECT</span> / <span id="currentSlotPath">WORKPLACE</span>
                     </div>
+                    <input type="text" id="boardTitle" class="w-full bg-transparent text-5xl font-black outline-none tracking-tighter placeholder-gray-900" placeholder="회차 제목 입력..." oninput="updateSlotTitleSync()">
                 </div>
-                <span id="panelCount">0 Cuts</span>
-            </div>
-
-            <div class="shrink-0 px-10 py-5 bg-[#0a0a0a] border-b border-white/5 shadow-md flex items-center gap-4 z-10">
-                <span class="text-xl opacity-80">📖</span>
-                <input type="text" id="episodeTitle" placeholder="여기에 회차 제목을 적어주세요 (예: 1화. 악마의 등장)" 
-                       class="w-full bg-transparent text-2xl font-black text-gray-100 outline-none placeholder-gray-800 tracking-tight"
-                       oninput="saveToLocal()">
+                <div id="statsDisplay" class="text-[10px] font-mono text-blue-600 mb-2 border border-blue-900/30 px-3 py-1 rounded-full">0 Cuts Ready</div>
             </div>
             
-            <div id="panelContainer" class="flex-1 overflow-y-auto p-10 space-y-6 max-w-4xl mx-auto w-full">
+            <div id="panelContainer" class="flex-1 overflow-y-auto p-10 pt-4 space-y-10 no-scrollbar">
                 </div>
         </section>
+
+        <aside class="memo-sidebar border-l border-white/5 bg-black/30 p-5 shrink-0 flex flex-col gap-6">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                <h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Project Memos</h4>
+                <button onclick="addNewProjectMemo()" class="w-7 h-7 flex items-center justify-center bg-blue-600 rounded-full text-white font-bold shadow-lg hover:bg-blue-500">+</button>
+            </div>
+            <div id="memoListContainer" class="flex-1 overflow-y-auto no-scrollbar space-y-4">
+                </div>
+        </aside>
     </main>
 
-    <div id="imgOverlay" class="fixed inset-0 z-50 bg-black/95 hidden items-center justify-center p-4 cursor-zoom-out" onclick="closeImgFS()">
-        <img id="fsImg" src="" class="max-w-full max-h-full object-contain shadow-2xl">
-    </div>
-
     <script>
-        const originalView = document.getElementById('originalView');
-        const sourceInput = document.getElementById('sourceInput');
-        const panelContainer = document.getElementById('panelContainer');
-        const panelCountDisplay = document.getElementById('panelCount');
-        const selectionMsg = document.getElementById('selectionMsg');
-        const boardSearchInput = document.getElementById('boardSearchInput');
-        const searchStatus = document.getElementById('searchStatus');
-        const episodeTitleInput = document.getElementById('episodeTitle'); 
+        // -----------------------------------------------------------------------------------------
+        // [SOVEREIGN ENGINE] v18.0 JavaScript 핵심 로직 (정직하게 풀어서 코딩)
+        // -----------------------------------------------------------------------------------------
         
-        let searchMatches = [];
-        let currentMatchIndex = -1;
-        const MAX_IMAGES = 10;
-        let activeCard = null;
-        let dragType = null;
-        let dragImgEl = null;
-
-        // --- NEW: Multi-Tab System ---
-        let currentTabId = 1;
-        let tabsData = [
-            { id: 1, title: "", originalText: "", boardHTML: "", historyStack: [], historyIndex: -1 },
-            { id: 2, title: "", originalText: "", boardHTML: "", historyStack: [], historyIndex: -1 },
-            { id: 3, title: "", originalText: "", boardHTML: "", historyStack: [], historyIndex: -1 }
-        ];
-
-        // 현재 작업 중인 탭의 히스토리 포인터 연결
-        let historyStack = tabsData[0].historyStack;
-        let historyIndex = tabsData[0].historyIndex;
-
-        window.onload = () => {
-            const savedTabs = localStorage.getItem('dragonAdapter_v21_tabs');
-            const savedActiveTab = localStorage.getItem('dragonAdapter_v21_activeTab');
-
-            if (savedTabs) {
-                try {
-                    // LocalStorage에서는 히스토리를 제외한 데이터를 가져옴 (용량 문제)
-                    const parsedTabs = JSON.parse(savedTabs);
-                    tabsData = parsedTabs.map((t, idx) => ({
-                        ...t,
-                        historyStack: tabsData[idx].historyStack, // RAM 메모리 유지
-                        historyIndex: tabsData[idx].historyIndex
-                    }));
-                } catch(e) { console.error("데이터 복구 실패", e); }
-            }
-
-            if (savedActiveTab) currentTabId = parseInt(savedActiveTab);
-
-            renderTab(currentTabId);
-            console.log("이전 작업 상태가 완벽히 복구되었습니다.");
+        // --- 1. 시스템 상태 변수 ---
+        let storage = JSON.parse(localStorage.getItem('dragon_sovereign_v18')) || {
+            projects: [],
+            currentProjectId: null,
+            currentSlotId: null
         };
 
-        function switchTab(tabId) {
-            if (currentTabId === tabId) return;
+        let dragSourceId = null;
+        let dragSourceType = null; // 'project', 'slot', 'card'
+        let activeCardNode = null;
 
-            // 1. 현재 탭의 상태를 메모리에 저장
-            prepareStateForSave();
-            tabsData[currentTabId - 1].boardHTML = panelContainer.innerHTML;
-            tabsData[currentTabId - 1].originalText = originalView.value;
-            tabsData[currentTabId - 1].title = episodeTitleInput.value;
-            
-            // 2. 탭 전환
-            currentTabId = tabId;
-            
-            // 3. 새 탭 화면 렌더링
-            renderTab(tabId);
-            
-            // 4. 로컬 스토리지에 상태 기록 (다음에 열었을 때 이 탭으로 시작하도록)
-            saveToLocal();
-        }
-
-        function renderTab(tabId) {
-            // 버튼 UI 변경
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active'));
-            document.getElementById(`tabBtn${tabId}`).classList.add('tab-active');
-
-            // 탭 데이터 불러오기
-            const tab = tabsData[tabId - 1];
-            panelContainer.innerHTML = tab.boardHTML || '';
-            originalView.value = tab.originalText || '';
-            episodeTitleInput.value = tab.title || '';
-            
-            // Input 값 복원 (HTML Attribute -> Property)
-            const inputs = panelContainer.querySelectorAll('input.memo-input');
-            inputs.forEach(input => input.value = input.getAttribute('value') || '');
-            const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
-            checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
-
-            // 히스토리 포인터 연결 변경
-            historyStack = tab.historyStack;
-            historyIndex = tab.historyIndex;
-
-            // 상태 정리
-            activeCard = null;
-            selectionMsg.classList.add('hidden');
-            searchMatches = []; 
-            searchStatus.innerText = "0/0";
-            boardSearchInput.value = "";
-
-            reattachEvents(); 
-            updateStats();
-        }
-
-        // --- Auto Save (Local Storage) ---
-        function prepareStateForSave() {
-            const inputs = panelContainer.querySelectorAll('input.memo-input');
-            inputs.forEach(input => input.setAttribute('value', input.value));
-            const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
-            checks.forEach(chk => chk.checked ? chk.setAttribute('checked', 'true') : chk.removeAttribute('checked'));
-        }
-
-        function saveToLocal() {
-            prepareStateForSave();
-            // 현재 작업 중인 탭 데이터 업데이트
-            tabsData[currentTabId - 1].boardHTML = panelContainer.innerHTML;
-            tabsData[currentTabId - 1].originalText = originalView.value;
-            tabsData[currentTabId - 1].title = episodeTitleInput.value;
-
-            try {
-                // 저장 시 용량을 위해 historyStack은 제외하고 저장
-                const dataToSave = tabsData.map(t => ({ id: t.id, title: t.title, originalText: t.originalText, boardHTML: t.boardHTML }));
-                localStorage.setItem('dragonAdapter_v21_tabs', JSON.stringify(dataToSave));
-                localStorage.setItem('dragonAdapter_v21_activeTab', currentTabId);
-            } catch (e) {
-                console.warn("용량 제한으로 자동 저장 실패 (이미지가 너무 많을 수 있습니다)");
-            }
-        }
-
-        function saveState() {
-            if (historyIndex < historyStack.length - 1) historyStack.splice(historyIndex + 1);
-            prepareStateForSave();
-            historyStack.push(panelContainer.innerHTML);
-            historyIndex++;
-            tabsData[currentTabId - 1].historyIndex = historyIndex; // 탭 객체에도 갱신
-            saveToLocal();
-        }
-
-        function restoreState(index) {
-            if (index < 0 || index >= historyStack.length) return;
-            panelContainer.innerHTML = historyStack[index];
-            historyIndex = index;
-            tabsData[currentTabId - 1].historyIndex = historyIndex;
-
-            const inputs = panelContainer.querySelectorAll('input.memo-input');
-            inputs.forEach(input => input.value = input.getAttribute('value') || '');
-            const checks = panelContainer.querySelectorAll('input[type="checkbox"]');
-            checks.forEach(chk => chk.checked = chk.getAttribute('checked') === 'true');
-            
-            reattachEvents(); updateStats();
-            searchMatches = []; searchStatus.innerText = "0/0";
-            saveToLocal();
-        }
-
-        // --- Save As & Load File (JSON for All 3 Tabs) ---
-        async function downloadBackup() {
-            saveToLocal(); // 현재 상태 확정
-            
-            const backupData = {
-                version: "2.1",
-                date: new Date().toLocaleString(),
-                activeTab: currentTabId,
-                tabs: tabsData.map(t => ({ id: t.id, title: t.title, originalText: t.originalText, boardHTML: t.boardHTML }))
-            };
-
-            const jsonString = JSON.stringify(backupData, null, 2);
-            const safeTitle = episodeTitleInput.value.replace(/[^a-z0-9가-힣]/gi, '_') || `Backup_${new Date().toISOString().slice(0,10)}`;
-            const defaultFileName = `Dragon_Workspace_${safeTitle}.json`;
-
-            try {
-                if (window.showSaveFilePicker) {
-                    const handle = await window.showSaveFilePicker({ suggestedName: defaultFileName, types: [{ description: 'JSON 프로젝트 파일', accept: { 'application/json': ['.json'] } }] });
-                    const writable = await handle.createWritable(); await writable.write(jsonString); await writable.close();
-                    alert("3개 탭의 전체 프로젝트가 성공적으로 저장되었습니다!");
-                } else {
-                    const blob = new Blob([jsonString], { type: "application/json" }); const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a'); a.href = url; a.download = defaultFileName; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-                    alert("기본 폴더에 전체 백업이 저장되었습니다.");
-                }
-            } catch (err) { if (err.name !== 'AbortError') { alert("파일 저장 중 오류가 발생했습니다."); } }
-        }
-
-        function loadBackup(input) {
-            const file = input.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (data.tabs && Array.isArray(data.tabs)) {
-                        // 데이터 덮어쓰기
-                        tabsData = data.tabs.map(t => ({ ...t, historyStack: [], historyIndex: -1 }));
-                        currentTabId = data.activeTab || 1;
-                        renderTab(currentTabId);
-                        saveToLocal();
-                        alert("3개 탭의 전체 프로젝트 복원 완료!");
-                    } else { alert("올바르지 않은 백업 파일입니다."); }
-                } catch (err) { alert("파일 오류 발생"); }
-            };
-            reader.readAsText(file); input.value = '';
-        }
-
-        async function copyToClipboard() {
-            let title = episodeTitleInput.value.trim();
-            if (!title) title = `각색 원고 (${new Date().toLocaleDateString()})`;
-            let markdown = `# ${title}\n\n`;
-            panelContainer.querySelectorAll('.group').forEach(card => {
-                const cut = card.querySelector('.cut-num').innerText;
-                const text = card.querySelector('.content-area').innerText.trim();
-                const memos = [];
-                card.querySelectorAll('.memo-input').forEach(input => { if (input.value) memos.push(`[${input.dataset.type}: ${input.value}]`); });
-                const memoString = memos.length > 0 ? ` ${memos.join(' ')}` : "";
-                markdown += `### ${cut}${memoString}\n${text}\n\n`;
-            });
-            try {
-                await navigator.clipboard.writeText(markdown);
-                alert("✅ [현재 탭] 내용이 노션용으로 복사되었습니다!\nCtrl+V 로 붙여넣으세요.");
-            } catch (err) { alert("복사에 실패했습니다."); }
-        }
-
-        // --- Core Events & Functions ---
-        function reattachEvents() {
-            const cards = panelContainer.querySelectorAll('.group');
-            cards.forEach(card => {
-                card.onclick = (e) => selectCard(e, card);
-                addCardDragEvents(card);
-                const imgWrappers = card.querySelectorAll('.group\\/img');
-                imgWrappers.forEach(wrapper => {
-                     const img = wrapper.querySelector('img');
-                     if (img) wrapper.onclick = (e) => { e.stopPropagation(); openImgFS(img.src); };
+        // --- 2. 초기 기동 (Initialization) ---
+        window.onload = function() {
+            if (storage.projects.length === 0) {
+                // 최초 사용자용 초기화
+                const pId = Date.now();
+                const sId = pId + 1;
+                storage.projects.push({
+                    id: pId,
+                    name: "첫 작품",
+                    order: 0,
+                    memos: [{ title: '세계관 설정', content: '', folded: false }],
+                    slots: [{ id: sId, title: '', original: '', cards: [], order: 0 }]
                 });
+                storage.currentProjectId = pId;
+                storage.currentSlotId = sId;
+                saveToDisk();
+            }
+            refreshAllUI();
+        };
+
+        // --- 3. UI 갱신 엔진 (The Main Refresher) ---
+        function refreshAllUI() {
+            renderProjectTabs();
+            renderSlotTabs();
+            loadActiveSlotContent();
+            renderProjectMemos();
+            
+            // 경로 텍스트 업데이트
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            const s = p?.slots.find(x => x.id === storage.currentSlotId);
+            document.getElementById('currentProjectPath').innerText = p?.name || "Untitled";
+            document.getElementById('currentSlotPath').innerText = s?.title || "Workplace";
+        }
+
+        // --- 4. 작품(Project) 탭 로직 ---
+        function renderProjectTabs() {
+            const list = document.getElementById('projectTabList');
+            list.innerHTML = "";
+            storage.projects.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            storage.projects.forEach(p => {
+                const isActive = (storage.currentProjectId === p.id);
+                const tab = document.createElement('div');
+                tab.className = `tab-item group flex items-center h-full px-5 border-r border-white/5 cursor-move ${isActive ? 'tab-active' : 'text-gray-500 hover:bg-white/5'}`;
+                tab.draggable = true;
+                tab.dataset.dragType = "project";
+                tab.dataset.dragId = p.id;
+
+                // 드래그 이벤트
+                tab.ondragstart = handleDragStart;
+                tab.ondragover = (e) => e.preventDefault();
+                tab.ondrop = handleDrop;
+
+                // 타이틀 입력 (여백 확보)
+                const input = document.createElement('input');
+                input.value = p.name;
+                input.className = "bg-transparent border-none outline-none font-black text-[11px] cursor-text mr-3";
+                input.oninput = function() {
+                    p.name = this.value;
+                    window.executeAutoTabResize(this);
+                    saveToDisk();
+                };
+                input.onclick = (e) => e.stopPropagation();
+
+                // 삭제 버튼
+                const del = document.createElement('button');
+                del.innerHTML = "×";
+                del.className = "opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 font-black transition-opacity";
+                del.onclick = (e) => { e.stopPropagation(); deleteProject(p.id); };
+
+                tab.onclick = () => switchProject(p.id);
+                tab.appendChild(input);
+                tab.appendChild(del);
+                list.appendChild(tab);
+                
+                window.executeAutoTabResize(input);
             });
         }
 
-        document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { 
-                if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); restoreState(historyIndex - 1); }
-            }
-            if ((e.ctrlKey || e.metaKey) && e.key === 'y') { 
-                if(e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); restoreState(historyIndex + 1); }
-            }
-        });
-
-        function highlightText(text) {
-            if (!text) return "";
-            text = text.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>');
-            text = text.replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
-            return text;
+        function createNewProject() {
+            const pid = Date.now();
+            const sid = pid + 1;
+            storage.projects.push({
+                id: pid,
+                name: "새 작품",
+                order: storage.projects.length,
+                memos: [],
+                slots: [{ id: sid, title: '', original: '', cards: [], order: 0 }]
+            });
+            storage.currentProjectId = pid;
+            storage.currentSlotId = sid;
+            saveToDisk();
+            refreshAllUI();
         }
 
-        function processSource(mode) {
-            const text = sourceInput.value.trim();
-            if (!text && mode !== 'overwrite') return;
-            saveState();
-            if (mode === 'overwrite') {
-                if (panelContainer.children.length > 0 && !confirm("이 탭의 모든 작업을 초기화하시겠습니까?")) return;
-                originalView.value = text; panelContainer.innerHTML = ''; activeCard = null;
-            } else {
-                const timestamp = new Date().toLocaleTimeString();
-                const separator = originalView.value ? `\n\n--- Added [${timestamp}] ---\n` : "";
-                originalView.value += separator + text; originalView.scrollTop = originalView.scrollHeight;
-            }
-            const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
-            if (mode === 'insert' && activeCard) {
-                let refNode = activeCard; sentences.forEach(s => { const newCard = createCardElement(s); panelContainer.insertBefore(newCard, refNode.nextSibling); refNode = newCard; });
-            } else {
-                sentences.forEach(s => { const newCard = createCardElement(s); panelContainer.appendChild(newCard); });
-            }
-            updateStats(); if (mode !== 'overwrite') sourceInput.value = ''; saveToLocal();
+        function switchProject(id) {
+            storage.currentProjectId = id;
+            const p = storage.projects.find(x => x.id === id);
+            storage.currentSlotId = p.slots[0].id;
+            saveToDisk();
+            refreshAllUI();
         }
 
-        function createCardElement(text) {
+        function deleteProject(id) {
+            if (storage.projects.length <= 1) return;
+            if (confirm("이 작품의 모든 워크플레이스와 메모가 영구 삭제됩니다. 계속할까요?")) {
+                storage.projects = storage.projects.filter(x => x.id !== id);
+                if (storage.currentProjectId === id) {
+                    storage.currentProjectId = storage.projects[0].id;
+                    storage.currentSlotId = storage.projects[0].slots[0].id;
+                }
+                saveToDisk();
+                refreshAllUI();
+            }
+        }
+
+        // --- 5. 워크플레이스(Slot) 탭 로직 ---
+        function renderSlotTabs() {
+            const list = document.getElementById('slotTabList');
+            list.innerHTML = "";
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            if (!p) return;
+
+            p.slots.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            p.slots.forEach(s => {
+                const isActive = (storage.currentSlotId === s.id);
+                const tab = document.createElement('div');
+                tab.className = `tab-item group flex items-center h-full px-6 border-r border-white/5 cursor-move text-[10px] font-bold ${isActive ? 'bg-black text-blue-400 border-t-2 border-t-blue-600' : 'text-gray-600 hover:text-gray-300'}`;
+                tab.draggable = true;
+                tab.dataset.dragType = "slot";
+                tab.dataset.dragId = s.id;
+
+                tab.ondragstart = handleDragStart;
+                tab.ondragover = (e) => e.preventDefault();
+                tab.ondrop = handleDrop;
+
+                tab.innerHTML = `
+                    <span class="mr-3">${s.title || 'WORKPLACE'}</span>
+                    <button onclick="event.stopPropagation(); deleteSlot(${s.id})" class="opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 font-black transition-opacity">×</button>
+                `;
+
+                tab.onclick = () => switchSlot(s.id);
+                list.appendChild(tab);
+            });
+        }
+
+        function createNewSlot() {
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            const sid = Date.now();
+            p.slots.push({ id: sid, title: '', original: '', cards: [], order: p.slots.length });
+            storage.currentSlotId = sid;
+            saveToDisk();
+            refreshAllUI();
+        }
+
+        function switchSlot(id) {
+            storage.currentSlotId = id;
+            saveToDisk();
+            refreshAllUI();
+        }
+
+        function deleteSlot(id) {
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            if (p.slots.length <= 1) return;
+            if (confirm("이 슬롯을 삭제하시겠습니까?")) {
+                p.slots = p.slots.filter(x => x.id !== id);
+                if (storage.currentSlotId === id) storage.currentSlotId = p.slots[0].id;
+                saveToDisk();
+                refreshAllUI();
+            }
+        }
+
+        // --- 6. 에디터 엔진 (Card/Cut Management) ---
+        function loadActiveSlotContent() {
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            const s = p.slots.find(x => x.id === storage.currentSlotId);
+            
+            document.getElementById('boardTitle').value = s.title || "";
+            document.getElementById('originalView').value = s.original || "";
+            
+            const container = document.getElementById('panelContainer');
+            container.innerHTML = "";
+            
+            s.cards.forEach(cardData => {
+                const card = createCardNode(cardData.id, cardData.text, cardData.tags, cardData.images);
+                container.appendChild(card);
+            });
+            
+            recountStats();
+        }
+
+        function processScript(mode) {
+            const input = document.getElementById('sourceInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            const s = p.slots.find(x => x.id === storage.currentSlotId);
+            
+            const logEntry = `\n[${new Date().toLocaleTimeString()}] 추가 원고:\n${text}\n`;
+            s.original += logEntry;
+            document.getElementById('originalView').value = s.original;
+
+            const sentences = text.split(/(?<=[.!?])\s+/).filter(l => l.length > 0);
+            const container = document.getElementById('panelContainer');
+
+            sentences.forEach(line => {
+                const newId = Date.now() + Math.random();
+                const node = createCardNode(newId, line);
+                if (mode === 'insert' && activeCardNode) {
+                    activeCardNode.after(node);
+                } else {
+                    container.appendChild(node);
+                }
+            });
+
+            input.value = "";
+            saveToDisk();
+            updateLiveRecountStats();
+        }
+
+        function createCardNode(id, text, tags = [], images = []) {
             const card = document.createElement('div');
-            card.className = 'card-anim bg-[#0d0d0d] border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all group relative cursor-move';
-            card.draggable = true; card.onclick = (e) => selectCard(e, card); addCardDragEvents(card);
+            card.className = 'card-unit bg-[#0d0d0d] border border-white/5 rounded-3xl p-8 transition-all group relative cursor-move';
+            card.dataset.dragId = id;
+            card.dataset.dragType = "card";
+            card.draggable = true;
+
+            // 드래그 바인딩 (PC 최우선)
+            card.ondragstart = handleDragStart;
+            card.ondragover = (e) => e.preventDefault();
+            card.ondrop = handleDrop;
+            
+            card.onclick = (e) => { e.stopPropagation(); focusCard(card); };
+
+            let tagHtml = "";
+            tags.forEach(t => {
+                tagHtml += `<input class="tag-input bg-transparent border-b border-white/10 text-[11px] text-blue-400 outline-none w-24 mr-2" value="${t}" oninput="saveToDisk()">`;
+            });
+
+            let imgHtml = "";
+            images.forEach(src => {
+                imgHtml += `<div class="relative w-full aspect-square bg-black rounded overflow-hidden">
+                    <img src="${src}" class="w-full h-full object-cover">
+                    <button onclick="this.parentElement.remove(); saveToDisk()" class="absolute top-0 right-0 bg-red-600 text-[8px] p-1 uppercase font-black">×</button>
+                </div>`;
+            });
+
             card.innerHTML = `
-                <div class="flex flex-col gap-3 pointer-events-none">
-                    <div class="flex justify-between items-center pointer-events-auto">
-                        <div class="flex items-center gap-2 cursor-grab active:cursor-grabbing">
-                            <span class="text-gray-600">☰</span>
-                            <span class="text-[10px] font-mono text-blue-900 font-bold cut-num">Cut 00</span>
-                        </div>
-                        <div class="flex gap-3 opacity-40 group-hover:opacity-100 transition-opacity">
-                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400">
-                                <input type="checkbox" onchange="toggleMemo(this, '앵글/샷')" class="hidden"> 앵글/샷
-                            </label>
-                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400">
-                                <input type="checkbox" onchange="toggleMemo(this, '배경')" class="hidden"> 배경
-                            </label>
-                            <label class="flex items-center gap-1 text-[10px] cursor-pointer hover:text-blue-400">
-                                <input type="checkbox" onchange="toggleMemo(this, '참고')" class="hidden"> 참고
-                            </label>
-                        </div>
+                <div class="flex justify-between items-center mb-6 pointer-events-none">
+                    <div class="flex items-center gap-3">
+                        <span class="text-blue-900 font-black text-xs uppercase tracking-tighter opacity-40">☰</span>
+                        <span class="text-[10px] font-black text-gray-700 uppercase tracking-widest c-cut-badge">Cut 00</span>
                     </div>
-                    <div class="flex gap-5 pointer-events-auto">
-                        <div class="w-32 shrink-0 flex flex-col gap-2">
-                             <div class="img-container img-grid bg-black/50 rounded border border-white/5 min-h-[60px] p-1 transition-colors"
-                                  ondragover="imgContainerDragOver(event)" ondrop="imgContainerDrop(event, this)"></div>
-                             <button onclick="event.stopPropagation(); triggerImageUpload(this)" class="text-[9px] bg-gray-800 hover:bg-gray-700 w-full py-1 rounded text-gray-400 hover:text-white transition">+ Add Image</button>
-                        </div>
-                        <div class="flex-1 space-y-3">
-                            <div class="memo-area flex flex-wrap gap-x-4 gap-y-1"></div>
-                            <div class="content-area text-[15px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" 
-                                 contenteditable="true" onpaste="handlePaste(event, this)" onblur="this.innerHTML = highlightText(this.innerText); saveToLocal();" onfocus="saveState()" onclick="event.stopPropagation()">
-                                ${highlightText(text)}
-                            </div>
-                            <div class="flex justify-between items-center pt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <div class="flex gap-4">
-                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); mergeUp(this)" class="text-[9px] text-gray-600 hover:text-blue-400 font-bold uppercase tracking-tighter transition-colors">Merge Up</button>
-                                    <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); splitAtCursor(this)" class="text-[9px] text-gray-600 hover:text-yellow-400 font-bold uppercase tracking-tighter transition-colors">Split at Cursor</button>
-                                </div>
-                                <button onmousedown="event.preventDefault();" onclick="event.stopPropagation(); deleteCard(this)" class="text-[9px] text-red-900 hover:text-red-500 font-bold transition-colors">Delete</button>
-                            </div>
+                    <div class="flex gap-4 pointer-events-auto">
+                        <button onclick="addTag(this)" class="text-[9px] font-black text-gray-500 hover:text-white uppercase">+ TAG</button>
+                        <button onclick="addImage(this)" class="text-[9px] font-black text-gray-500 hover:text-white uppercase">+ IMAGE</button>
+                    </div>
+                </div>
+                <div class="flex gap-8">
+                    <div class="card-img-vault w-32 grid grid-cols-2 gap-2 empty:hidden">${imgHtml}</div>
+                    <div class="flex-1 space-y-4">
+                        <div class="card-tag-area flex flex-wrap gap-2">${tagHtml}</div>
+                        <div class="c-editor text-[17px] leading-relaxed text-gray-300 outline-none min-h-[1.5em]" contenteditable="true" onblur="saveToDisk()">${applyHighlight(text)}</div>
+                        <div class="flex gap-6 pt-6 border-t border-white/5 opacity-20 group-hover:opacity-100 transition-opacity">
+                            <button onclick="copyCut(this)" class="text-[10px] font-black text-blue-500 hover:text-blue-300 uppercase">📋 Copy</button>
+                            <button onclick="mergeCut(this)" class="text-[10px] font-black text-gray-600 hover:text-white uppercase">Merge Up</button>
+                            <button onclick="splitCut(this)" class="text-[10px] font-black text-gray-600 hover:text-white uppercase">Split</button>
+                            <button onclick="deleteCut(this)" class="text-[10px] font-black text-red-900 hover:text-red-500 uppercase ml-auto">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -446,64 +398,306 @@
             return card;
         }
 
-        // --- Image Utils ---
-        function compressImage(file, callback) {
-            const reader = new FileReader(); reader.readAsDataURL(file);
-            reader.onload = (event) => {
-                const img = new Image(); img.src = event.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas'); const MAX_WIDTH = 600; const scaleSize = MAX_WIDTH / img.width; canvas.width = MAX_WIDTH; canvas.height = img.height * scaleSize;
-                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, canvas.width, canvas.height); const dataUrl = canvas.toDataURL('image/jpeg', 0.7); callback(dataUrl);
-                }
+        // --- 7. 카드 내부 기능 (Merge, Split, Copy, Image) ---
+        function copyCut(btn) {
+            const txt = btn.closest('.card-unit').querySelector('.c-editor').innerText;
+            navigator.clipboard.writeText(txt);
+            alert("대사가 복제되었습니다.");
+        }
+
+        function mergeCut(btn) {
+            const cur = btn.closest('.card-unit');
+            const prev = cur.previousElementSibling;
+            if (prev && prev.classList.contains('card-unit')) {
+                const targetEd = prev.querySelector('.c-editor');
+                targetEd.innerText += " " + cur.querySelector('.c-editor').innerText;
+                targetEd.innerHTML = applyHighlight(targetEd.innerText);
+                // 이미지 병합
+                cur.querySelectorAll('.card-img-vault > div').forEach(div => prev.querySelector('.card-img-vault').appendChild(div));
+                cur.remove();
+                saveToDisk();
+                updateLiveRecountStats();
             }
         }
-        function addImageToCard(card, src) {
-            const container = card.querySelector('.img-container'); if (!container || container.children.length >= MAX_IMAGES) return false;
-            const wrapper = document.createElement('div'); wrapper.className = "relative aspect-square bg-gray-900 rounded overflow-hidden group/img cursor-pointer";
-            wrapper.setAttribute('draggable', 'true'); wrapper.setAttribute('ondragstart', 'imgDragStart(event, this)'); wrapper.setAttribute('ondragend', 'imgDragEnd(event, this)');
-            wrapper.setAttribute('onclick', "event.stopPropagation(); openImgFS(this.querySelector('img').src)");
-            wrapper.innerHTML = ` <img src="${src}" class="w-full h-full object-cover hover:opacity-80 transition pointer-events-none"> <button onclick="removeImage(event, this)" class="absolute top-0 right-0 bg-red-600 text-white w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover/img:opacity-100 transition">×</button> `;
-            container.appendChild(wrapper); saveToLocal(); return true;
-        }
-        function triggerImageUpload(btn) {
-            const card = btn.closest('.group'); const container = card.querySelector('.img-container'); if (container.children.length >= MAX_IMAGES) { alert(`최대 ${MAX_IMAGES}장까지입니다.`); return; }
-            const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = e => { const file = e.target.files[0]; if (file) { compressImage(file, (compressedSrc) => { saveState(); addImageToCard(card, compressedSrc); }); } }; input.click();
-        }
-        function handlePaste(e, element) {
-            const items = (e.clipboardData || e.originalEvent.clipboardData).items; for (let item of items) { if (item.kind === 'file' && item.type.startsWith('image/')) { e.preventDefault(); const card = element.closest('.group'); const container = card.querySelector('.img-container'); if (container.children.length >= MAX_IMAGES) { alert("이미지 개수 초과!"); return; } const blob = item.getAsFile(); compressImage(blob, (compressedSrc) => { saveState(); addImageToCard(card, compressedSrc); }); } }
-        }
-        function removeImage(e, btn) { e.stopPropagation(); saveState(); btn.parentElement.remove(); saveToLocal(); }
-        
-        // --- Search ---
-        function buildSearchIndex(term) { searchMatches = []; if (!term) return; const cards = panelContainer.querySelectorAll('.content-area'); cards.forEach((area) => { const walker = document.createTreeWalker(area, NodeFilter.SHOW_TEXT, null, false); let node; while (node = walker.nextNode()) { const text = node.nodeValue; const regex = new RegExp(term, 'gi'); let match; while ((match = regex.exec(text)) !== null) { searchMatches.push({ node: node, start: match.index, end: match.index + term.length, card: area.closest('.group') }); } } }); }
-        function findNext() { const term = boardSearchInput.value.trim(); if (!term) return; if (searchMatches.length === 0 || !searchMatches[0].node.nodeValue.toLowerCase().includes(term.toLowerCase())) { buildSearchIndex(term); currentMatchIndex = -1; } if (searchMatches.length === 0) { alert("검색 결과가 없습니다."); updateSearchStatus(0, 0); return; } if (currentMatchIndex >= searchMatches.length - 1) { alert("다음 단어는 없습니다."); return; } currentMatchIndex++; highlightMatch(currentMatchIndex); }
-        function findPrev() { const term = boardSearchInput.value.trim(); if (!term) return; if (searchMatches.length === 0) { buildSearchIndex(term); currentMatchIndex = searchMatches.length; } if (searchMatches.length === 0) { alert("검색 결과가 없습니다."); return; } if (currentMatchIndex <= 0) { alert("이전 단어는 없습니다."); return; } currentMatchIndex--; highlightMatch(currentMatchIndex); }
-        function highlightMatch(index) { const match = searchMatches[index]; if (!match) return; match.card.scrollIntoView({ behavior: 'smooth', block: 'center' }); const selection = window.getSelection(); const range = document.createRange(); try { range.setStart(match.node, match.start); range.setEnd(match.node, match.end); selection.removeAllRanges(); selection.addRange(range); } catch (e) { buildSearchIndex(boardSearchInput.value); currentMatchIndex = -1; alert("문서가 변경되었습니다. 다시 검색해주세요."); } updateSearchStatus(index + 1, searchMatches.length); }
-        function updateSearchStatus(current, total) { searchStatus.innerText = `${current}/${total}`; }
-        document.addEventListener('input', (e) => { if (e.target.classList.contains('content-area')) { searchMatches = []; currentMatchIndex = -1; searchStatus.innerText = "0/0"; } });
 
-        // --- Card/Image Actions ---
-        function splitAtCursor(btn) {
-            saveState(); const card = btn.closest('.group'); const contentArea = card.querySelector('.content-area'); const selection = window.getSelection(); if (!selection.rangeCount) return; const range = selection.getRangeAt(0); if (!contentArea.contains(range.commonAncestorContainer)) return;
-            const rangeToEnd = document.createRange(); rangeToEnd.setStart(range.endContainer, range.endOffset); rangeToEnd.setEnd(contentArea, contentArea.childNodes.length); const postText = rangeToEnd.toString(); rangeToEnd.deleteContents(); contentArea.innerHTML = highlightText(contentArea.innerText);
-            const newCard = createCardElement(postText); panelContainer.insertBefore(newCard, card.nextSibling); updateStats(); saveToLocal();
+        function splitCut(btn) {
+            const cur = btn.closest('.card-unit');
+            const ed = cur.querySelector('.c-editor');
+            const sel = window.getSelection();
+            if (!sel.rangeCount) return;
+            
+            const range = sel.getRangeAt(0);
+            const moveRange = document.createRange();
+            moveRange.setStart(range.endContainer, range.endOffset);
+            moveRange.setEnd(ed, ed.childNodes.length);
+            
+            const extraText = moveRange.toString();
+            moveRange.deleteContents();
+            ed.innerHTML = applyHighlight(ed.innerText);
+            
+            const newNode = createCardNode(Date.now(), extraText);
+            cur.after(newNode);
+            saveToDisk();
+            updateLiveRecountStats();
         }
-        function mergeUp(btn) {
-            const current = btn.closest('.group'); const prev = current.previousElementSibling; if (prev) { const prevCount = prev.querySelector('.img-container').children.length; const curCount = current.querySelector('.img-container').children.length; if (prevCount + curCount > MAX_IMAGES) { alert("이미지 10장 초과! 병합 불가."); return; } saveState(); const prevArea = prev.querySelector('.content-area'); prevArea.innerText += " " + current.querySelector('.content-area').innerText; prevArea.innerHTML = highlightText(prevArea.innerText); const curImages = current.querySelectorAll('.img-container .group\\/img'); curImages.forEach(wrapper => prev.querySelector('.img-container').appendChild(wrapper)); current.remove(); updateStats(); saveToLocal(); }
+
+        function deleteCut(btn) {
+            if (confirm("이 컷을 삭제하시겠습니까?")) {
+                btn.closest('.card-unit').remove();
+                saveToDisk();
+                updateLiveRecountStats();
+            }
         }
-        function deleteCard(btn) { saveState(); btn.closest('.group').remove(); updateStats(); saveToLocal(); }
-        function selectCard(e, card) { if (activeCard) activeCard.classList.remove('card-selected'); activeCard = card; activeCard.classList.add('card-selected'); selectionMsg.classList.remove('hidden'); selectionMsg.innerText = `${card.querySelector('.cut-num').innerText} 뒤에 삽입됩니다.`; }
-        function clearSelection(e) { if (e.target.id === 'panelContainer' || e.target.tagName === 'SECTION') { if (activeCard) activeCard.classList.remove('card-selected'); activeCard = null; selectionMsg.classList.add('hidden'); } }
-        function toggleMemo(checkbox, label) { saveState(); const memoArea = checkbox.closest('.group').querySelector('.memo-area'); if (checkbox.checked) { const input = document.createElement('input'); input.className = 'memo-input'; input.placeholder = `${label}...`; input.dataset.type = label; input.onclick = (e) => e.stopPropagation(); input.onfocus = () => saveState(); input.oninput = () => saveToLocal(); memoArea.appendChild(input); checkbox.parentElement.classList.add('text-blue-500', 'opacity-100'); input.focus(); } else { const input = memoArea.querySelector(`input[data-type="${label}"]`); if (input) input.remove(); checkbox.parentElement.classList.remove('text-blue-500'); saveToLocal(); } }
-        function updateStats() { const cards = panelContainer.querySelectorAll('.group'); panelCountDisplay.innerText = `${cards.length} Cuts`; cards.forEach((card, i) => { card.querySelector('.cut-num').innerText = `Cut ${String(i + 1).padStart(2, '0')}`; }); }
-        function openImgFS(src) { document.getElementById('fsImg').src = src; document.getElementById('imgOverlay').classList.replace('hidden', 'flex'); document.body.classList.add('overlay-active'); }
-        function closeImgFS() { document.getElementById('imgOverlay').classList.replace('flex', 'hidden'); document.body.classList.remove('overlay-active'); }
-        
-        function imgDragStart(e, wrapper) { e.stopPropagation(); saveState(); dragType = 'image'; dragImgEl = wrapper; e.dataTransfer.effectAllowed = 'move'; wrapper.classList.add('img-dragging'); }
-        function imgDragEnd(e, wrapper) { e.stopPropagation(); dragType = null; dragImgEl = null; wrapper.classList.remove('img-dragging'); document.querySelectorAll('.img-container').forEach(el => el.classList.remove('img-drag-over')); saveToLocal(); }
-        function imgContainerDragOver(e) { if (dragType === 'image') { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('img-drag-over'); } }
-        function imgContainerDrop(e, container) { e.stopPropagation(); e.preventDefault(); container.classList.remove('img-drag-over'); if (dragType === 'image' && dragImgEl) { const sourceContainer = dragImgEl.parentElement; if (sourceContainer !== container && container.children.length >= MAX_IMAGES) { alert(`이동 불가 (최대 ${MAX_IMAGES}장)`); return; } const targetWrapper = e.target.closest('.group\\/img'); if (targetWrapper && container.contains(targetWrapper)) container.insertBefore(dragImgEl, targetWrapper); else container.appendChild(dragImgEl); updateStats(); saveToLocal(); } }
-        function addCardDragEvents(card) { card.addEventListener('dragstart', function(e) { if (dragType === 'image') { e.preventDefault(); return; } dragType = 'card'; saveState(); dragCardSrc = this; e.dataTransfer.effectAllowed = 'move'; this.classList.add('card-dragging'); }); card.addEventListener('dragover', function(e) { if (dragType === 'card') e.preventDefault(); return false; }); card.addEventListener('dragenter', function() { if (dragType === 'card') this.classList.add('border-blue-500'); }); card.addEventListener('dragleave', function() { if (dragType === 'card') this.classList.remove('border-blue-500'); }); card.addEventListener('drop', function(e) { if (dragType === 'card') { e.stopPropagation(); if (dragCardSrc !== this) { const allCards = [...panelContainer.children]; if (allCards.indexOf(dragCardSrc) < allCards.indexOf(this)) this.after(dragCardSrc); else this.before(dragCardSrc); updateStats(); saveToLocal(); } } return false; }); card.addEventListener('dragend', function() { dragType = null; this.classList.remove('card-dragging'); panelContainer.querySelectorAll('.group').forEach(c => c.classList.remove('border-blue-500')); }); }
+
+        function addTag(btn) {
+            const area = btn.closest('.card-unit').querySelector('.card-tag-area');
+            const input = document.createElement('input');
+            input.className = 'tag-input bg-transparent border-b border-white/10 text-[11px] text-blue-400 outline-none w-24 mr-2';
+            input.placeholder = "태그...";
+            input.oninput = saveToDisk;
+            area.appendChild(input);
+            input.focus();
+        }
+
+        function addImage(btn) {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'image/*';
+            fileInput.onchange = e => {
+                const reader = new FileReader();
+                reader.onload = re => {
+                    const vault = btn.closest('.card-unit').querySelector('.card-img-vault');
+                    const div = document.createElement('div');
+                    div.className = "relative w-full aspect-square bg-black rounded overflow-hidden";
+                    div.innerHTML = `<img src="${re.target.result}" class="w-full h-full object-cover">
+                                     <button onclick="this.parentElement.remove(); saveToDisk()" class="absolute top-0 right-0 bg-red-600 text-[8px] p-1 font-black">×</button>`;
+                    vault.appendChild(div);
+                    saveToDisk();
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            };
+            fileInput.click();
+        }
+
+        // --- 8. 드래그 앤 드롭 통합 핸들러 (The Reorder Logic) ---
+        function handleDragStart(e) {
+            dragSourceId = parseInt(this.dataset.dragId);
+            dragSourceType = this.dataset.dragType;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('dragging');
+            const targetId = parseInt(this.dataset.dragId);
+            const targetType = this.dataset.dragType;
+
+            if (dragSourceType !== targetType || dragSourceId === targetId) return;
+
+            if (dragSourceType === 'project') {
+                const sIdx = storage.projects.findIndex(x => x.id === dragSourceId);
+                const tIdx = storage.projects.findIndex(x => x.id === targetId);
+                const [moved] = storage.projects.splice(sIdx, 1);
+                storage.projects.splice(tIdx, 0, moved);
+                storage.projects.forEach((p, i) => p.order = i);
+                saveToDisk();
+                renderProjectTabs();
+            } else if (dragSourceType === 'slot') {
+                const p = storage.projects.find(x => x.id === storage.currentProjectId);
+                const sIdx = p.slots.findIndex(x => x.id === dragSourceId);
+                const tIdx = p.slots.findIndex(x => x.id === targetId);
+                const [moved] = p.slots.splice(sIdx, 1);
+                p.slots.splice(tIdx, 0, moved);
+                p.slots.forEach((s, i) => s.order = i);
+                saveToDisk();
+                renderSlotTabs();
+            } else if (dragSourceType === 'card') {
+                const container = document.getElementById('panelContainer');
+                const srcNode = container.querySelector(`[data-drag-id="${dragSourceId}"]`);
+                const all = Array.from(container.querySelectorAll('.card-unit'));
+                const sIdx = all.indexOf(srcNode);
+                const tIdx = all.indexOf(this);
+                if (sIdx < tIdx) this.after(srcNode);
+                else container.insertBefore(srcNode, this);
+                saveToDisk();
+                updateLiveRecountStats();
+            }
+        }
+
+        // --- 9. 공유 메모 시스템 (Project-wide Memos) ---
+        function renderProjectMemos() {
+            const container = document.getElementById('memoListContainer');
+            container.innerHTML = "";
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            if (!p || !p.memos) return;
+
+            p.memos.forEach((m, idx) => {
+                const div = document.createElement('div');
+                div.className = "bg-white/5 border border-white/10 rounded-2xl overflow-hidden";
+                div.innerHTML = `
+                    <div class="flex items-center justify-between p-4 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors" onclick="toggleMemoFold(${idx})">
+                        <input value="${m.title}" class="bg-transparent border-none outline-none font-black text-[11px] text-blue-400 w-full" 
+                               oninput="updateMemoData(${idx}, 'title', this.value)" onclick="event.stopPropagation()">
+                        <button onclick="event.stopPropagation(); deleteProjectMemo(${idx})" class="text-red-900 font-black ml-2">×</button>
+                    </div>
+                    <div class="p-4 ${m.folded ? 'hidden' : ''}">
+                        <textarea class="w-full bg-transparent text-[11px] text-gray-500 outline-none h-40 leading-relaxed resize-none" 
+                                  oninput="updateMemoData(${idx}, 'content', this.value)">${m.content}</textarea>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addNewProjectMemo() {
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            if (!p.memos) p.memos = [];
+            p.memos.unshift({ title: '신규 메모', content: '', folded: false });
+            saveToDisk();
+            renderProjectMemos();
+        }
+
+        window.updateMemoData = function(idx, key, val) {
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            p.memos[idx][key] = val;
+            saveToDisk();
+        };
+
+        window.toggleMemoFold = function(idx) {
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            p.memos[idx].folded = !p.memos[idx].folded;
+            saveToDisk();
+            renderProjectMemos();
+        };
+
+        window.deleteProjectMemo = function(idx) {
+            if (confirm("메모를 삭제할까요?")) {
+                const p = storage.projects.find(x => x.id === storage.currentProjectId);
+                p.memos.splice(idx, 1);
+                saveToDisk();
+                renderProjectMemos();
+            }
+        };
+
+        // --- 10. 저장 및 데이터 관리 (The Disk Engine) ---
+        function saveToDisk() {
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            if (!p) return;
+            
+            const s = p.slots.find(x => x.id === storage.currentSlotId);
+            if (s) {
+                const cards = [];
+                document.querySelectorAll('.card-unit').forEach(node => {
+                    cards.push({
+                        id: parseFloat(node.dataset.dragId),
+                        text: node.querySelector('.c-editor').innerText,
+                        tags: Array.from(node.querySelectorAll('.tag-input')).map(i => i.value),
+                        images: Array.from(node.querySelectorAll('.card-img-vault img')).map(img => img.src)
+                    });
+                });
+                s.title = document.getElementById('boardTitle').value;
+                s.original = document.getElementById('originalView').value;
+                s.cards = cards;
+            }
+            
+            localStorage.setItem('dragon_sovereign_v18', JSON.stringify(storage));
+        }
+
+        window.updateSlotTitleSync = function() {
+            const title = document.getElementById('boardTitle').value;
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            const s = p.slots.find(x => x.id === storage.currentSlotId);
+            s.title = title;
+            document.getElementById('currentSlotPath').innerText = title || "Workplace";
+            renderSlotTabs(); // 워크플레이스 탭 제목 즉시 업데이트
+            saveToDisk();
+        };
+
+        // --- 11. 유틸리티 및 인터페이스 제어 ---
+        function updateLiveRecountStats() {
+            const all = document.querySelectorAll('.card-unit');
+            all.forEach((node, i) => {
+                const badge = node.querySelector('.c-cut-badge');
+                if (badge) badge.innerText = `Cut ${String(i + 1).padStart(2, '0')}`;
+            });
+            document.getElementById('statsDisplay').innerText = `${all.length} Cuts Sovereign Protected`;
+        }
+
+        function recountStats() { updateLiveRecountStats(); }
+
+        function focusCard(node) {
+            document.querySelectorAll('.card-unit').forEach(c => c.classList.remove('card-focused'));
+            node.classList.add('card-focused');
+            activeCardNode = node;
+        }
+
+        window.clearAllFocus = function() {
+            document.querySelectorAll('.card-unit').forEach(c => c.classList.remove('card-focused'));
+            activeCardNode = null;
+        };
+
+        function applyHighlight(t) {
+            if (!t) return "";
+            return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>')
+                    .replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
+        }
+
+        function applyGlobalHotkeys() {
+            window.addEventListener('keydown', e => {
+                if (e.ctrlKey && e.key === 'Enter') processScript('append');
+            });
+        }
+        applyGlobalHotkeys();
+
+        window.executeAutoTabResize = function(input) {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            ctx.font = window.getComputedStyle(input).font;
+            input.style.width = (ctx.measureText(input.value).width + 30) + "px";
+        };
+
+        function resetBoard() {
+            document.getElementById('boardTitle').value = "";
+            document.getElementById('originalView').value = "";
+            document.getElementById('panelContainer').innerHTML = "";
+            updateLiveRecountStats();
+        }
+
+        // 데이터 백업 및 복구
+        window.exportFullData = function() {
+            const p = storage.projects.find(x => x.id === storage.currentProjectId);
+            const s = p.slots.find(x => x.id === storage.currentSlotId);
+            const fileName = `[${p.name}] ${s.title || 'Workplace'}_${new Date().toLocaleDateString()}.json`;
+            const blob = new Blob([JSON.stringify(storage)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+        };
+
+        window.importFullData = function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.onchange = e => {
+                const reader = new FileReader();
+                reader.onload = re => {
+                    storage = JSON.parse(re.target.result);
+                    localStorage.setItem('dragon_sovereign_v18', JSON.stringify(storage));
+                    window.location.reload();
+                };
+                reader.readAsText(e.target.files[0]);
+            };
+            input.click();
+        };
+
+        function copyLogToClipboard() {
+            const log = document.getElementById('originalView').value;
+            navigator.clipboard.writeText(log);
+            alert("전체 기록이 클립보드에 저장되었습니다.");
+        }
+
     </script>
 </body>
 </html>
