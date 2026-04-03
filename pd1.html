@@ -469,11 +469,8 @@ window.createCardNodePhysical = function(id, text, memos, images) {
     btnM.className = "text-[10px] font-black text-gray-600 hover:text-white uppercase";
     btnM.innerText = "+ MEMO"; btnM.onclick = () => window.executeAddCardMemoStep(card);
     
-    const btnI = document.createElement('button');
-    btnI.className = "text-[10px] font-black text-gray-600 hover:text-white uppercase";
-    btnI.innerText = "+ IMAGE"; btnI.onclick = () => window.executeAddCardImageStep(card);
     
-    tools.appendChild(btnM); tools.appendChild(btnI);
+    tools.appendChild(btnM); 
     top.appendChild(tools); card.appendChild(top);
 
     const body = document.createElement('div');
