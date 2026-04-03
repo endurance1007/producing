@@ -4,31 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>지혜의 용 | Sovereign Workstation v1.0</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>지혜의 용 | 워크스테이션 v1.1</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
-        /* -----------------------------------------------------------------------------------------
-           [CSS 스타일링: 작가님의 시야를 방해하지 않는 정밀 디자인]
-           ----------------------------------------------------------------------------------------- */
+        /* [Pretendard 폰트 로드] */
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
         
         body { 
             background-color: #050505; 
             color: #e5e7eb; 
-            font-family: 'Pretendard', -apple-system, sans-serif; 
+            font-family: 'Pretendard', sans-serif; 
             overflow: hidden; 
             margin: 0;
             padding: 0;
         }
 
-        /* 스크롤바 정밀 설계 */
+        /* 스크롤바 디자인 */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
         ::-webkit-scrollbar-track { background: transparent; }
 
-        /* 카드 포커스: 마감 집중력을 위한 발광 효과 */
+        /* 카드 포커스 효과 */
         .card-focused { 
             border-color: #3b82f6 !important; 
             background: #0a0a0a !important; 
@@ -36,74 +36,72 @@
             transform: translateY(-2px);
         }
 
-        /* 대사 및 효과음 하이라이팅 */
+        /* 하이라이팅 */
         .hl-dialog { color: #60a5fa; font-weight: 700; text-shadow: 0 0 5px rgba(96,165,250,0.2); }
         .hl-sfx { color: #fbbf24; font-style: italic; }
         
-        /* 탭 디자인: 넓은 너비와 가독성 중심 */
+        /* 탭 디자인 */
         .tab-active { 
             background-color: #0f172a !important; 
             color: #3b82f6 !important; 
             border-top: 3px solid #3b82f6; 
         }
         .tab-item { 
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); 
             white-space: nowrap; 
             min-width: 160px; 
             cursor: pointer;
         }
         
-        /* 드래그 상태 시각화 */
-        .dragging { opacity: 0.1 !important; transform: scale(0.95); border: 2px dashed #3b82f6 !important; }
+        /* [중요] 드래그 시각화 수정: 변색 방지를 위해 배경색과 투명도 명시적 관리 */
+        .dragging { 
+            opacity: 0.3 !important; 
+            transform: scale(0.95); 
+            border: 2px dashed #3b82f6 !important;
+            background-color: #111 !important;
+        }
         .drag-over { border-top: 5px solid #3b82f6 !important; }
 
         /* 에디터 설정 */
         [contenteditable]:focus { outline: none; background: rgba(30, 41, 59, 0.1); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        /* 메모 사이드바 */
         .memo-sidebar { 
             width: 360px; 
             border-left: 1px solid rgba(255,255,255,0.05);
             background: rgba(0,0,0,0.4);
         }
-        
-        /* 애니메이션 */
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body class="h-screen flex flex-col" onclick="window.globalClearFocus()">
 
     <nav class="h-12 border-b border-white/10 flex items-center px-4 bg-black/80 shrink-0">
         <div class="flex items-center gap-2 mr-6 shrink-0">
-            <span class="text-blue-600 font-black italic tracking-tighter text-lg select-none">SOVEREIGN v1.0</span>
+            <span class="text-blue-600 font-black italic tracking-tighter text-lg select-none">SOVEREIGN v1.1</span>
         </div>
         
-        <div id="projectTabContainer" class="flex h-full items-center overflow-x-auto no-scrollbar">
-            </div>
+        <div id="projectTabContainer" class="flex h-full items-center overflow-x-auto no-scrollbar"></div>
         
         <button id="btnNewProject" class="ml-4 w-7 h-7 flex items-center justify-center bg-white/5 hover:bg-blue-600 rounded-full text-gray-400 transition-all active:scale-90">+</button>
 
         <div class="ml-auto flex items-center gap-4">
             <div class="flex items-center bg-white/5 rounded-xl px-3 border border-white/5">
                 <span class="text-[9px] text-gray-600 uppercase font-black mr-2">Search</span>
-                <input type="text" id="engineSearchInput" placeholder="컷 대사 검색..." class="bg-transparent border-none outline-none text-xs p-2 w-40 text-gray-300">
+                <input type="text" id="engineSearchInput" placeholder="컷 검색..." class="bg-transparent border-none outline-none text-xs p-2 w-40 text-gray-300">
             </div>
-            <button id="btnSaveAs" class="text-[10px] font-black text-blue-500 hover:text-white uppercase tracking-widest border border-blue-900/40 px-4 py-2 rounded-xl transition-all">Save As</button>
+            <button id="btnSaveAs" class="text-[10px] font-black text-blue-500 hover:text-white uppercase tracking-widest border border-blue-900/40 px-4 py-2 rounded-xl">Save As</button>
             <button id="btnRestore" class="text-[10px] font-bold text-gray-600 hover:text-gray-200 uppercase tracking-widest">Restore</button>
         </div>
     </nav>
 
     <nav class="h-10 border-b border-white/5 flex items-center px-4 bg-[#070707] shrink-0">
-        <div id="slotTabContainer" class="flex h-full items-center overflow-x-auto no-scrollbar">
-            </div>
-        <button id="btnNewSlot" class="ml-4 px-4 h-full text-gray-700 hover:text-white font-bold text-xl transition-colors">+</button>
+        <div id="slotTabContainer" class="flex h-full items-center overflow-x-auto no-scrollbar"></div>
+        <button id="btnNewSlot" class="ml-4 px-4 h-full text-gray-700 hover:text-white font-bold text-xl">+</button>
         
         <div class="ml-auto flex gap-6 items-center pr-2">
             <div class="flex gap-5 border-r border-white/10 pr-6">
-                <button id="btnUndo" class="text-[10px] font-black text-gray-600 hover:text-yellow-500 uppercase tracking-widest transition-colors">Undo (Ctrl+Z)</button>
-                <button id="btnRedo" class="text-[10px] font-black text-gray-600 hover:text-yellow-500 uppercase tracking-widest transition-colors">Redo (Ctrl+Y)</button>
+                <button id="btnUndo" class="text-[10px] font-black text-gray-400 hover:text-yellow-500 uppercase tracking-widest">Undo (Ctrl+Z)</button>
+                <button id="btnRedo" class="text-[10px] font-black text-gray-400 hover:text-yellow-500 uppercase tracking-widest">Redo (Ctrl+Y)</button>
             </div>
             <button id="btnResetBoard" class="text-[10px] font-black text-red-900 hover:text-red-500 uppercase tracking-widest">Reset Board</button>
         </div>
@@ -120,11 +118,11 @@
                 <textarea id="originalLogView" class="flex-1 bg-transparent p-5 outline-none resize-none text-[11px] leading-relaxed text-gray-600 font-mono" readonly></textarea>
             </div>
             <div class="h-1/2 flex flex-col p-6 gap-4 bg-black/10">
-                <div class="text-[9px] font-black text-blue-800 uppercase tracking-widest italic mb-1">Input Engine</div>
+                <div class="text-[9px] font-black text-blue-800 uppercase tracking-widest italic mb-1">Manuscript Input</div>
                 <textarea id="mainSourceInput" class="flex-1 bg-white/5 rounded-3xl p-5 outline-none text-sm focus:ring-2 ring-blue-900/40 transition-all border border-white/5 placeholder-gray-800 text-gray-300" placeholder="새 원고 내용을 입력하세요..."></textarea>
                 <div class="grid grid-cols-2 gap-3">
-                    <button id="btnAppendManuscript" class="py-3.5 bg-blue-700 rounded-2xl text-[10px] font-black uppercase shadow-xl hover:bg-blue-600 transition-all">맨 뒤 추가</button>
-                    <button id="btnInsertManuscript" class="py-3.5 bg-yellow-600 text-black rounded-2xl text-[10px] font-black uppercase shadow-xl hover:bg-yellow-500 transition-all">컷 뒤 삽입</button>
+                    <button id="btnAppendManuscript" class="py-3.5 bg-blue-700 rounded-2xl text-[10px] font-black uppercase shadow-xl hover:bg-blue-600">맨 뒤 추가</button>
+                    <button id="btnInsertManuscript" class="py-3.5 bg-yellow-600 text-black rounded-2xl text-[10px] font-black uppercase shadow-xl hover:bg-yellow-500">선택 컷 뒤 삽입</button>
                 </div>
             </div>
         </section>
@@ -139,8 +137,7 @@
                 </div>
                 <div id="displayCutCount" class="text-[10px] font-mono text-blue-500 mb-2 px-5 py-2 border border-blue-900/20 rounded-full bg-blue-900/5 select-none">0 Cuts Secured</div>
             </div>
-            <div id="manuscriptPanelContainer" class="flex-1 overflow-y-auto p-12 pt-6 space-y-16 no-scrollbar">
-                </div>
+            <div id="manuscriptPanelContainer" class="flex-1 overflow-y-auto p-12 pt-6 space-y-16 no-scrollbar"></div>
         </section>
 
         <aside class="memo-sidebar p-6 shrink-0 flex flex-col gap-6">
@@ -148,18 +145,16 @@
                 <h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest italic">Shared Memos</h4>
                 <button id="btnNewProjectMemo" class="w-8 h-8 flex items-center justify-center bg-blue-700 rounded-full text-white font-bold shadow-2xl hover:bg-blue-600 transition-transform active:scale-90">+</button>
             </div>
-            <div id="memoStackContainer" class="flex-1 overflow-y-auto no-scrollbar space-y-5">
-                </div>
+            <div id="memoStackContainer" class="flex-1 overflow-y-auto no-scrollbar space-y-5"></div>
         </aside>
     </main>
 
     <script>
         // -----------------------------------------------------------------------------------------
-        // [CORE SCRIPT] Sovereign v1.0 - 정직한 무결성 엔진
+        // [SOVEREIGN CORE] v1.1 - 언두 및 변색 수정 패치
         // -----------------------------------------------------------------------------------------
         
-        // --- [1] 시스템 전역 데이터 및 상태 ---
-        window.sovereignDb = JSON.parse(localStorage.getItem('dragon_v1_0_db')) || {
+        window.sovereignDb = JSON.parse(localStorage.getItem('dragon_v1_sovereign_db')) || {
             projects: [],
             activeProjectId: null,
             activeSlotId: null
@@ -171,35 +166,24 @@
         window.dragSourceType = null;
         window.focusedCardNode = null;
 
-        // --- [2] 초기 기동 시퀀스 ---
-        window.bootSovereignSystem = function() {
-            console.log("v1.0 무결성 시스템 초기화 중...");
-            
+        // [부팅]
+        window.bootSovereign = function() {
             if (window.sovereignDb.projects.length === 0) {
                 const pId = Date.now();
                 const sId = pId + 100;
-                
-                const firstProject = {
-                    id: pId,
-                    name: "새 작품",
-                    order: 0,
-                    memos: [{ title: '세계관 설정', content: '', folded: false }],
-                    slots: [{ 
-                        id: sId, title: '1화', original: '', cards: [], order: 0 
-                    }]
-                };
-                
-                window.sovereignDb.projects.push(firstProject);
+                window.sovereignDb.projects.push({
+                    id: pId, name: "새 작품", order: 0, memos: [],
+                    slots: [{ id: sId, title: '1화', original: '', cards: [], order: 0 }]
+                });
                 window.sovereignDb.activeProjectId = pId;
                 window.sovereignDb.activeSlotId = sId;
                 window.executeInternalDiskSave();
             }
-            
             window.executeFullUIRenderCycle();
-            window.bindStaticGlobalListeners();
+            window.bindSovereignListeners();
         };
 
-        // --- [3] UI 렌더링 엔진 (The Resurrection Engine) ---
+        // [핵심 렌더링]
         window.executeFullUIRenderCycle = function() {
             window.renderProjectTabList();
             window.renderSlotTabList();
@@ -208,469 +192,57 @@
             
             const p = window.getSafeActiveProject();
             const s = window.getSafeActiveSlot();
-            
             document.getElementById('displayProjectName').innerText = p ? p.name : "PROJECT";
             document.getElementById('displaySlotName').innerText = s ? (s.title || "WORKPLACE") : "WORKPLACE";
-            
             window.recalculateStatsDisplay();
         };
 
-        window.getSafeActiveProject = function() {
-            return window.sovereignDb.projects.find(function(x) { return x.id === window.sovereignDb.activeProjectId; });
-        };
-
-        window.getSafeActiveSlot = function() {
+        window.getSafeActiveProject = function() { return window.sovereignDb.projects.find(function(x) { return x.id === window.sovereignDb.activeProjectId; }); };
+        window.getSafeActiveSlot = function() { 
             const proj = window.getSafeActiveProject();
-            if (!proj) return null;
-            return proj.slots.find(function(x) { return x.id === window.sovereignDb.activeSlotId; });
+            return proj ? proj.slots.find(function(x) { return x.id === window.sovereignDb.activeSlotId; }) : null; 
         };
 
-        // --- [4] 데이터 저장 및 보호 엔진 ---
+        // [저장 및 캡처]
         window.executeCurrentViewCapture = function() {
             const slot = window.getSafeActiveSlot();
             if (!slot) return;
-            
-            const cards = [];
+            const collected = [];
             const nodes = document.querySelectorAll('.card-unit');
-            
             for (let i = 0; i < nodes.length; i++) {
                 const el = nodes[i];
-                const text = el.querySelector('.c-editor').innerText;
-                const tags = [];
-                const tagInputs = el.querySelectorAll('.tag-input-item');
-                for (let j = 0; j < tagInputs.length; j++) {
-                    tags.push(tagInputs[j].value);
-                }
-                const images = [];
-                const imgNodes = el.querySelectorAll('.asset-img-item img');
-                for (let k = 0; k < imgNodes.length; k++) {
-                    images.push(imgNodes[k].src);
-                }
-                
-                cards.push({
+                collected.push({
                     id: parseFloat(el.dataset.dragId),
-                    text: text,
-                    tags: tags,
-                    images: images
+                    text: el.querySelector('.c-editor').innerText,
+                    tags: Array.from(el.querySelectorAll('.tag-input-item')).map(function(inNode) { return inNode.value; }),
+                    images: Array.from(el.querySelectorAll('.asset-img-item img')).map(function(imgNode) { return imgNode.src; })
                 });
             }
-            
             slot.title = document.getElementById('activeBoardTitle').value;
             slot.original = document.getElementById('originalLogView').value;
-            slot.cards = cards;
+            slot.cards = collected;
         };
 
         window.executeInternalDiskSave = function() {
-            localStorage.setItem('dragon_v1_0_db', JSON.stringify(window.sovereignDb));
+            localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb));
         };
 
-        // --- [5] 프로젝트 탭 엔진 (The Project Command) ---
-        window.renderProjectTabList = function() {
-            const container = document.getElementById('projectTabContainer');
-            container.innerHTML = "";
-            window.sovereignDb.projects.sort(function(a, b) { return a.order - b.order; });
-
-            for (let i = 0; i < window.sovereignDb.projects.length; i++) {
-                const proj = window.sovereignDb.projects[i];
-                const active = (window.sovereignDb.activeProjectId === proj.id);
-                
-                const tab = document.createElement('div');
-                tab.className = "tab-item group flex items-center h-full px-6 border-r border-white/5 cursor-move " + (active ? 'tab-active' : 'text-gray-600 hover:bg-white/5');
-                tab.draggable = true;
-                tab.dataset.dragType = "project";
-                tab.dataset.dragId = proj.id;
-
-                tab.ondragstart = window.handleDragStartStep;
-                tab.ondragover = function(e) { e.preventDefault(); };
-                tab.ondrop = window.handleDropStep;
-
-                const input = document.createElement('input');
-                input.value = proj.name;
-                input.className = "bg-transparent border-none outline-none font-black text-[11px] cursor-text mr-4 text-inherit";
-                input.oninput = function() {
-                    proj.name = this.value;
-                    window.executeAutoTabResize(this);
-                    window.executeInternalDiskSave();
-                };
-                input.onclick = function(e) { e.stopPropagation(); };
-
-                const del = document.createElement('button');
-                del.innerHTML = "×";
-                del.className = "opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 font-black transition-opacity text-sm";
-                del.onclick = function(e) {
-                    e.stopPropagation();
-                    window.processProjectDeletion(proj.id);
-                };
-
-                tab.onclick = function() { window.processProjectSwitch(proj.id); };
-                tab.appendChild(input);
-                tab.appendChild(del);
-                container.appendChild(tab);
-                
-                window.executeAutoTabResize(input);
-            }
-        };
-
-        window.processProjectSwitch = function(id) {
-            if (window.sovereignDb.activeProjectId === id) return;
-            
-            // 탭 전환 전 데이터 침범 방지를 위해 현재 화면을 선-저장합니다.
-            window.executeCurrentViewCapture();
-            
-            window.sovereignDb.activeProjectId = id;
-            const p = window.getSafeActiveProject();
-            window.sovereignDb.activeSlotId = p.slots[0].id;
-            
-            window.executeInternalDiskSave();
-            window.executeFullUIRenderCycle();
-        };
-
-        window.processProjectDeletion = function(id) {
-            if (window.sovereignDb.projects.length <= 1) return;
-            if (confirm("작품 전체를 삭제하시겠습니까? 되돌릴 수 없습니다.")) {
-                window.takeSnapshotForUndo();
-                window.sovereignDb.projects = window.sovereignDb.projects.filter(function(x) { return x.id !== id; });
-                if (window.sovereignDb.activeProjectId === id) {
-                    window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
-                    window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
-                }
-                window.executeInternalDiskSave();
-                window.executeFullUIRenderCycle();
-            }
-        };
-
-        // --- [6] 워크플레이스 탭 엔진 (The Slot Command) ---
-        window.renderSlotTabList = function() {
-            const container = document.getElementById('slotTabContainer');
-            container.innerHTML = "";
-            const p = window.getSafeActiveProject();
-            if (!p) return;
-
-            p.slots.sort(function(a, b) { return a.order - b.order; });
-
-            for (let i = 0; i < p.slots.length; i++) {
-                const slot = p.slots[i];
-                const active = (window.sovereignDb.activeSlotId === slot.id);
-                const tab = document.createElement('div');
-                tab.className = "tab-item group flex items-center h-full px-7 border-r border-white/5 cursor-move text-[10px] font-black tracking-widest " + (active ? 'bg-black text-blue-500 border-t-2 border-t-blue-700' : 'text-gray-700 hover:text-gray-400');
-                tab.draggable = true;
-                tab.dataset.dragType = "slot";
-                tab.dataset.dragId = slot.id;
-
-                tab.ondragstart = window.handleDragStartStep;
-                tab.ondragover = function(e) { e.preventDefault(); };
-                tab.ondrop = window.handleDropStep;
-
-                const span = document.createElement('span');
-                span.className = "mr-4";
-                span.innerText = slot.title || 'WORKPLACE';
-                
-                const del = document.createElement('button');
-                del.innerHTML = "×";
-                del.className = "opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 font-black transition-opacity";
-                del.onclick = function(e) {
-                    e.stopPropagation();
-                    window.processSlotDeletion(slot.id);
-                };
-
-                tab.onclick = function() { window.processSlotSwitch(slot.id); };
-                tab.appendChild(span);
-                tab.appendChild(del);
-                container.appendChild(tab);
-            }
-        };
-
-        window.processSlotSwitch = function(id) {
-            if (window.sovereignDb.activeSlotId === id) return;
-            window.executeCurrentViewCapture();
-            window.sovereignDb.activeSlotId = id;
-            window.executeInternalDiskSave();
-            window.executeFullUIRenderCycle();
-        };
-
-        window.processSlotDeletion = function(id) {
-            const p = window.getSafeActiveProject();
-            if (p.slots.length <= 1) return;
-            if (confirm("이 워크플레이스를 삭제할까요?")) {
-                window.takeSnapshotForUndo();
-                p.slots = p.slots.filter(function(x) { return x.id !== id; });
-                if (window.sovereignDb.activeSlotId === id) {
-                    window.sovereignDb.activeSlotId = p.slots[0].id;
-                }
-                window.executeInternalDiskSave();
-                window.executeFullUIRenderCycle();
-            }
-        };
-
-        // --- [7] 에디터 및 분할 엔진 (The Sovereign Engine) ---
-        window.loadBoardFromMemory = function() {
-            const s = window.getSafeActiveSlot();
-            if (!s) return;
-            
-            document.getElementById('activeBoardTitle').value = s.title || "";
-            document.getElementById('originalLogView').value = s.original || "";
-            
-            const board = document.getElementById('manuscriptPanelContainer');
-            board.innerHTML = "";
-            
-            for (let i = 0; i < s.cards.length; i++) {
-                const c = s.cards[i];
-                board.appendChild(window.createCardNodePhysical(c.id, c.text, c.tags, c.images));
-            }
-            
-            window.recalculateStatsDisplay();
-        };
-
-        window.createCardNodePhysical = function(id, text, tags, images) {
-            const card = document.createElement('div');
-            card.className = 'card-unit bg-[#0d0d0d] border border-white/5 rounded-[2.5rem] p-10 transition-all group relative cursor-move';
-            card.dataset.dragId = id;
-            card.dataset.dragType = "card";
-            card.draggable = true;
-
-            card.ondragstart = window.handleDragStartStep;
-            card.ondragover = function(e) { e.preventDefault(); };
-            card.ondrop = window.handleDropStep;
-            
-            card.onclick = function(e) { 
-                e.stopPropagation(); 
-                window.globalFocusCardStep(card); 
-            };
-
-            // 도구 레이아웃 조립
-            const top = document.createElement('div');
-            top.className = "flex justify-between items-center mb-8 pointer-events-none";
-            
-            const badgeBox = document.createElement('div');
-            badgeBox.className = "flex items-center gap-4";
-            const dragIcon = document.createElement('span');
-            dragIcon.className = "text-blue-900 font-black text-sm opacity-30";
-            dragIcon.innerText = "☰";
-            const badge = document.createElement('span');
-            badge.className = "text-[11px] font-black text-gray-700 uppercase tracking-[0.3em] c-cut-badge";
-            badge.innerText = "Cut 00";
-            badgeBox.appendChild(dragIcon);
-            badgeBox.appendChild(badge);
-            
-            const toolBox = document.createElement('div');
-            toolBox.className = "flex gap-4 pointer-events-auto";
-            const btnTag = document.createElement('button');
-            btnTag.className = "text-[10px] font-black text-gray-600 hover:text-white uppercase";
-            btnTag.innerText = "+ TAG";
-            btnTag.onclick = function() { window.addTagToCut(card); };
-            const btnImg = document.createElement('button');
-            btnImg.className = "text-[10px] font-black text-gray-600 hover:text-white uppercase";
-            btnImg.innerText = "+ IMAGE";
-            btnImg.onclick = function() { window.addImageToCut(card); };
-            toolBox.appendChild(btnTag);
-            toolBox.appendChild(btnImg);
-            
-            top.appendChild(badgeBox);
-            top.appendChild(toolBox);
-            card.appendChild(top);
-
-            const body = document.createElement('div');
-            body.className = "flex gap-10";
-            
-            const vault = document.createElement('div');
-            vault.className = "card-img-vault w-36 grid grid-cols-2 gap-3 empty:hidden";
-            if (images) {
-                for (let i = 0; i < images.length; i++) {
-                    const imgDiv = document.createElement('div');
-                    imgDiv.className = "asset-img-item relative w-full aspect-square bg-black rounded-2xl overflow-hidden border border-white/5";
-                    const img = document.createElement('img');
-                    img.src = images[i]; img.className = "w-full h-full object-cover";
-                    const del = document.createElement('button');
-                    del.innerText = "×"; del.className = "absolute top-1 right-1 bg-red-600 text-[9px] p-1.5 font-black rounded-lg";
-                    del.onclick = function() { 
-                        window.takeSnapshotForUndo();
-                        imgDiv.remove(); 
-                        window.executeInternalDiskSave(); 
-                    };
-                    imgDiv.appendChild(img); imgDiv.appendChild(del);
-                    vault.appendChild(imgDiv);
-                }
-            }
-            
-            const right = document.createElement('div');
-            right.className = "flex-1 space-y-6";
-            
-            const tagsWrap = document.createElement('div');
-            tagsWrap.className = "card-tag-stack flex flex-wrap gap-2";
-            if (tags) {
-                for (let j = 0; j < tags.length; j++) {
-                    const tIn = document.createElement('input');
-                    tIn.className = "tag-input-item bg-transparent border-b border-white/10 text-[11px] text-blue-500 outline-none w-28 mr-3";
-                    tIn.value = tags[j]; tIn.oninput = window.executeInternalDiskSave;
-                    tagsWrap.appendChild(tIn);
-                }
-            }
-            
-            const ed = document.createElement('div');
-            ed.className = "c-editor text-[18px] leading-[1.8] text-gray-300 outline-none min-h-[1.5em] tracking-tight";
-            ed.contentEditable = true;
-            ed.innerHTML = window.applySyntaxHighlightEngine(text);
-            ed.onblur = function() { window.executeInternalDiskSave(); };
-            ed.onpaste = function(e) { window.handleCardImagePaste(e, ed); };
-            
-            const footer = document.createElement('div');
-            footer.className = "flex gap-8 pt-8 border-t border-white/5 opacity-30 group-hover:opacity-100 transition-opacity";
-            
-            const bCopy = document.createElement('button');
-            bCopy.className = "text-[11px] font-black text-blue-600 hover:text-blue-400 uppercase tracking-widest";
-            bCopy.innerText = "📋 Copy"; bCopy.onclick = function() { window.copyTextToClip(ed.innerText); };
-            
-            const bMerge = document.createElement('button');
-            bMerge.className = "text-[11px] font-black text-gray-600 hover:text-white uppercase tracking-widest";
-            bMerge.innerText = "Merge Up"; bMerge.onclick = function() { window.processMergeUp(card); };
-            
-            const bSplit = document.createElement('button');
-            bSplit.className = "text-[11px] font-black text-gray-600 hover:text-white uppercase tracking-widest";
-            bSplit.innerText = "Split"; bSplit.onclick = function() { window.processSplit(card, ed); };
-            
-            const bKill = document.createElement('button');
-            bKill.className = "text-[11px] font-black text-red-900 hover:text-red-600 uppercase tracking-widest ml-auto";
-            bKill.innerText = "Delete"; bKill.onclick = function() { window.processKillCut(card); };
-
-            footer.appendChild(bCopy); footer.appendChild(bMerge); footer.appendChild(bSplit); footer.appendChild(bKill);
-            right.appendChild(tagsWrap); right.appendChild(ed); right.appendChild(footer);
-            body.appendChild(vault); body.appendChild(right);
-            card.appendChild(body);
-            
-            return card;
-        };
-
-        // --- [8] 원고 처리 및 로직 (Script Splitting) ---
-        window.processManuscriptInput = function(mode) {
-            const input = document.getElementById('mainSourceInput');
-            const text = input.value.trim();
-            if (!text) return;
-
-            window.takeSnapshotForUndo();
-            const s = window.getSafeActiveSlot();
-            s.original += `\n[${new Date().toLocaleTimeString()}] 추가:\n${text}\n`;
-            document.getElementById('originalLogView').value = s.original;
-
-            // 정밀 문장 분리 (마침표, 물음표, 느낌표 기준)
-            const lines = text.split(/(?<=[.!?])\s+/).filter(function(l) { return l.length > 0; });
-            const board = document.getElementById('manuscriptPanelContainer');
-
-            for (let i = 0; i < lines.length; i++) {
-                const node = window.createCardNodePhysical(Date.now() + Math.random(), lines[i], [], []);
-                if (mode === 'insert' && window.focusedCardNode) {
-                    window.focusedCardNode.after(node);
-                } else {
-                    board.appendChild(node);
-                }
-            }
-
-            input.value = "";
-            window.executeInternalDiskSave();
-            window.recalculateStatsDisplay();
-        };
-
-        window.processMergeUp = function(card) {
-            const prev = card.previousElementSibling;
-            if (prev && prev.classList.contains('card-unit')) {
-                window.takeSnapshotForUndo();
-                const tEd = prev.querySelector('.c-editor');
-                const sEd = card.querySelector('.c-editor');
-                tEd.innerText += " " + sEd.innerText;
-                tEd.innerHTML = window.applySyntaxHighlightEngine(tEd.innerText);
-                const sImgs = card.querySelectorAll('.asset-img-item');
-                const tVault = prev.querySelector('.card-img-vault');
-                for (let i = 0; i < sImgs.length; i++) { tVault.appendChild(sImgs[i]); }
-                card.remove();
-                window.executeInternalDiskSave();
-                window.recalculateStatsDisplay();
-            }
-        };
-
-        window.processSplit = function(card, ed) {
-            const sel = window.getSelection();
-            if (!sel.rangeCount) return;
-            window.takeSnapshotForUndo();
-            const r = sel.getRangeAt(0);
-            const extraR = document.createRange();
-            extraR.setStart(r.endContainer, r.endOffset);
-            extraR.setEnd(ed, ed.childNodes.length);
-            const extraText = extraR.toString();
-            extraR.deleteContents();
-            ed.innerHTML = window.applySyntaxHighlightEngine(ed.innerText);
-            const newNode = window.createCardNodePhysical(Date.now(), extraText, [], []);
-            card.after(newNode);
-            window.executeInternalDiskSave();
-            window.recalculateStatsDisplay();
-        };
-
-        window.processKillCut = function(card) {
-            if (confirm("삭제할까요? (Undo 가능)")) {
-                window.takeSnapshotForUndo();
-                card.remove();
-                window.executeInternalDiskSave();
-                window.recalculateStatsDisplay();
-            }
-        };
-
-        // --- [9] 드래그 앤 드롭 통합 핸들러 (PC 마우스 최적화) ---
-        window.handleDragStartStep = function(e) {
-            window.dragSourceId = parseFloat(this.dataset.dragId);
-            window.dragSourceType = this.dataset.dragType;
-            this.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-        };
-
-        window.handleDropStep = function(e) {
-            e.preventDefault();
-            this.classList.remove('dragging');
-            const tid = parseFloat(this.dataset.dragId);
-            const tType = this.dataset.dragType;
-
-            if (window.dragSourceType !== tType || window.dragSourceId === tid) return;
-
-            window.takeSnapshotForUndo();
-
-            if (window.dragSourceType === 'project') {
-                const sIdx = window.sovereignDb.projects.findIndex(x => x.id === window.dragSourceId);
-                const tIdx = window.sovereignDb.projects.findIndex(x => x.id === tid);
-                const [moved] = window.sovereignDb.projects.splice(sIdx, 1);
-                window.sovereignDb.projects.splice(tIdx, 0, moved);
-                for (let i = 0; i < window.sovereignDb.projects.length; i++) { window.sovereignDb.projects[i].order = i; }
-                window.renderProjectTabList();
-            } else if (window.dragSourceType === 'slot') {
-                const p = window.getSafeActiveProject();
-                const sIdx = p.slots.findIndex(x => x.id === window.dragSourceId);
-                const tIdx = p.slots.findIndex(x => x.id === tid);
-                const [mSlot] = p.slots.splice(sIdx, 1);
-                p.slots.splice(tIdx, 0, mSlot);
-                for (let j = 0; j < p.slots.length; j++) { p.slots[j].order = j; }
-                window.renderSlotTabList();
-            } else if (window.dragSourceType === 'card') {
-                const board = document.getElementById('manuscriptPanelContainer');
-                const srcNode = board.querySelector(`[data-drag-id="${window.dragSourceId}"]`);
-                const allNodes = Array.from(board.querySelectorAll('.card-unit'));
-                const sIdx = allNodes.indexOf(srcNode);
-                const tIdx = allNodes.indexOf(this);
-                if (sIdx < tIdx) this.after(srcNode);
-                else board.insertBefore(srcNode, this);
-            }
-            
-            window.executeInternalDiskSave();
-            window.recalculateStatsDisplay();
-        };
-
-        // --- [10] 언두/리두 및 스냅샷 엔진 (The Sovereign History) ---
-        window.takeSnapshotForUndo = function() {
+        // [언두/리두 엔진: 수정됨]
+        window.executeDeepSnapshot = function() {
+            // 변화가 일어나기 전의 현재 뷰를 캡처하여 스택에 쌓습니다.
             window.executeCurrentViewCapture();
             window.undoStack.push(JSON.stringify(window.sovereignDb));
             if (window.undoStack.length > 80) window.undoStack.shift();
             window.redoStack = []; 
+            console.log("Snapshot taken. Stack size:", window.undoStack.length);
         };
 
         window.executeUndoAction = function() {
             if (window.undoStack.length === 0) return;
+            // 리두를 위해 현재 상태 보관
             window.executeCurrentViewCapture();
             window.redoStack.push(JSON.stringify(window.sovereignDb));
+            // 복구
             window.sovereignDb = JSON.parse(window.undoStack.pop());
             window.executeInternalDiskSave();
             window.executeFullUIRenderCycle();
@@ -685,122 +257,377 @@
             window.executeFullUIRenderCycle();
         };
 
-        // --- [11] 파일 시스템 (Save As API) ---
+        // [드래그 앤 드롭: 변색 수정됨]
+        window.handleDragStartStep = function(e) {
+            window.dragSourceId = parseFloat(this.dataset.dragId);
+            window.dragSourceType = this.dataset.dragType;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        };
+
+        window.handleDragEndStep = function() {
+            // [패치] 모든 컷에서 드래깅 클래스 강제 제거하여 검게 변하는 현상 방지
+            const allCuts = document.querySelectorAll('.card-unit');
+            for (let i = 0; i < allCuts.length; i++) {
+                allCuts[i].classList.remove('dragging');
+            }
+            this.classList.remove('dragging');
+        };
+
+        window.handleDropStep = function(e) {
+            e.preventDefault();
+            this.classList.remove('dragging');
+            const targetIdVal = parseFloat(this.dataset.dragId);
+            const targetTypeVal = this.dataset.dragType;
+
+            if (window.dragSourceType !== targetTypeVal || window.dragSourceId === targetIdVal) return;
+
+            // 물리적 변화 전 스냅샷
+            window.executeDeepSnapshot();
+
+            if (window.dragSourceType === 'project') {
+                const sIdx = window.sovereignDb.projects.findIndex(x => x.id === window.dragSourceId);
+                const tIdx = window.sovereignDb.projects.findIndex(x => x.id === targetIdVal);
+                const [moved] = window.sovereignDb.projects.splice(sIdx, 1);
+                window.sovereignDb.projects.splice(tIdx, 0, moved);
+                window.sovereignDb.projects.forEach((p, i) => { p.order = i; });
+                window.renderProjectTabList();
+            } else if (window.dragSourceType === 'slot') {
+                const activeP = window.getSafeActiveProject();
+                const sIdx = activeP.slots.findIndex(x => x.id === window.dragSourceId);
+                const tIdx = activeP.slots.findIndex(x => x.id === targetIdVal);
+                const [moved] = activeP.slots.splice(sIdx, 1);
+                activeP.slots.splice(tIdx, 0, moved);
+                activeP.slots.forEach((s, i) => { s.order = i; });
+                window.renderSlotTabList();
+            } else if (window.dragSourceType === 'card') {
+                const board = document.getElementById('manuscriptPanelContainer');
+                const srcNode = board.querySelector(`[data-drag-id="${window.dragSourceId}"]`);
+                const allNodes = Array.from(board.querySelectorAll('.card-unit'));
+                const sIdx = allNodes.indexOf(srcNode);
+                const tIdx = allNodes.indexOf(this);
+                if (sIdx < tIdx) this.after(srcNode);
+                else board.insertBefore(srcNode, this);
+                
+                // [패치] 드래그 직후 데이터에 즉시 각인하여 언두 정합성 유지
+                window.executeCurrentViewCapture();
+            }
+            
+            window.executeInternalDiskSave();
+            window.recalculateStatsDisplay();
+        };
+
+        // [탭 엔진]
+        window.renderProjectTabList = function() {
+            const container = document.getElementById('projectTabContainer');
+            container.innerHTML = "";
+            window.sovereignDb.projects.sort(function(a, b) { return a.order - b.order; });
+
+            for (let i = 0; i < window.sovereignDb.projects.length; i++) {
+                const proj = window.sovereignDb.projects[i];
+                const active = (window.sovereignDb.activeProjectId === proj.id);
+                const tab = document.createElement('div');
+                tab.className = "tab-item group flex items-center h-full px-6 border-r border-white/5 cursor-move " + (active ? 'tab-active' : 'text-gray-600 hover:bg-white/5');
+                tab.draggable = true;
+                tab.dataset.dragType = "project";
+                tab.dataset.dragId = proj.id;
+
+                tab.ondragstart = window.handleDragStartStep;
+                tab.ondragend = window.handleDragEndStep;
+                tab.ondragover = function(e) { e.preventDefault(); };
+                tab.ondrop = window.handleDropStep;
+
+                const input = document.createElement('input');
+                input.value = proj.name;
+                input.className = "bg-transparent border-none outline-none font-black text-[11px] cursor-text mr-4 text-inherit";
+                input.oninput = function() { proj.name = this.value; window.executeAutoTabResize(this); window.executeInternalDiskSave(); };
+                input.onclick = function(e) { e.stopPropagation(); };
+
+                const del = document.createElement('button');
+                del.innerHTML = "×";
+                del.className = "opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 font-black text-sm";
+                del.onclick = function(e) { e.stopPropagation(); window.executeKillProjectProcess(proj.id); };
+
+                tab.onclick = function() { window.executeSwitchProject(proj.id); };
+                tab.appendChild(input);
+                tab.appendChild(del);
+                container.appendChild(tab);
+                window.executeAutoTabResize(input);
+            }
+        };
+
+        window.executeSwitchProject = function(id) {
+            if (window.sovereignDb.activeProjectId === id) return;
+            window.executeCurrentViewCapture();
+            window.sovereignDb.activeProjectId = id;
+            window.sovereignDb.activeSlotId = window.getSafeActiveProject().slots[0].id;
+            window.executeInternalDiskSave();
+            window.executeFullUIRenderCycle();
+        };
+
+        window.renderSlotTabList = function() {
+            const container = document.getElementById('slotTabContainer');
+            container.innerHTML = "";
+            const p = window.getSafeActiveProject();
+            if (!p) return;
+            p.slots.sort((a, b) => a.order - b.order);
+            for (let i = 0; i < p.slots.length; i++) {
+                const s = p.slots[i];
+                const active = (window.sovereignDb.activeSlotId === s.id);
+                const tab = document.createElement('div');
+                tab.className = "tab-item group flex items-center h-full px-7 border-r border-white/5 cursor-move text-[10px] font-black tracking-widest " + (active ? 'bg-black text-blue-500 border-t-2 border-t-blue-700' : 'text-gray-700 hover:text-gray-400');
+                tab.draggable = true;
+                tab.dataset.dragType = "slot";
+                tab.dataset.dragId = s.id;
+                tab.ondragstart = window.handleDragStartStep;
+                tab.ondragend = window.handleDragEndStep;
+                tab.ondragover = (e) => e.preventDefault();
+                tab.ondrop = window.handleDropStep;
+                const span = document.createElement('span');
+                span.innerText = s.title || 'WORKPLACE';
+                const del = document.createElement('button');
+                del.innerHTML = "×";
+                del.className = "opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 font-black ml-4";
+                del.onclick = (e) => { e.stopPropagation(); window.executeKillSlotProcess(s.id); };
+                tab.onclick = () => window.executeSwitchSlot(s.id);
+                tab.appendChild(span);
+                tab.appendChild(del);
+                container.appendChild(tab);
+            }
+        };
+
+        window.executeSwitchSlot = function(id) {
+            if (window.sovereignDb.activeSlotId === id) return;
+            window.executeCurrentViewCapture();
+            window.sovereignDb.activeSlotId = id;
+            window.executeInternalDiskSave();
+            window.executeFullUIRenderCycle();
+        };
+
+        // [에디터 및 컷 로직]
+        window.loadBoardFromMemory = function() {
+            const s = window.getSafeActiveSlot();
+            if (!s) return;
+            document.getElementById('activeBoardTitle').value = s.title || "";
+            document.getElementById('originalLogView').value = s.original || "";
+            const board = document.getElementById('manuscriptPanelContainer');
+            board.innerHTML = "";
+            for (let i = 0; i < s.cards.length; i++) {
+                const c = s.cards[i];
+                board.appendChild(window.createCardNodePhysical(c.id, c.text, c.tags, c.images));
+            }
+            window.recalculateStatsDisplay();
+        };
+
+        window.createCardNodePhysical = function(id, text, tags, images) {
+            const card = document.createElement('div');
+            card.className = 'card-unit bg-[#0d0d0d] border border-white/5 rounded-[2.5rem] p-10 transition-all group relative cursor-move';
+            card.dataset.dragId = id;
+            card.dataset.dragType = "card";
+            card.draggable = true;
+            card.ondragstart = window.handleDragStartStep;
+            card.ondragend = window.handleDragEndStep;
+            card.ondragover = (e) => e.preventDefault();
+            card.ondrop = window.handleDropStep;
+            card.onclick = (e) => { e.stopPropagation(); window.globalFocusCardStep(card); };
+
+            const top = document.createElement('div');
+            top.className = "flex justify-between items-center mb-8 pointer-events-none";
+            const badge = document.createElement('div');
+            badge.className = "flex items-center gap-4";
+            badge.innerHTML = `<span class="text-blue-900 font-black text-sm opacity-30 select-none">☰</span><span class="text-[11px] font-black text-gray-700 uppercase tracking-[0.3em] c-cut-badge">Cut 00</span>`;
+            const tools = document.createElement('div');
+            tools.className = "flex gap-4 pointer-events-auto";
+            const btnT = document.createElement('button');
+            btnT.className = "text-[10px] font-black text-gray-600 hover:text-white uppercase";
+            btnT.innerText = "+ TAG"; btnT.onclick = () => window.addTagToCut(card);
+            const btnI = document.createElement('button');
+            btnI.className = "text-[10px] font-black text-gray-600 hover:text-white uppercase";
+            btnI.innerText = "+ IMAGE"; btnI.onclick = () => window.addImageToCut(card);
+            tools.appendChild(btnT); tools.appendChild(btnI);
+            top.appendChild(badge); top.appendChild(tools); card.appendChild(top);
+
+            const body = document.createElement('div');
+            body.className = "flex gap-10";
+            const vault = document.createElement('div');
+            vault.className = "card-img-vault-area w-36 grid grid-cols-2 gap-3 empty:hidden";
+            if (images) {
+                images.forEach(src => {
+                    const div = document.createElement('div');
+                    div.className = "asset-img-item relative w-full aspect-square bg-black rounded-2xl overflow-hidden border border-white/5";
+                    div.innerHTML = `<img src="${src}" class="w-full h-full object-cover"><button onclick="window.executeDeepSnapshot(); this.parentElement.remove(); window.executeInternalDiskSave()" class="absolute top-1 right-1 bg-red-600 text-[9px] p-1.5 font-black rounded-lg">×</button>`;
+                    vault.appendChild(div);
+                });
+            }
+            const right = document.createElement('div');
+            right.className = "flex-1 space-y-6";
+            const tagWrap = document.createElement('div');
+            tagWrap.className = "card-tag-stack flex flex-wrap gap-2";
+            if (tags) {
+                tags.forEach(t => {
+                    const tin = document.createElement('input');
+                    tin.className = "tag-input-item bg-transparent border-b border-white/10 text-[11px] text-blue-500 outline-none w-28 mr-3";
+                    tin.value = t; tin.oninput = window.executeInternalDiskSave;
+                    tagWrap.appendChild(tin);
+                });
+            }
+            const ed = document.createElement('div');
+            ed.className = "c-editor text-[18px] leading-[1.8] text-gray-300 outline-none min-h-[1.5em] tracking-tight";
+            ed.contentEditable = true; ed.innerHTML = window.applySyntaxHighlightEngine(text);
+            ed.onblur = () => window.executeInternalDiskSave();
+            ed.onpaste = (e) => window.handleCardImagePaste(e, ed);
+
+            const footer = document.createElement('div');
+            footer.className = "flex gap-8 pt-8 border-t border-white/5 opacity-30 group-hover:opacity-100 transition-opacity";
+            footer.innerHTML = `
+                <button onclick="window.copyTextToClip(this.parentElement.previousElementSibling.innerText)" class="text-[11px] font-black text-blue-600 uppercase tracking-widest">📋 Copy</button>
+                <button onclick="window.processMergeUp(this.closest('.card-unit'))" class="text-[11px] font-black text-gray-600 hover:text-white uppercase tracking-widest">Merge Up</button>
+                <button onclick="window.processSplit(this.closest('.card-unit'))" class="text-[11px] font-black text-gray-600 hover:text-white uppercase tracking-widest">Split</button>
+                <button onclick="window.processKillCut(this.closest('.card-unit'))" class="text-[11px] font-black text-red-900 hover:text-red-600 uppercase tracking-widest ml-auto">Delete</button>
+            `;
+            right.appendChild(tagWrap); right.appendChild(ed); right.appendChild(footer);
+            body.appendChild(vault); body.appendChild(right); card.appendChild(body);
+            return card;
+        };
+
+        // [원고 물리 명령들: 언두 연동]
+        window.processManuscriptInput = function(mode) {
+            const input = document.getElementById('mainSourceInput');
+            const text = input.value.trim();
+            if (!text) return;
+            window.executeDeepSnapshot();
+            const s = window.getSafeActiveSlot();
+            s.original += `\n[${new Date().toLocaleTimeString()}] 추가:\n${text}\n`;
+            document.getElementById('originalLogView').value = s.original;
+            const lines = text.split(/(?<=[.!?])\s+/).filter(l => l.length > 0);
+            const board = document.getElementById('manuscriptPanelContainer');
+            lines.forEach(line => {
+                const node = window.createCardNodePhysical(Date.now() + Math.random(), line, [], []);
+                if (mode === 'insert' && window.focusedCardNode) window.focusedCardNode.after(node);
+                else board.appendChild(node);
+            });
+            input.value = ""; window.executeInternalDiskSave(); window.recalculateStatsDisplay();
+        };
+
+        window.processMergeUp = function(card) {
+            const prev = card.previousElementSibling;
+            if (prev && prev.classList.contains('card-unit')) {
+                window.executeDeepSnapshot();
+                const tEd = prev.querySelector('.c-editor');
+                const sEd = card.querySelector('.c-editor');
+                tEd.innerText += " " + sEd.innerText;
+                tEd.innerHTML = window.applySyntaxHighlightEngine(tEd.innerText);
+                const sImgs = card.querySelectorAll('.asset-img-item');
+                const tVault = prev.querySelector('.card-img-vault-area');
+                for (let i = 0; i < sImgs.length; i++) { tVault.appendChild(sImgs[i]); }
+                card.remove(); window.executeInternalDiskSave(); window.recalculateStatsDisplay();
+            }
+        };
+
+        window.processSplit = function(card) {
+            const ed = card.querySelector('.c-editor');
+            const sel = window.getSelection();
+            if (!sel.rangeCount) return;
+            window.executeDeepSnapshot();
+            const r = sel.getRangeAt(0);
+            const extraR = document.createRange();
+            extraR.setStart(r.endContainer, r.endOffset);
+            extraR.setEnd(ed, ed.childNodes.length);
+            const extraText = extraR.toString();
+            extraR.deleteContents();
+            ed.innerHTML = window.applySyntaxHighlightEngine(ed.innerText);
+            card.after(window.createCardNodePhysical(Date.now(), extraText, [], []));
+            window.executeInternalDiskSave(); window.recalculateStatsDisplay();
+        };
+
+        window.processKillCut = function(card) {
+            if (confirm("삭제할까요?")) {
+                window.executeDeepSnapshot();
+                card.remove(); window.executeInternalDiskSave(); window.recalculateStatsDisplay();
+            }
+        };
+
+        // [파일 및 공통 도구]
         window.executeSaveAsFile = async function() {
             window.executeCurrentViewCapture();
             const p = window.getSafeActiveProject();
             const s = window.getSafeActiveSlot();
-            const name = `[${p.name}] ${s.title || '원고'}_${new Date().toLocaleDateString()}.json`;
-
+            const name = `[${p.name}] ${s.title || 'Draft'}_${new Date().toLocaleDateString()}.json`;
             if ('showSaveFilePicker' in window) {
                 try {
-                    const handle = await window.showSaveFilePicker({
-                        suggestedName: name,
-                        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
-                    });
+                    const handle = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
                     const writable = await handle.createWritable();
                     await writable.write(JSON.stringify(window.sovereignDb, null, 2));
-                    await writable.close();
-                    alert("원고가 성공적으로 보관되었습니다.");
+                    await writable.close(); alert("보관되었습니다.");
                 } catch (e) {}
             } else {
                 const blob = new Blob([JSON.stringify(window.sovereignDb)], { type: 'application/json' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob); a.download = name; a.click();
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
             }
         };
 
-        // --- [12] 전역 공유 메모 (Project Shared Memos) ---
+        window.bindSovereignListeners = function() {
+            document.getElementById('btnNewProject').onclick = function() {
+                const id = Date.now(); window.executeDeepSnapshot();
+                window.sovereignDb.projects.push({ id: id, name: "새 작품", order: window.sovereignDb.projects.length, memos: [], slots: [{ id: id+1, title: '1화', original: '', cards: [], order: 0 }] });
+                window.sovereignDb.activeProjectId = id; window.sovereignDb.activeSlotId = id+1;
+                window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
+            };
+            document.getElementById('btnNewSlot').onclick = function() {
+                const p = window.getSafeActiveProject(); const sid = Date.now(); window.executeDeepSnapshot();
+                p.slots.push({ id: sid, title: (p.slots.length+1)+'화', original: '', cards: [], order: p.slots.length });
+                window.sovereignDb.activeSlotId = sid; window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
+            };
+            document.getElementById('btnSaveAs').onclick = window.executeSaveAsFile;
+            document.getElementById('btnUndo').onclick = window.executeUndoAction;
+            document.getElementById('btnRedo').onclick = window.executeRedoAction;
+            document.getElementById('btnResetBoard').onclick = function() {
+                if(confirm("모두 비울까요?")) { window.executeDeepSnapshot(); document.getElementById('manuscriptPanelContainer').innerHTML = ""; window.executeInternalDiskSave(); window.recalculateStatsDisplay(); }
+            };
+            document.getElementById('btnAppendManuscript').onclick = () => window.processManuscriptInput('append');
+            document.getElementById('btnInsertManuscript').onclick = () => window.processManuscriptInput('insert');
+            document.getElementById('btnCopyRawLog').onclick = () => { navigator.clipboard.writeText(document.getElementById('originalLogView').value); alert("로그 복사됨."); };
+            document.getElementById('btnNewProjectMemo').onclick = function() {
+                const p = window.getSafeActiveProject(); if(!p.memos) p.memos = []; p.memos.unshift({title:'새 메모', content:'', folded:false});
+                window.executeInternalDiskSave(); window.renderProjectMemoStack();
+            };
+            
+            // 전역 핫키 바인딩
+            window.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'Enter') window.processManuscriptInput('append');
+                if (e.ctrlKey && e.key === 'z') { e.preventDefault(); window.executeUndoAction(); }
+                if (e.ctrlKey && e.key === 'y') { e.preventDefault(); window.executeRedoAction(); }
+            });
+        };
+
+        // [메모 및 기타 유틸리티]
         window.renderProjectMemoStack = function() {
             const container = document.getElementById('memoStackContainer');
             container.innerHTML = "";
             const p = window.getSafeActiveProject();
             if (!p || !p.memos) return;
-            for (let i = 0; i < p.memos.length; i++) {
-                const m = p.memos[i];
+            p.memos.forEach((m, i) => {
                 const div = document.createElement('div');
                 div.className = "bg-white/5 border border-white/10 rounded-3xl overflow-hidden";
                 div.innerHTML = `
-                    <div class="flex items-center justify-between p-5 bg-white/5 cursor-pointer" onclick="window.toggleMemo(${i})">
+                    <div class="flex items-center justify-between p-5 cursor-pointer" onclick="window.toggleMemoFold(${i})">
                         <input value="${m.title}" class="bg-transparent border-none outline-none font-black text-[11px] text-blue-500 w-full" oninput="window.saveMemo(${i}, 'title', this.value)" onclick="event.stopPropagation()">
                         <button onclick="event.stopPropagation(); window.deleteMemo(${i})" class="text-red-900 font-black ml-3">×</button>
                     </div>
                     <div class="p-5 ${m.folded ? 'hidden' : ''}">
-                        <textarea class="w-full bg-transparent text-[11px] text-gray-500 outline-none h-48 resize-none leading-relaxed" oninput="window.saveMemo(${i}, 'content', this.value)">${m.content}</textarea>
+                        <textarea class="w-full bg-transparent text-[11px] text-gray-500 outline-none h-48 resize-none" oninput="window.saveMemo(${i}, 'content', this.value)">${m.content}</textarea>
                     </div>`;
                 container.appendChild(div);
-            }
+            });
         };
 
-        window.toggleMemo = function(i) { const p = window.getSafeActiveProject(); p.memos[i].folded = !p.memos[i].folded; window.executeInternalDiskSave(); window.renderProjectMemoStack(); };
+        window.toggleMemoFold = function(i) { const p = window.getSafeActiveProject(); p.memos[i].folded = !p.memos[i].folded; window.executeInternalDiskSave(); window.renderProjectMemoStack(); };
         window.saveMemo = function(i, k, v) { const p = window.getSafeActiveProject(); p.memos[i][k] = v; window.executeInternalDiskSave(); };
         window.deleteMemo = function(i) { if(confirm("삭제?")) { window.getSafeActiveProject().memos.splice(i, 1); window.executeInternalDiskSave(); window.renderProjectMemoStack(); } };
-        window.processNewProjectMemo = function() { const p = window.getSafeActiveProject(); if(!p.memos) p.memos = []; p.memos.unshift({title:'새 메모', content:'', folded:false}); window.executeInternalDiskSave(); window.renderProjectMemoStack(); };
-
-        // --- [13] 정적 리스너 및 유틸리티 ---
-        window.bindStaticGlobalListeners = function() {
-            document.getElementById('btnNewProject').onclick = function() {
-                const id = Date.now();
-                window.executeCurrentViewCapture();
-                window.sovereignDb.projects.push({
-                    id: id, name: "새 작품", order: window.sovereignDb.projects.length, memos: [],
-                    slots: [{ id: id+1, title: '1화', original: '', cards: [], order: 0 }]
-                });
-                window.sovereignDb.activeProjectId = id;
-                window.sovereignDb.activeSlotId = id+1;
-                window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
-            };
-            document.getElementById('btnNewSlot').onclick = window.executeCreateNewSlot;
-            document.getElementById('btnSaveAs').onclick = window.executeSaveAsFile;
-            document.getElementById('btnRestore').onclick = window.triggerRestore;
-            document.getElementById('btnUndo').onclick = window.executeUndoAction;
-            document.getElementById('btnRedo').onclick = window.executeRedoAction;
-            document.getElementById('btnResetBoard').onclick = window.processBoardClear;
-            document.getElementById('btnAppendManuscript').onclick = function() { window.processManuscriptInput('append'); };
-            document.getElementById('btnInsertManuscript').onclick = function() { window.processManuscriptInput('insert'); };
-            document.getElementById('btnCopyRawLog').onclick = function() { navigator.clipboard.writeText(document.getElementById('originalLogView').value); alert("로그 복사됨."); };
-            document.getElementById('btnNewProjectMemo').onclick = window.processNewProjectMemo;
-        };
-
-        window.executeCreateNewSlot = function() {
-            const p = window.getSafeActiveProject();
-            const sid = Date.now();
-            window.executeCurrentViewCapture();
-            p.slots.push({ id: sid, title: (p.slots.length+1)+'화', original: '', cards: [], order: p.slots.length });
-            window.sovereignDb.activeSlotId = sid;
-            window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
-        };
-
-        window.processBoardClear = function() {
-            if(confirm("모두 비울까요?")) { window.takeSnapshotForUndo(); document.getElementById('manuscriptPanelContainer').innerHTML = ""; window.executeInternalDiskSave(); window.recalculateStatsDisplay(); }
-        };
-
-        window.triggerRestore = function() {
-            const picker = document.createElement('input'); picker.type = 'file'; picker.accept = '.json';
-            picker.onchange = function(e) {
-                const reader = new FileReader();
-                reader.onload = function(re) {
-                    try { window.sovereignDb = JSON.parse(re.target.result); window.executeInternalDiskSave(); window.location.reload(); } catch(err) { alert("오류."); }
-                };
-                reader.readAsText(e.target.files[0]);
-            };
-            picker.click();
-        };
-
-        window.syncActiveTitleToTabEngine = function() {
-            const s = window.getSafeActiveSlot();
-            s.title = document.getElementById('activeBoardTitle').value;
-            document.getElementById('displaySlotName').innerText = s.title || "WORKPLACE";
-            window.renderSlotTabList(); window.executeInternalDiskSave();
-        };
-        document.getElementById('activeBoardTitle').oninput = window.syncActiveTitleToTabEngine;
-
+        
         window.recalculateStatsDisplay = function() {
             const all = document.querySelectorAll('.card-unit');
-            for (let i = 0; i < all.length; i++) {
-                const b = all[i].querySelector('.c-cut-badge');
-                if (b) b.innerText = "Cut " + String(i + 1).padStart(2, '0');
-            }
+            all.forEach((n, i) => { const b = n.querySelector('.c-cut-badge'); if (b) b.innerText = "Cut " + String(i + 1).padStart(2, '0'); });
             document.getElementById('displayCutCount').innerText = all.length + " Cuts Secured";
         };
 
@@ -821,43 +648,10 @@
 
         window.applySyntaxHighlightEngine = function(t) {
             if (!t) return "";
-            return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>')
-                    .replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
+            return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
         };
 
-        window.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.key === 'Enter') window.processManuscriptInput('append');
-            if (e.ctrlKey && e.key === 'z') { e.preventDefault(); window.executeUndoAction(); }
-            if (e.ctrlKey && e.key === 'y') { e.preventDefault(); window.executeRedoAction(); }
-        });
-
-        // 컷 내부 보조 기능
-        window.copyTextToClip = function(t) { navigator.clipboard.writeText(t); alert("복사됨."); };
-        window.addTagToCut = function(card) {
-            const area = card.querySelector('.card-tag-stack');
-            const i = document.createElement('input');
-            i.className = 'tag-input-item bg-transparent border-b border-white/10 text-[11px] text-blue-500 outline-none w-28 mr-3';
-            i.placeholder = "태그..."; i.oninput = window.executeInternalDiskSave;
-            area.appendChild(i); i.focus();
-        };
-        window.addImageToCut = function(card) {
-            const fileIn = document.createElement('input'); fileIn.type = 'file'; fileIn.accept = 'image/*';
-            fileIn.onchange = function(e) {
-                const reader = new FileReader();
-                reader.onload = function(re) {
-                    const vault = card.querySelector('.card-img-vault');
-                    const div = document.createElement('div');
-                    div.className = "asset-img-item relative w-full aspect-square bg-black rounded-2xl overflow-hidden border border-white/5";
-                    div.innerHTML = `<img src="${re.target.result}" class="w-full h-full object-cover">
-                                     <button onclick="window.takeSnapshotForUndo(); this.parentElement.remove(); window.executeInternalDiskSave()" class="absolute top-1 right-1 bg-red-600 text-[9px] p-1.5 font-black rounded-lg">×</button>`;
-                    vault.appendChild(div); window.executeInternalDiskSave();
-                };
-                reader.readAsDataURL(e.target.files[0]);
-            };
-            fileIn.click();
-        };
-
-        window.bootSovereignSystem();
+        window.bootSovereign();
 
     </script>
 </body>
