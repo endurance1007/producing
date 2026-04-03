@@ -126,7 +126,7 @@
     
     <button onclick="window.executeSaveSlotOnly()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Save</button>
     <button onclick="window.executeImportToCurrentSlot()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Load</button>
-
+<button onclick="window.executeCopyToNotion()" class="text-[10px] font-black text-blue-400 hover:text-white uppercase tracking-widest border border-blue-900/30 px-3 py-1.5 rounded-lg ml-1 transition-colors">Notion Copy</button>
     <button id="btnResetBoard" class="text-[10px] font-black text-red-900 hover:text-red-500 uppercase tracking-widest">Reset Board</button>
 </div>
     </nav>
@@ -948,6 +948,45 @@ window.showFullImage = function(src) {
     modal.innerHTML = `<img src="${src}" class="fade-in">`;
     modal.style.display = 'flex';
 };
+
+// --- [노션 전용 '표' 데이터 복사 엔진] ---
+window.executeCopyToNotion = function() {
+    // 1. 현재 화면의 수정사항을 데이터로 동기화
+    window.executeCurrentViewCapture();
+    
+    const slot = window.getSafeActiveSlot();
+    if (!slot || !slot.cards || slot.cards.length === 0) {
+        alert("복사할 원고가 없습니다.");
+        return;
+    }
+
+    // 2. 표 헤더 생성 (번호 | 원고 내용 | 메모)
+    let tableText = "| 번호 | 원고 내용 | 참고 메모 |\n";
+    tableText += "| --- | --- | --- |\n";
+    
+    // 3. 각 컷을 표의 행(Row)으로 변환
+    slot.cards.forEach((card, index) => {
+        const cutNum = (index + 1).toString().padStart(2, '0');
+        
+        // 표 안에서 줄바꿈이 일어나면 행이 깨지므로, 엔터를 공백으로 치환합니다.
+        const cleanText = card.text.replace(/\n/g, " ").trim();
+        
+        // 여러 개의 메모가 있을 경우 ' / ' 로 구분하여 한 칸에 넣습니다.
+        const cleanMemos = (card.tags && card.tags.length > 0) 
+            ? card.tags.filter(m => m.trim() !== "").join(" / ") 
+            : "";
+            
+        tableText += `| ${cutNum} | ${cleanText} | ${cleanMemos} |\n`;
+    });
+
+    // 4. 클립보드 복사
+    navigator.clipboard.writeText(tableText.trim()).then(() => {
+        alert("노션 표 형식이 복사되었습니다!\n노션에서 붙여넣기(Ctrl+V) 하세요.");
+    }).catch(err => {
+        alert("복사 실패: " + err);
+    });
+};
+        
         window.bootSovereign();
 
     </script>
