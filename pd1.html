@@ -673,11 +673,11 @@ window.addEventListener('keydown', function(e) {
             if (!t) return "";
             return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
         };
-// --- [Restore 버튼 강제 연결 패치] ---
+// --- [모든 버전 호환 통합 복구 엔진] ---
 window.executeRestoreProcess = function() {
     const filePicker = document.createElement('input');
     filePicker.type = 'file';
-    filePicker.accept = '.json'; // JSON 파일만 선택 가능
+    filePicker.accept = '.json';
 
     filePicker.onchange = function(e) {
         const file = e.target.files[0];
@@ -686,33 +686,61 @@ window.executeRestoreProcess = function() {
         const reader = new FileReader();
         reader.onload = function(event) {
             try {
-                const importedData = JSON.parse(event.target.result);
-                
-                // 데이터 무결성 검사
-                if (!importedData.projects) {
-                    throw new Error("올바른 원고 백업 파일이 아닙니다.");
+                let importedData = JSON.parse(event.target.result);
+                let finalDb = null;
+
+                // 1. 최신 형식인지 확인 (projects 키가 있는가?)
+                if (importedData.projects && Array.isArray(importedData.projects)) {
+                    finalDb = importedData;
+                } 
+                // 2. 예전 v2.3 등 슬롯 기반 형식인 경우 변환
+                else {
+                    console.log("옛날 버전 파일을 감지했습니다. 변환을 시작합니다.");
+                    const convertedProject = {
+                        id: Date.now(),
+                        name: "복구된 작품 (" + new Date().toLocaleDateString() + ")",
+                        order: 0,
+                        memos: [],
+                        slots: []
+                    };
+
+                    // 옛날 슬롯 데이터들을 새 슬롯 형식으로 재조립
+                    Object.keys(importedData).forEach((key, index) => {
+                        const oldSlot = importedData[key];
+                        convertedProject.slots.push({
+                            id: Date.now() + index + 100,
+                            title: oldSlot.title || key,
+                            original: oldSlot.original || "",
+                            cards: oldSlot.cards || [],
+                            order: index
+                        });
+                    });
+
+                    finalDb = {
+                        projects: [convertedProject],
+                        activeProjectId: convertedProject.id,
+                        activeSlotId: convertedProject.slots[0].id
+                    };
                 }
 
-                if (confirm("파일을 불러오면 현재 작업 중인 모든 내용이 사라집니다. 계속하시겠습니까?")) {
-                    // 로컬 저장소 데이터 교체
-                    window.sovereignDb = importedData;
+                if (confirm("파일을 분석했습니다. 현재 데이터를 지우고 이 원고들을 불러올까요?")) {
+                    // 강제 이식
+                    window.sovereignDb = finalDb;
                     localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb));
                     
-                    alert("원고 복구가 완료되었습니다. 페이지를 새로고침합니다.");
+                    alert("성공적으로 복구되었습니다. 시스템을 재가동합니다.");
                     window.location.reload();
                 }
             } catch (err) {
-                alert("불러오기 실패: " + err.message);
+                alert("파일 분석 실패: 원고 파일이 손상되었거나 형식이 다릅니다. (" + err.message + ")");
             }
         };
         reader.readAsText(file);
     };
-
-    // 파일 선택창 열기
     filePicker.click();
 };
 
-// 상단 Restore 버튼에 위 기능을 강제로 주입합니다.
+// 버튼 강제 연결
 if (document.getElementById('btnRestore')) {
     document.getElementById('btnRestore').onclick = window.executeRestoreProcess;
 }
