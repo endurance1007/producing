@@ -671,7 +671,7 @@ window.addEventListener('keydown', function(e) {
                         <button onclick="event.stopPropagation(); window.deleteMemo(${i})" class="text-red-900 font-black ml-3">×</button>
                     </div>
                     <div class="p-5 ${m.folded ? 'hidden' : ''}">
-                        <textarea class="w-full bg-transparent text-[11px] text-gray-500 outline-none h-48 resize-none" oninput="window.saveMemo(${i}, 'content', this.value)">${m.content}</textarea>
+                        <textarea class="w-full bg-transparent text-[14px] text-gray-500 outline-none h-48 resize-none" oninput="window.saveMemo(${i}, 'content', this.value)">${m.content}</textarea>
                     </div>`;
                 container.appendChild(div);
             });
