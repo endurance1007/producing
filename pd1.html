@@ -304,65 +304,60 @@ window.handleDragEndStep = function() {
             window.dragSourceId = null;
             window.dragSourceType = null;
         };
-        window.handleDropStep = function(e) {
-            e.preventDefault();
-            this.classList.remove('dragging');
-            const targetIdVal = parseFloat(this.dataset.dragId);
-            const targetTypeVal = this.dataset.dragType;
+      window.handleDropStep = function(e) {
+    e.preventDefault();
+    this.classList.remove('dragging');
+    const targetIdVal = parseFloat(this.dataset.dragId);
+    const targetTypeVal = this.dataset.dragType;
 
-            if (window.dragSourceType !== targetTypeVal || window.dragSourceId === targetIdVal) return;
+    // 타입이 다르거나 자기 자신일 경우 무시
+    if (window.dragSourceType !== targetTypeVal || window.dragSourceId === targetIdVal) return;
 
-            // 물리적 변화 전 스냅샷
+    // 물리적 변화 전 스냅샷 (Undo용)
+    window.executeDeepSnapshot();
+
+    if (window.dragSourceType === 'project') {
+        const sIdx = window.sovereignDb.projects.findIndex(x => x.id === window.dragSourceId);
+        const tIdx = window.sovereignDb.projects.findIndex(x => x.id === targetIdVal);
+        const [moved] = window.sovereignDb.projects.splice(sIdx, 1);
+        window.sovereignDb.projects.splice(tIdx, 0, moved);
+        window.sovereignDb.projects.forEach((p, i) => { p.order = i; });
+        window.renderProjectTabList();
+    } else if (window.dragSourceType === 'slot') {
+        const activeP = window.getSafeActiveProject();
+        const sIdx = activeP.slots.findIndex(x => x.id === window.dragSourceId);
+        const tIdx = activeP.slots.findIndex(x => x.id === targetIdVal);
+        const [moved] = activeP.slots.splice(sIdx, 1);
+        activeP.slots.splice(tIdx, 0, moved);
+        activeP.slots.forEach((s, i) => { s.order = i; });
+        window.renderSlotTabList();
+    } else if (window.dragSourceType === 'card') {
+        const board = document.getElementById('manuscriptPanelContainer');
+        const srcNode = board.querySelector(`[data-drag-id="${window.dragSourceId}"]`);
+        const allNodes = Array.from(board.querySelectorAll('.card-unit'));
+        const sIdx = allNodes.indexOf(srcNode);
+        const tIdx = allNodes.indexOf(this);
+        if (sIdx < tIdx) this.after(srcNode);
+        else board.insertBefore(srcNode, this);
+        
+        window.executeCurrentViewCapture();
+    } else if (window.dragSourceType === 'memo') { // <-- 여기서 꼬였던 괄호를 정리했습니다.
+        const p = window.getSafeActiveProject();
+        const sIdx = parseInt(window.dragSourceId);
+        const tIdx = parseInt(this.dataset.dragId);
+
+        if (sIdx !== tIdx) {
             window.executeDeepSnapshot();
+            const [movedMemo] = p.memos.splice(sIdx, 1);
+            p.memos.splice(tIdx, 0, movedMemo);
+            window.renderProjectMemoStack();
+        }
+    }
 
-            if (window.dragSourceType === 'project') {
-                const sIdx = window.sovereignDb.projects.findIndex(x => x.id === window.dragSourceId);
-                const tIdx = window.sovereignDb.projects.findIndex(x => x.id === targetIdVal);
-                const [moved] = window.sovereignDb.projects.splice(sIdx, 1);
-                window.sovereignDb.projects.splice(tIdx, 0, moved);
-                window.sovereignDb.projects.forEach((p, i) => { p.order = i; });
-                window.renderProjectTabList();
-            } else if (window.dragSourceType === 'slot') {
-                const activeP = window.getSafeActiveProject();
-                const sIdx = activeP.slots.findIndex(x => x.id === window.dragSourceId);
-                const tIdx = activeP.slots.findIndex(x => x.id === targetIdVal);
-                const [moved] = activeP.slots.splice(sIdx, 1);
-                activeP.slots.splice(tIdx, 0, moved);
-                activeP.slots.forEach((s, i) => { s.order = i; });
-                window.renderSlotTabList();
-            } else if (window.dragSourceType === 'card') {
-                const board = document.getElementById('manuscriptPanelContainer');
-                const srcNode = board.querySelector(`[data-drag-id="${window.dragSourceId}"]`);
-                const allNodes = Array.from(board.querySelectorAll('.card-unit'));
-                const sIdx = allNodes.indexOf(srcNode);
-                const tIdx = allNodes.indexOf(this);
-                if (sIdx < tIdx) this.after(srcNode);
-                else board.insertBefore(srcNode, this);
-                
-                // [패치] 드래그 직후 데이터에 즉시 각인하여 언두 정합성 유지
-                window.executeCurrentViewCapture();
-            }
-            } else if (window.dragSourceType === 'memo') {
-                const p = window.getSafeActiveProject();
-                const sIdx = parseInt(window.dragSourceId);
-                const tIdx = parseInt(this.dataset.dragId);
-
-                if (sIdx !== tIdx) {
-                    // 순서 변경 전 언두 스택 저장
-                    window.executeDeepSnapshot();
-
-                    // 실제 데이터(배열) 순서 교체
-                    const [movedMemo] = p.memos.splice(sIdx, 1);
-                    p.memos.splice(tIdx, 0, movedMemo);
-                    
-                    // 메모장 화면 다시 그리기
-                    window.renderProjectMemoStack();
-                }
-            }
-            window.executeInternalDiskSave();
-            window.recalculateStatsDisplay();
-        };
-
+    // 데이터 저장 및 통계 갱신
+    window.executeInternalDiskSave();
+    window.recalculateStatsDisplay();
+};
         // [탭 엔진]
         window.renderProjectTabList = function() {
             const container = document.getElementById('projectTabContainer');
