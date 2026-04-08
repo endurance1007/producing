@@ -667,11 +667,11 @@ window.addEventListener('keydown', function(e) {
                 div.className = "bg-white/5 border border-white/10 rounded-3xl overflow-hidden";
                 div.innerHTML = `
                     <div class="flex items-center justify-between p-5 cursor-pointer" onclick="window.toggleMemoFold(${i})">
-                        <input value="${m.title}" class="bg-transparent border-none outline-none font-black text-[11px] text-blue-500 w-full" oninput="window.saveMemo(${i}, 'title', this.value)" onclick="event.stopPropagation()">
+                        <input value="${m.title}" class="bg-transparent border-none outline-none font-black text-[14px] text-blue-500 w-full" oninput="window.saveMemo(${i}, 'title', this.value)" onclick="event.stopPropagation()">
                         <button onclick="event.stopPropagation(); window.deleteMemo(${i})" class="text-red-900 font-black ml-3">×</button>
                     </div>
                     <div class="p-5 ${m.folded ? 'hidden' : ''}">
-                        <textarea class="w-full bg-transparent text-[14px] text-gray-500 outline-none h-48 resize-none" oninput="window.saveMemo(${i}, 'content', this.value)">${m.content}</textarea>
+                        <textarea class="w-full bg-transparent text-[14px] text-gray-500 outline-none h-70 resize-none" oninput="window.saveMemo(${i}, 'content', this.value)">${m.content}</textarea>
                     </div>`;
                 container.appendChild(div);
             });
