@@ -290,15 +290,20 @@ window.executeCurrentViewCapture = function() {
             e.dataTransfer.effectAllowed = 'move';
         };
 
-        window.handleDragEndStep = function() {
-            // [패치] 모든 컷에서 드래깅 클래스 강제 제거하여 검게 변하는 현상 방지
-            const allCuts = document.querySelectorAll('.card-unit');
-            for (let i = 0; i < allCuts.length; i++) {
-                allCuts[i].classList.remove('dragging');
+window.handleDragEndStep = function() {
+            // [패치] 모든 컷과 메모에서 드래깅 상태를 강제 제거하여 검게 변하는 현상 방지
+            // .card-unit(컷)과 [data-drag-type="memo"](메모)를 모두 선택합니다.
+            const allItems = document.querySelectorAll('.card-unit, [data-drag-type="memo"]');
+            
+            for (let i = 0; i < allItems.length; i++) {
+                allItems[i].classList.remove('dragging');
+                allItems[i].style.opacity = "1"; // 투명도를 다시 100%로 (선명하게)
             }
-            this.classList.remove('dragging');
+            
+            // 드래그 상태 정보 초기화
+            window.dragSourceId = null;
+            window.dragSourceType = null;
         };
-
         window.handleDropStep = function(e) {
             e.preventDefault();
             this.classList.remove('dragging');
@@ -337,7 +342,23 @@ window.executeCurrentViewCapture = function() {
                 // [패치] 드래그 직후 데이터에 즉시 각인하여 언두 정합성 유지
                 window.executeCurrentViewCapture();
             }
-            
+            } else if (window.dragSourceType === 'memo') {
+                const p = window.getSafeActiveProject();
+                const sIdx = parseInt(window.dragSourceId);
+                const tIdx = parseInt(this.dataset.dragId);
+
+                if (sIdx !== tIdx) {
+                    // 순서 변경 전 언두 스택 저장
+                    window.executeDeepSnapshot();
+
+                    // 실제 데이터(배열) 순서 교체
+                    const [movedMemo] = p.memos.splice(sIdx, 1);
+                    p.memos.splice(tIdx, 0, movedMemo);
+                    
+                    // 메모장 화면 다시 그리기
+                    window.renderProjectMemoStack();
+                }
+            }
             window.executeInternalDiskSave();
             window.recalculateStatsDisplay();
         };
@@ -665,8 +686,19 @@ window.renderProjectMemoStack = function() {
 
     p.memos.forEach((m, i) => {
         const div = document.createElement('div');
-        div.className = "bg-white/5 border border-white/10 rounded-3xl overflow-hidden mb-4 fade-in";
         
+        // [수정 포인트] 드래그를 위한 속성들과 클래스를 추가했습니다.
+        div.className = "bg-white/5 border border-white/10 rounded-3xl overflow-hidden mb-4 fade-in cursor-move relative transition-all";
+        div.draggable = true;
+        div.dataset.dragId = i; // 현재 메모의 순서(인덱스)를 기록
+        div.dataset.dragType = "memo";
+
+        // [수정 포인트] 드래그 동작 시 실행될 함수들을 연결했습니다.
+        div.ondragstart = window.handleDragStartStep;
+        div.ondragend = window.handleDragEndStep;
+        div.ondragover = (e) => e.preventDefault();
+        div.ondrop = window.handleDropStep;
+
         div.innerHTML = `
             <div class="flex items-start justify-between p-5 cursor-pointer bg-white/5" onclick="window.toggleMemoFold(${i})">
                 <textarea class="bg-transparent border-none outline-none font-black text-[14px] text-blue-500 w-full resize-none overflow-hidden leading-tight pt-1" 
@@ -689,7 +721,6 @@ window.renderProjectMemoStack = function() {
         tas.forEach(ta => window.autoResizeMemoTextArea(ta));
     });
 };
-
         // 메모 입력창 높이 자동 조절 함수
 window.autoResizeMemoTextArea = function(obj) {
     obj.style.height = 'auto'; // 높이 초기화
