@@ -596,20 +596,43 @@ window.createCardNodePhysical = function(id, text, memos, images) {
             }
         };
 
-// [파일 및 공통 도구 - 개선된 전체 백업]
-        window.executeSaveAsProcess = function() {
-            // 저장 버튼을 누르는 순간 현재 열려 있는 슬롯의 모든 수정을 데이터에 동기화
+// [파일 및 공통 도구 - 파일명 지정 가능한 전체 백업]
+        window.executeSaveAsProcess = async function() {
+            // 1. 저장 직전 화면 상태 동기화
             window.executeCurrentViewCapture();
             
             const dataStr = JSON.stringify(window.sovereignDb, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json' });
-            const a = document.createElement('a');
             
-            // 파일명에 날짜와 시간을 명시하여 꼬임 방지
+            // 2. 기본 파일명 자동 생성 (예: [작품명] Sovereign_2026-05-18.json)
+            const p = window.getSafeActiveProject();
             const dateStr = new Date().toLocaleDateString().replace(/\. /g, '-').replace('.', '');
-            a.download = `[전체백업]_Sovereign_${dateStr}.json`;
-            a.href = URL.createObjectURL(blob);
-            a.click();
+            const defaultName = `[${p ? p.name : '전체백업'}] Sovereign_${dateStr}.json`;
+
+            // 3. 파일 저장 창 띄우기 (최신 브라우저 지원 API)
+            if ('showSaveFilePicker' in window) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: defaultName,
+                        types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }]
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(dataStr);
+                    await writable.close();
+                    console.log("파일 저장 완료");
+                } catch (err) {
+                    // 사용자가 '취소'를 눌렀을 때 뜨는 에러는 무시
+                    if (err.name !== 'AbortError') {
+                        console.error("저장 중 오류:", err);
+                    }
+                }
+            } else {
+                // 구형 브라우저나 앱 모드에서 API가 막혔을 때의 예비용 (강제 다운로드)
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.download = defaultName;
+                a.href = URL.createObjectURL(blob);
+                a.click();
+            }
         };
 
         window.bindSovereignListeners = function() {
