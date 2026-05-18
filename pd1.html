@@ -596,23 +596,20 @@ window.createCardNodePhysical = function(id, text, memos, images) {
             }
         };
 
-        // [파일 및 공통 도구]
-        window.executeSaveAsFile = async function() {
+// [파일 및 공통 도구 - 개선된 전체 백업]
+        window.executeSaveAsProcess = function() {
+            // 저장 버튼을 누르는 순간 현재 열려 있는 슬롯의 모든 수정을 데이터에 동기화
             window.executeCurrentViewCapture();
-            const p = window.getSafeActiveProject();
-            const s = window.getSafeActiveSlot();
-            const name = `[${p.name}] ${s.title || 'Draft'}_${new Date().toLocaleDateString()}.json`;
-            if ('showSaveFilePicker' in window) {
-                try {
-                    const handle = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }] });
-                    const writable = await handle.createWritable();
-                    await writable.write(JSON.stringify(window.sovereignDb, null, 2));
-                    await writable.close(); alert("보관되었습니다.");
-                } catch (e) {}
-            } else {
-                const blob = new Blob([JSON.stringify(window.sovereignDb)], { type: 'application/json' });
-                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
-            }
+            
+            const dataStr = JSON.stringify(window.sovereignDb, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const a = document.createElement('a');
+            
+            // 파일명에 날짜와 시간을 명시하여 꼬임 방지
+            const dateStr = new Date().toLocaleDateString().replace(/\. /g, '-').replace('.', '');
+            a.download = `[전체백업]_Sovereign_${dateStr}.json`;
+            a.href = URL.createObjectURL(blob);
+            a.click();
         };
 
         window.bindSovereignListeners = function() {
@@ -627,7 +624,8 @@ window.createCardNodePhysical = function(id, text, memos, images) {
                 p.slots.push({ id: sid, title: (p.slots.length+1)+'화', original: '', cards: [], order: p.slots.length });
                 window.sovereignDb.activeSlotId = sid; window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
             };
-            document.getElementById('btnSaveAs').onclick = window.executeSaveAsFile;
+            document.getElementById('btnSaveAs').onclick = window.executeSaveAsProcess;
+            document.getElementById('btnRestore').onclick = window.executeRestoreProcess;
             document.getElementById('btnUndo').onclick = window.executeUndoAction;
             document.getElementById('btnRedo').onclick = window.executeRedoAction;
             document.getElementById('btnResetBoard').onclick = function() {
@@ -664,10 +662,10 @@ window.addEventListener('keydown', function(e) {
         window.processManuscriptInput('append');
     }
 
-    // 4. [저장] Ctrl + S (파일 저장 창 호출)
+// 4. [저장] Ctrl + S (파일 저장 창 호출)
     if (ctrl && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        window.executeSaveAsFile();
+        window.executeSaveAsProcess();
     }
 });
         };
@@ -757,54 +755,54 @@ window.executeAutoHeight = function(el) {
             if (!t) return "";
             return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
         };
-// --- [Restore 버튼 강제 연결 패치] ---
+// --- [개선] 전체 데이터 복구 및 포인터 정렬 엔진 ---
 window.executeRestoreProcess = function() {
-    const filePicker = document.createElement('input');
-    filePicker.type = 'file';
-    filePicker.accept = '.json'; // JSON 파일만 선택 가능
-
-    filePicker.onchange = function(e) {
+    const fileIn = document.createElement('input');
+    fileIn.type = 'file';
+    fileIn.accept = '.json';
+    
+    fileIn.onchange = function(e) {
         const file = e.target.files[0];
         if (!file) return;
-
+        
         const reader = new FileReader();
-        reader.onload = function(event) {
+        reader.onload = function(evt) {
             try {
-                const importedData = JSON.parse(event.target.result);
+                const data = JSON.parse(evt.target.result);
                 
-                // 데이터 무결성 검사
-                if (!importedData.projects) {
-                    throw new Error("올바른 원고 백업 파일이 아닙니다.");
+                if (!data.projects || data.projects.length === 0) {
+                    alert("올바른 전체 백업 파일이 아닙니다. (슬롯 전용 파일인지 확인하세요)");
+                    return;
                 }
-
-                if (confirm("파일을 불러오면 현재 작업 중인 모든 내용이 사라집니다. 계속하시겠습니까?")) {
-                    // 로컬 저장소 데이터 교체
-                    window.sovereignDb = importedData;
-                    localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb));
+                
+                if (confirm("기존 작업실의 모든 데이터가 사라지고 백업 파일로 교체됩니다. 진행할까요?")) {
+                    window.executeDeepSnapshot(); 
+                    window.sovereignDb = data;
                     
-                    alert("원고 복구가 완료되었습니다. 페이지를 새로고침합니다.");
-                    window.location.reload();
+                    // [핵심 해결책] 활성화 ID 포인터 강제 재정렬
+                    if (window.sovereignDb.projects && window.sovereignDb.projects.length > 0) {
+                        window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
+                        if (window.sovereignDb.projects[0].slots && window.sovereignDb.projects[0].slots.length > 0) {
+                            window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
+                        }
+                    }
+                    
+                    window.executeInternalDiskSave();
+                    window.executeFullUIRenderCycle();
+                    
+                    if (typeof window.renderProjectMemoStack === 'function') {
+                        window.renderProjectMemoStack();
+                    }
+                    alert("동기화 완료! 모든 프로젝트, 슬롯, 메모가 정상 복구되었습니다.");
                 }
             } catch (err) {
-                alert("불러오기 실패: " + err.message);
+                alert("불러오기 실패: 데이터 구조가 손상되었거나 올바른 JSON이 아닙니다.\n" + err.message);
             }
         };
         reader.readAsText(file);
     };
-
-    // 파일 선택창 열기
-    filePicker.click();
+    fileIn.click();
 };
-
-// 상단 Restore 버튼에 위 기능을 강제로 주입합니다.
-if (document.getElementById('btnRestore')) {
-    document.getElementById('btnRestore').onclick = window.executeRestoreProcess;
-}
-
-// 버튼 강제 연결
-if (document.getElementById('btnRestore')) {
-    document.getElementById('btnRestore').onclick = window.executeRestoreProcess;
-}
 // --- [슬롯 전용 저장/불러오기 엔진] ---
 
 // 1. 현재 슬롯만 파일로 저장 (Export Current Slot)
