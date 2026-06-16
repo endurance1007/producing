@@ -596,17 +596,29 @@ window.createCardNodePhysical = function(id, text, memos, images) {
             }
         };
 
-// [파일 및 공통 도구 - 지정 가능한 전체 백업]
+// [파일 및 공통 도구 - 로컬/웹 공용 지능형 전체 백업 엔진]
         window.executeSaveAsProcess = async function() {
+            // 1. 저장 직전 현재 화면 상태를 완벽히 캡처
             window.executeCurrentViewCapture();
             
-            const dataStr = JSON.stringify(window.sovereignDb, null, 2);
+            // 2. 파일 추출 전, 현재 활성화된 프로젝트와 슬롯의 ID를 강제로 심어줍니다.
+            // 이 처리가 되어야 집/노트북 간 복구 시 마지막 위치가 그대로 기억됩니다.
             const p = window.getSafeActiveProject();
+            if (p) {
+                window.sovereignDb.activeProjectId = window.sovereignDb.activeProjectId || p.id;
+                const s = window.getSafeActiveSlot();
+                if (s) {
+                    window.sovereignDb.activeSlotId = window.sovereignDb.activeSlotId || s.id;
+                }
+            }
+            
+            const dataStr = JSON.stringify(window.sovereignDb, null, 2);
             const dateStr = new Date().toLocaleDateString().replace(/\. /g, '-').replace('.', '');
             const defaultName = `[${p ? p.name : '전체백업'}] Sovereign_${dateStr}.json`;
 
-            if ('showSaveFilePicker' in window) {
-                try {
+            // 3. 깃허브 등 웹 보안 환경(NotAllowedError)에 대응하는 안전망 작동
+            try {
+                if ('showSaveFilePicker' in window) {
                     const handle = await window.showSaveFilePicker({
                         suggestedName: defaultName,
                         types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }]
@@ -614,16 +626,18 @@ window.createCardNodePhysical = function(id, text, memos, images) {
                     const writable = await handle.createWritable();
                     await writable.write(dataStr);
                     await writable.close();
-                } catch (err) {
-                    console.log("저장 취소 또는 오류");
+                    return; // 최신 창 띄우기 성공 시 여기서 종료
                 }
-            } else {
-                const blob = new Blob([dataStr], { type: 'application/json' });
-                const a = document.createElement('a');
-                a.download = defaultName;
-                a.href = URL.createObjectURL(blob);
-                a.click();
+            } catch (err) {
+                console.warn("웹 환경 보안 정책으로 인해 저장창 API가 제한되었습니다. 예비 다운로드 방식으로 우회합니다.", err);
             }
+
+            // 4. [웹용 예비 장치] 외부 서버 환경에서 막혔을 때 에러 없이 강제 파일 다운로드로 전환
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.download = defaultName;
+            a.href = URL.createObjectURL(blob);
+            a.click();
         };
 
         window.bindSovereignListeners = function() {
@@ -769,7 +783,7 @@ window.executeAutoHeight = function(el) {
             if (!t) return "";
             return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
         };
-// --- [개선] 전체 데이터 복구 및 포인터 정렬 엔진 ---
+// --- [개선] 전체 데이터 복구 및 마지막 작업 위치 지능형 정렬 엔진 ---
 window.executeRestoreProcess = function() {
     const fileIn = document.createElement('input');
     fileIn.type = 'file';
@@ -791,13 +805,28 @@ window.executeRestoreProcess = function() {
                 
                 if (confirm("기존 작업실의 모든 데이터가 사라지고 백업 파일로 교체됩니다. 진행할까요?")) {
                     window.executeDeepSnapshot(); 
+                    
+                    // 데이터 이식
                     window.sovereignDb = data;
                     
-                    // [핵심 해결책] 활성화 ID 포인터 강제 재정렬
-                    if (window.sovereignDb.projects && window.sovereignDb.projects.length > 0) {
-                        window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
-                        if (window.sovereignDb.projects[0].slots && window.sovereignDb.projects[0].slots.length > 0) {
-                            window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
+                    // [지능형 포인터 복원 메커니즘] 파일에 남겨진 마지막 프로젝트와 슬롯 추적
+                    let targetProj = window.sovereignDb.projects.find(p => p.id === data.activeProjectId);
+                    
+                    if (targetProj) {
+                        window.sovereignDb.activeProjectId = targetProj.id;
+                        let targetSlot = targetProj.slots.find(s => s.id === data.activeSlotId);
+                        if (targetSlot) {
+                            window.sovereignDb.activeSlotId = targetSlot.id; // 마지막 작업 회차로 정확히 이동
+                        } else if (targetProj.slots.length > 0) {
+                            window.sovereignDb.activeSlotId = targetProj.slots[0].id; // 슬롯 유실 시 해당 프로젝트의 첫 화
+                        }
+                    } else {
+                        // 정보가 꼬여있을 때만 첫 번째 안전 구역으로 착륙
+                        if (window.sovereignDb.projects.length > 0) {
+                            window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
+                            if (window.sovereignDb.projects[0].slots.length > 0) {
+                                window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
+                            }
                         }
                     }
                     
@@ -807,7 +836,7 @@ window.executeRestoreProcess = function() {
                     if (typeof window.renderProjectMemoStack === 'function') {
                         window.renderProjectMemoStack();
                     }
-                    alert("동기화 완료! 모든 프로젝트, 슬롯, 메모가 정상 복구되었습니다.");
+                    alert("동기화 완료! 마지막으로 작업하시던 위치로 복구되었습니다.");
                 }
             } catch (err) {
                 alert("불러오기 실패: 데이터 구조가 손상되었거나 올바른 JSON이 아닙니다.\n" + err.message);
