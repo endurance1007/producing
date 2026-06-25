@@ -11,7 +11,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <style>
-        /* [Pretendard 폰트 로드] */
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
         
         body { 
@@ -23,12 +22,10 @@
             padding: 0;
         }
 
-        /* 스크롤바 디자인 */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
         ::-webkit-scrollbar-track { background: transparent; }
 
-        /* 카드 포커스 효과 */
         .card-focused { 
             border-color: #3b82f6 !important; 
             background: #0a0a0a !important; 
@@ -36,11 +33,9 @@
             transform: translateY(-2px);
         }
 
-        /* 하이라이팅 */
         .hl-dialog { color: #60a5fa; font-weight: 700; text-shadow: 0 0 5px rgba(96,165,250,0.2); }
         .hl-sfx { color: #fbbf24; font-style: italic; }
         
-        /* 탭 디자인 */
         .tab-active { 
             background-color: #0f172a !important; 
             color: #3b82f6 !important; 
@@ -53,7 +48,6 @@
             cursor: pointer;
         }
         
-        /* 드래그 시각화 */
         .dragging { 
             opacity: 0.3 !important; 
             transform: scale(0.95); 
@@ -62,7 +56,6 @@
         }
         .drag-over { border-top: 5px solid #3b82f6 !important; }
 
-        /* 에디터 설정 */
         [contenteditable]:focus { outline: none; background: rgba(30, 41, 59, 0.1); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
@@ -72,7 +65,6 @@
             background: rgba(0,0,0,0.4);
         }
 
-        /* 이미지 크게 보기 모달 */
         .image-modal {
             display: none; 
             position: fixed; 
@@ -116,17 +108,17 @@
         <div id="slotTabContainer" class="flex h-full items-center overflow-x-auto no-scrollbar"></div>
         <button id="btnNewSlot" class="ml-4 px-4 h-full text-gray-700 hover:text-white font-bold text-xl">+</button>
         
-     <div class="ml-auto flex gap-6 items-center pr-2">
-        <div class="flex gap-5 border-r border-white/10 pr-6">
-            <button id="btnUndo" class="text-[10px] font-black text-gray-500 hover:text-gray-300 uppercase tracking-widest">Undo (Ctrl+Z)</button>
-            <button id="btnRedo" class="text-[10px] font-black text-gray-500 hover:text-gray-300 uppercase tracking-widest">Redo (Ctrl+Y)</button>
+        <div class="ml-auto flex gap-6 items-center pr-2">
+            <div class="flex gap-5 border-r border-white/10 pr-6">
+                <button id="btnUndo" class="text-[10px] font-black text-gray-600 hover:text-white uppercase tracking-widest">Undo (Ctrl+Z)</button>
+                <button id="btnRedo" class="text-[10px] font-black text-gray-600 hover:text-white uppercase tracking-widest">Redo (Ctrl+Y)</button>
+            </div>
+            
+            <button onclick="window.executeSaveSlotOnly()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Save</button>
+            <button onclick="window.executeImportToCurrentSlot()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Load</button>
+            <button onclick="window.executeCopyToNotion()" class="text-[10px] font-black text-blue-400 hover:text-white uppercase tracking-widest border border-blue-900/30 px-3 py-1.5 rounded-lg ml-1 transition-colors">Notion Copy</button>
+            <button id="btnResetBoard" class="text-[10px] font-black text-red-900 hover:text-red-500 uppercase tracking-widest">Reset Board</button>
         </div>
-        
-        <button onclick="window.executeSaveSlotOnly()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Save</button>
-        <button onclick="window.executeImportToCurrentSlot()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Load</button>
-        <button onclick="window.executeCopyToNotion()" class="text-[10px] font-black text-blue-400 hover:text-white uppercase tracking-widest border border-blue-900/30 px-3 py-1.5 rounded-lg ml-1 transition-colors">Notion Copy</button>
-        <button id="btnResetBoard" class="text-[10px] font-black text-red-900 hover:text-red-500 uppercase tracking-widest">Reset Board</button>
-    </div>
     </nav>
 
     <main class="flex flex-1 overflow-hidden">
@@ -173,24 +165,10 @@
 
     <script>
         // -----------------------------------------------------------------------------------------
-        // [SOVEREIGN CORE] v1.1 - 자가 치유 및 무적 방어 엔진 탑재
+        // [SOVEREIGN CORE] v1.2 - 클린 통합본 (탐색기 동기화 및 고스트 세이브 완벽 차단)
         // -----------------------------------------------------------------------------------------
         
-        // [패치] localStorage 파싱 에러(백지화) 원천 차단
-        let loadedData = null;
-        try {
-            const rawData = localStorage.getItem('dragon_v1_sovereign_db');
-            if (rawData) {
-                loadedData = JSON.parse(rawData);
-                // 데이터 구조가 완전히 파괴되었으면 무시
-                if (!loadedData || !Array.isArray(loadedData.projects)) loadedData = null;
-            }
-        } catch (e) {
-            console.error("Local storage corrupted. Resetting memory.");
-            loadedData = null;
-        }
-
-        window.sovereignDb = loadedData || {
+        window.sovereignDb = JSON.parse(localStorage.getItem('dragon_v1_sovereign_db')) || {
             projects: [],
             activeProjectId: null,
             activeSlotId: null
@@ -202,18 +180,15 @@
         window.dragSourceType = null;
         window.focusedCardNode = null;
 
-        // 웹/로컬 환경 감지 (깃허브 등에서는 호환성 높은 구형 탐색기를 강제 사용하도록 설계)
-        window.isWebEnvironment = window.location.hostname.includes('github.io') || window.location.hostname.includes('vercel') || window.location.protocol.startsWith('http');
-
         // [부팅]
         window.bootSovereign = function() {
-            if (!window.sovereignDb.projects || window.sovereignDb.projects.length === 0) {
+            if (window.sovereignDb.projects.length === 0) {
                 const pId = Date.now();
                 const sId = pId + 100;
-                window.sovereignDb.projects = [{
+                window.sovereignDb.projects.push({
                     id: pId, name: "새 작품", order: 0, memos: [],
                     slots: [{ id: sId, title: '1화', original: '', cards: [], order: 0 }]
-                }];
+                });
                 window.sovereignDb.activeProjectId = pId;
                 window.sovereignDb.activeSlotId = sId;
                 window.executeInternalDiskSave();
@@ -236,15 +211,10 @@
             window.recalculateStatsDisplay();
         };
 
-        window.getSafeActiveProject = function() { 
-            if (!window.sovereignDb || !window.sovereignDb.projects) return null;
-            return window.sovereignDb.projects.find(function(x) { return x.id === window.sovereignDb.activeProjectId; }); 
-        };
-        
+        window.getSafeActiveProject = function() { return window.sovereignDb.projects.find(function(x) { return x.id === window.sovereignDb.activeProjectId; }); };
         window.getSafeActiveSlot = function() { 
             const proj = window.getSafeActiveProject();
-            if (!proj || !proj.slots) return null;
-            return proj.slots.find(function(x) { return x.id === window.sovereignDb.activeSlotId; }); 
+            return proj ? proj.slots.find(function(x) { return x.id === window.sovereignDb.activeSlotId; }) : null; 
         };
 
         // [저장 및 캡처]
@@ -268,9 +238,7 @@
         };
 
         window.executeInternalDiskSave = function() {
-            try {
-                localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb));
-            } catch(e) { console.warn("Storage Full or Blocked"); }
+            localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb));
         };
 
         // [언두/리두 엔진]
@@ -316,7 +284,7 @@
             window.dragSourceId = null;
             window.dragSourceType = null;
         };
-        
+
         window.handleDropStep = function(e) {
             e.preventDefault();
             this.classList.remove('dragging');
@@ -324,6 +292,7 @@
             const targetTypeVal = this.dataset.dragType;
 
             if (window.dragSourceType !== targetTypeVal || window.dragSourceId === targetIdVal) return;
+
             window.executeDeepSnapshot();
 
             if (window.dragSourceType === 'project') {
@@ -361,6 +330,7 @@
                     window.renderProjectMemoStack();
                 }
             }
+
             window.executeInternalDiskSave();
             window.recalculateStatsDisplay();
         };
@@ -369,7 +339,6 @@
         window.renderProjectTabList = function() {
             const container = document.getElementById('projectTabContainer');
             container.innerHTML = "";
-            if (!window.sovereignDb || !window.sovereignDb.projects) return;
             window.sovereignDb.projects.sort(function(a, b) { return a.order - b.order; });
 
             for (let i = 0; i < window.sovereignDb.projects.length; i++) {
@@ -409,8 +378,7 @@
             if (window.sovereignDb.activeProjectId === id) return;
             window.executeCurrentViewCapture();
             window.sovereignDb.activeProjectId = id;
-            const p = window.getSafeActiveProject();
-            if (p && p.slots && p.slots.length > 0) window.sovereignDb.activeSlotId = p.slots[0].id;
+            window.sovereignDb.activeSlotId = window.getSafeActiveProject().slots[0].id;
             window.executeInternalDiskSave();
             window.executeFullUIRenderCycle();
         };
@@ -419,8 +387,7 @@
             const container = document.getElementById('slotTabContainer');
             container.innerHTML = "";
             const p = window.getSafeActiveProject();
-            if (!p || !p.slots) return;
-            
+            if (!p) return;
             p.slots.sort((a, b) => a.order - b.order);
             for (let i = 0; i < p.slots.length; i++) {
                 const s = p.slots[i];
@@ -458,19 +425,14 @@
         // [에디터 및 컷 로직]
         window.loadBoardFromMemory = function() {
             const s = window.getSafeActiveSlot();
-            const board = document.getElementById('manuscriptPanelContainer');
-            if (!s) {
-                board.innerHTML = "";
-                return;
-            }
+            if (!s) return;
             document.getElementById('activeBoardTitle').value = s.title || "";
             document.getElementById('originalLogView').value = s.original || "";
+            const board = document.getElementById('manuscriptPanelContainer');
             board.innerHTML = "";
-            if(s.cards) {
-                for (let i = 0; i < s.cards.length; i++) {
-                    const c = s.cards[i];
-                    board.appendChild(window.createCardNodePhysical(c.id, c.text, c.tags, c.images));
-                }
+            for (let i = 0; i < s.cards.length; i++) {
+                const c = s.cards[i];
+                board.appendChild(window.createCardNodePhysical(c.id, c.text, c.tags, c.images));
             }
             window.recalculateStatsDisplay();
         };
@@ -494,6 +456,7 @@
             
             const tools = document.createElement('div');
             tools.className = "flex gap-4 pointer-events-auto";
+            
             const btnM = document.createElement('button');
             btnM.className = "text-[10px] font-black text-gray-600 hover:text-white uppercase";
             btnM.innerText = "+ MEMO"; btnM.onclick = () => window.executeAddCardMemoStep(card);
@@ -606,10 +569,11 @@
             }
         };
 
-        // -------------------------------------------------------------------------
-        // 🚀 [패치 완료] 웹/로컬 무결점 데이터 입출력 (Save/Restore) 엔진
-        // -------------------------------------------------------------------------
-        
+        // -----------------------------------------------------------------------------------------
+        // [FILE API ENGINE] 탐색기 호출 및 고스트 세이브 방지 완벽 통일 버전
+        // -----------------------------------------------------------------------------------------
+
+        // 1. 전체 백업 (Save As)
         window.executeSaveAsProcess = async function() {
             window.executeCurrentViewCapture();
             
@@ -624,10 +588,7 @@
             const dateStr = new Date().toLocaleDateString().replace(/\. /g, '-').replace('.', '');
             const defaultName = `[${p ? p.name : '전체백업'}] Sovereign_${dateStr}.json`;
 
-            // 웹/깃허브 환경에서는 에러를 피하기 위해 즉시 일반 다운로드 방식으로 전환합니다.
-            const useModern = ('showSaveFilePicker' in window) && !window.isWebEnvironment;
-
-            if (useModern) {
+            if ('showSaveFilePicker' in window) {
                 try {
                     const handle = await window.showSaveFilePicker({
                         suggestedName: defaultName,
@@ -638,12 +599,12 @@
                     await writable.close();
                     return; 
                 } catch (err) {
-                    // 고스트 세이브 방지 (취소 누르면 즉시 종료)
+                    // [해결] 사용자가 취소를 누른 경우 즉시 차단하여 고스트 세이브 방지
                     if (err.name === 'AbortError' || err.message.includes('abort')) return;
                 }
             }
 
-            // 구형(웹 호환) 강제 다운로드 방식
+            // 파일 픽커가 지원되지 않는 구형 브라우저에서만 예비 다운로드 실행
             const blob = new Blob([dataStr], { type: 'application/json' });
             const a = document.createElement('a');
             a.download = defaultName;
@@ -651,6 +612,74 @@
             a.click();
         };
 
+        // 2. 전체 복구 (Restore) - 아이클라우드 열람 지원
+        window.executeRestoreProcess = async function() {
+            const processData = function(data) {
+                if (!data.projects || data.projects.length === 0) {
+                    alert("올바른 전체 백업 파일이 아닙니다."); return;
+                }
+                if (confirm("기존 작업실의 모든 데이터가 사라지고 백업 파일로 교체됩니다. 진행할까요?")) {
+                    try { window.executeDeepSnapshot(); } catch(e) {}
+                    window.sovereignDb = data;
+                    
+                    let targetProj = null;
+                    if (data.activeProjectId) targetProj = window.sovereignDb.projects.find(p => p.id === data.activeProjectId);
+                    if (targetProj) {
+                        window.sovereignDb.activeProjectId = targetProj.id;
+                        let targetSlot = targetProj.slots.find(s => s.id === data.activeSlotId);
+                        if (targetSlot) window.sovereignDb.activeSlotId = targetSlot.id;
+                        else if (targetProj.slots && targetProj.slots.length > 0) window.sovereignDb.activeSlotId = targetProj.slots[0].id;
+                    } else if (window.sovereignDb.projects && window.sovereignDb.projects.length > 0) {
+                        window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
+                        if (window.sovereignDb.projects[0].slots && window.sovereignDb.projects[0].slots.length > 0) window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
+                    }
+                    
+                    try { localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb)); } catch(e) {}
+                    try { window.executeFullUIRenderCycle(); } catch(e) {
+                        if (typeof window.renderProjectTabList === 'function') window.renderProjectTabList();
+                        if (typeof window.renderSlotTabList === 'function') window.renderSlotTabList();
+                        if (typeof window.loadBoardFromMemory === 'function') window.loadBoardFromMemory();
+                    }
+                    if (typeof window.renderProjectMemoStack === 'function') {
+                        try { window.renderProjectMemoStack(); } catch(e) {}
+                    }
+                    alert("동기화 완료! 원고가 정상적으로 복원되었습니다.");
+                }
+            };
+
+            // [해결] Restore 버튼도 Save As와 동일한 최신 탐색기 규격을 사용하여 아이클라우드 개방
+            if ('showOpenFilePicker' in window) {
+                try {
+                    const [fileHandle] = await window.showOpenFilePicker({
+                        types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }],
+                        multiple: false
+                    });
+                    const file = await fileHandle.getFile();
+                    const text = await file.text();
+                    processData(JSON.parse(text));
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError' || err.message.includes('abort')) return; // 취소 방어
+                }
+            }
+
+            // 예비 수단
+            const fileIn = document.createElement('input');
+            fileIn.type = 'file'; fileIn.accept = '.json';
+            fileIn.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    try { processData(JSON.parse(evt.target.result)); }
+                    catch (err) { alert("파싱 에러: " + err.message); }
+                };
+                reader.readAsText(file);
+            };
+            fileIn.click();
+        };
+
+        // 3. 슬롯 백업 (Slot Save)
         window.executeSaveSlotOnly = async function() {
             window.executeCurrentViewCapture();
             const s = window.getSafeActiveSlot();
@@ -659,9 +688,7 @@
             const slotData = { type: "DRAGON_SLOT_ONLY", title: s.title, original: s.original, cards: s.cards };
             const fileName = `[슬롯백업] ${s.title || '원고'}_${new Date().toLocaleDateString()}.json`;
 
-            const useModern = ('showSaveFilePicker' in window) && !window.isWebEnvironment;
-
-            if (useModern) {
+            if ('showSaveFilePicker' in window) {
                 try {
                     const handle = await window.showSaveFilePicker({
                         suggestedName: fileName,
@@ -683,95 +710,26 @@
             a.click();
         };
 
-        // 데이터 파싱 및 안전 주입 코어
-        window.processRestoreData = function(text, isSlotOnly) {
-            try {
-                const data = JSON.parse(text);
-                
-                // 슬롯 전용 불러오기 처리
-                if (isSlotOnly) {
-                    const activeS = window.getSafeActiveSlot();
-                    if (!activeS) { alert("원고를 불러올 대상 슬롯이 없습니다."); return; }
-                    if (confirm("이 파일을 현재 열려 있는 슬롯에 덮어씌울까요?")) {
-                        window.executeDeepSnapshot();
-                        if (data.type === "DRAGON_SLOT_ONLY") {
-                            activeS.title = data.title; activeS.original = data.original; activeS.cards = data.cards;
-                        } else if (data.projects) {
-                            const firstSlot = data.projects[0].slots[0];
-                            activeS.title = firstSlot.title; activeS.original = firstSlot.original; activeS.cards = firstSlot.cards;
-                        }
-                        window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
-                        alert("슬롯 원고 불러오기 성공!");
-                    }
-                    return;
-                }
-
-                // 전체 데이터 복구 처리
-                if (!data || !Array.isArray(data.projects) || data.projects.length === 0) {
-                    alert("올바른 전체 백업 파일 구조가 아닙니다."); return;
-                }
-                
-                if (confirm("기존 작업실의 모든 데이터가 백업 파일로 교체됩니다. 진행할까요?")) {
-                    window.executeDeepSnapshot(); 
-                    window.sovereignDb = data;
-                    
-                    // 포인터(위치) 보호막 - 데이터 꼬임 방지
-                    let targetProj = window.sovereignDb.projects.find(p => p.id === data.activeProjectId);
-                    if (!targetProj && window.sovereignDb.projects.length > 0) targetProj = window.sovereignDb.projects[0];
-
-                    if (targetProj) {
-                        window.sovereignDb.activeProjectId = targetProj.id;
-                        if (!targetProj.slots) targetProj.slots = [];
-                        let targetSlot = targetProj.slots.find(s => s.id === data.activeSlotId);
-                        if (!targetSlot && targetProj.slots.length > 0) targetSlot = targetProj.slots[0];
-                        if (targetSlot) window.sovereignDb.activeSlotId = targetSlot.id;
-                    }
-                    
-                    window.executeInternalDiskSave();
-                    window.executeFullUIRenderCycle();
-                    alert("동기화 완료! 마지막 위치로 정상 복원되었습니다.");
-                }
-            } catch(e) {
-                alert("파일을 읽는 중 에러가 발생했습니다.\n" + e.message);
-            }
-        };
-
-        window.executeRestoreProcess = async function() {
-            const useModern = ('showOpenFilePicker' in window) && !window.isWebEnvironment;
-
-            if (useModern) {
-                try {
-                    const [fileHandle] = await window.showOpenFilePicker({
-                        types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }],
-                        multiple: false
-                    });
-                    const file = await fileHandle.getFile();
-                    const text = await file.text();
-                    window.processRestoreData(text, false);
-                    return;
-                } catch (err) {
-                    if (err.name === 'AbortError' || err.message.includes('abort')) return;
-                }
-            }
-
-            // 웹/에러 방지용 호환성 탐색기 (가장 확실하게 작동)
-            const fileIn = document.createElement('input');
-            fileIn.type = 'file';
-            fileIn.accept = '.json';
-            fileIn.onchange = function(e) {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = function(evt) { window.processRestoreData(evt.target.result, false); };
-                reader.readAsText(file);
-            };
-            fileIn.click();
-        };
-
+        // 4. 슬롯 불러오기 (Slot Load)
         window.executeImportToCurrentSlot = async function() {
-            const useModern = ('showOpenFilePicker' in window) && !window.isWebEnvironment;
+            const processSlotData = function(data) {
+                const activeS = window.getSafeActiveSlot();
+                if (!activeS) { alert("원고를 불러올 대상 슬롯이 없습니다."); return; }
+                if (confirm("이 파일을 현재 열려 있는 슬롯에 덮어씌울까요?")) {
+                    try { window.executeDeepSnapshot(); } catch(e) {}
+                    if (data.type === "DRAGON_SLOT_ONLY") {
+                        activeS.title = data.title; activeS.original = data.original; activeS.cards = data.cards;
+                    } else if (data.activeSlotId || data.projects) {
+                        alert("전체 백업 파일입니다. 첫 번째 원고 내용만 추출합니다.");
+                        const firstSlot = data.projects[0].slots[0];
+                        activeS.title = firstSlot.title; activeS.original = firstSlot.original; activeS.cards = firstSlot.cards;
+                    }
+                    try { localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb)); window.executeFullUIRenderCycle(); } catch(e) {}
+                    alert("슬롯 원고 불러오기 성공!");
+                }
+            };
 
-            if (useModern) {
+            if ('showOpenFilePicker' in window) {
                 try {
                     const [fileHandle] = await window.showOpenFilePicker({
                         types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }],
@@ -779,30 +737,142 @@
                     });
                     const file = await fileHandle.getFile();
                     const text = await file.text();
-                    window.processRestoreData(text, true);
+                    processSlotData(JSON.parse(text));
                     return;
                 } catch (err) {
                     if (err.name === 'AbortError' || err.message.includes('abort')) return;
                 }
             }
 
-            const fileIn = document.createElement('input');
-            fileIn.type = 'file';
-            fileIn.accept = '.json';
+            const filePicker = document.createElement('input');
+            filePicker.type = 'file'; filePicker.accept = '.json';
+            filePicker.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try { processSlotData(JSON.parse(event.target.result)); } catch(err) { alert(err.message); }
+                };
+                reader.readAsText(file);
+            };
+            filePicker.click();
+        };
+
+        // [탭 삭제 로직]
+        window.executeKillProjectProcess = function(id) {
+            if (window.sovereignDb.projects.length <= 1) { alert("최소 하나의 작품은 남겨두어야 합니다."); return; }
+            if (confirm("이 작품의 모든 워크플레이스와 원고가 영구 삭제됩니다. 정말 삭제할까요?")) {
+                window.executeDeepSnapshot();
+                window.sovereignDb.projects = window.sovereignDb.projects.filter(function(p) { return p.id !== id; });
+                if (window.sovereignDb.activeProjectId === id) {
+                    window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
+                    window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
+                }
+                window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
+            }
+        };
+
+        window.executeKillSlotProcess = function(id) {
+            const p = window.getSafeActiveProject();
+            if (!p) return;
+            if (p.slots.length <= 1) { alert("최소 하나의 워크플레이스는 남겨두어야 합니다."); return; }
+            if (confirm("이 슬롯의 원고가 모두 사라집니다. 정말 삭제할까요?")) {
+                window.executeDeepSnapshot();
+                p.slots = p.slots.filter(function(s) { return s.id !== id; });
+                if (window.sovereignDb.activeSlotId === id) window.sovereignDb.activeSlotId = p.slots[0].id;
+                window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
+            }
+        };        
+
+        // [이미지 및 메모 기능]
+        window.executeAddCardMemoStep = function(card) {
+            const area = card.querySelector('.card-memo-stack');
+            const i = document.createElement('input');
+            i.className = 'memo-input-item bg-transparent border-b border-white/10 text-[11px] text-yellow-600 outline-none w-full py-1 fade-in';
+            i.placeholder = "참고 지문/메모 입력..."; 
+            i.oninput = window.executeInternalDiskSave;
+            area.appendChild(i); 
+            i.focus();
+        };
+
+        window.executeAddCardImageStep = function(card) {
+            const fileIn = document.createElement('input'); 
+            fileIn.type = 'file'; fileIn.accept = 'image/*';
             fileIn.onchange = function(e) {
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
-                reader.onload = function(evt) { window.processRestoreData(evt.target.result, true); };
-                reader.readAsText(file);
+                reader.onload = function(re) {
+                    window.executeDeepSnapshot();
+                    const vault = card.querySelector('.card-img-vault-area');
+                    const div = document.createElement('div');
+                    div.className = "asset-img-item relative w-full aspect-square bg-black rounded-2xl overflow-hidden border border-white/5 cursor-zoom-in fade-in";
+                    div.innerHTML = `<img src="${re.target.result}" class="w-full h-full object-cover" onclick="window.showFullImage('${re.target.result}')">
+                                     <button onclick="window.executeDeepSnapshot(); this.parentElement.remove(); window.executeInternalDiskSave()" class="absolute top-1 right-1 bg-red-600 text-[9px] p-1.5 font-black rounded-lg">×</button>`;
+                    vault.appendChild(div); 
+                    window.executeInternalDiskSave();
+                };
+                reader.readAsDataURL(file);
             };
             fileIn.click();
         };
 
-        // -------------------------------------------------------------------------
-        // 리스너 바인딩 및 삭제, 메모 등 기타 기능
-        // -------------------------------------------------------------------------
+        window.showFullImage = function(src) {
+            let modal = document.getElementById('imgModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'imgModal';
+                modal.className = 'image-modal';
+                modal.onclick = () => modal.style.display = 'none';
+                document.body.appendChild(modal);
+            }
+            modal.innerHTML = `<img src="${src}" class="fade-in">`;
+            modal.style.display = 'flex';
+        };
 
+        // [노션 표 내보내기 & 복사]
+        window.executeCopyToNotion = function() {
+            window.executeCurrentViewCapture();
+            const slot = window.getSafeActiveSlot();
+            if (!slot || !slot.cards || slot.cards.length === 0) { alert("복사할 원고가 없습니다."); return; }
+
+            let tableText = "| 컷 번호 | 지문 | 원고 내용 |\n| --- | --- | --- |\n";
+            slot.cards.forEach((card, index) => {
+                const cutNum = (index + 1).toString().padStart(2, '0');
+                const cleanText = card.text.replace(/\n/g, " ").trim();
+                const cleanMemos = (card.tags && card.tags.length > 0) ? card.tags.filter(m => m.trim() !== "").join(" / ") : "";
+                tableText += `| ${cutNum} | ${cleanMemos}| ${cleanText} |\n`;
+            });
+
+            navigator.clipboard.writeText(tableText.trim()).then(() => {
+                alert("노션 표 형식이 복사되었습니다!\n노션에서 붙여넣기(Ctrl+V) 하세요.");
+            }).catch(err => { alert("복사 실패: " + err); });
+        };
+
+        window.copyTextToClip = function(text) {
+            if (!text) { alert("복사할 내용이 없습니다."); return; }
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => { console.log("복사 성공");
+                }).catch(err => {
+                    console.error("복사 실패, 폴백 시도:", err);
+                    window.executeFallbackCopy(text);
+                });
+            } else {
+                window.executeFallbackCopy(text);
+            }
+        };
+
+        window.executeFallbackCopy = function(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed"; textArea.style.left = "-9999px"; textArea.style.top = "0";
+            document.body.appendChild(textArea);
+            textArea.focus(); textArea.select();
+            try { document.execCommand('copy'); } catch (err) {}
+            document.body.removeChild(textArea);
+        };        
+
+        // [이벤트 리스너 바인딩]
         window.bindSovereignListeners = function() {
             document.getElementById('btnNewProject').onclick = function() {
                 const id = Date.now(); window.executeDeepSnapshot();
@@ -812,7 +882,6 @@
             };
             document.getElementById('btnNewSlot').onclick = function() {
                 const p = window.getSafeActiveProject(); const sid = Date.now(); window.executeDeepSnapshot();
-                if(!p.slots) p.slots = [];
                 p.slots.push({ id: sid, title: (p.slots.length+1)+'화', original: '', cards: [], order: p.slots.length });
                 window.sovereignDb.activeSlotId = sid; window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
             };
@@ -834,45 +903,15 @@
             window.addEventListener('keydown', function(e) {
                 const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
                 const ctrl = isMac ? e.metaKey : e.ctrlKey; 
-                if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'z') {
-                    e.preventDefault(); window.executeUndoAction();
-                }
-                if ((ctrl && e.key.toLowerCase() === 'y') || (ctrl && e.shiftKey && e.key.toLowerCase() === 'z')) {
-                    e.preventDefault(); window.executeRedoAction();
-                }
-                if (ctrl && e.key === 'Enter') {
-                    e.preventDefault(); window.processManuscriptInput('append');
-                }
-                if (ctrl && e.key.toLowerCase() === 's') {
-                    e.preventDefault(); window.executeSaveAsProcess();
-                }
+
+                if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); window.executeUndoAction(); }
+                if ((ctrl && e.key.toLowerCase() === 'y') || (ctrl && e.shiftKey && e.key.toLowerCase() === 'z')) { e.preventDefault(); window.executeRedoAction(); }
+                if (ctrl && e.key === 'Enter') { e.preventDefault(); window.processManuscriptInput('append'); }
+                if (ctrl && e.key.toLowerCase() === 's') { e.preventDefault(); window.executeSaveAsProcess(); }
             });
         };
 
-        window.executeKillProjectProcess = function(id) {
-            if (window.sovereignDb.projects.length <= 1) { alert("최소 하나의 작품은 남겨두어야 합니다."); return; }
-            if (confirm("이 작품의 모든 워크플레이스와 원고가 영구 삭제됩니다. 정말 삭제할까요?")) {
-                window.executeDeepSnapshot(); 
-                window.sovereignDb.projects = window.sovereignDb.projects.filter(function(p) { return p.id !== id; });
-                if (window.sovereignDb.activeProjectId === id) {
-                    window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
-                    window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
-                }
-                window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
-            }
-        };
-
-        window.executeKillSlotProcess = function(id) {
-            const p = window.getSafeActiveProject();
-            if (!p || p.slots.length <= 1) { alert("최소 하나의 워크플레이스는 남겨두어야 합니다."); return; }
-            if (confirm("이 슬롯의 원고가 모두 사라집니다. 정말 삭제할까요?")) {
-                window.executeDeepSnapshot();
-                p.slots = p.slots.filter(function(s) { return s.id !== id; });
-                if (window.sovereignDb.activeSlotId === id) window.sovereignDb.activeSlotId = p.slots[0].id;
-                window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
-            }
-        };        
-
+        // [공유 메모 및 UI 강화 엔진]
         window.renderProjectMemoStack = function() {
             const container = document.getElementById('memoStackContainer');
             container.innerHTML = "";
@@ -894,12 +933,10 @@
                 div.innerHTML = `
                     <div class="flex items-start justify-between p-5 cursor-pointer bg-white/5" onclick="window.toggleMemoFold(${i})">
                         <textarea class="bg-transparent border-none outline-none font-black text-[14px] text-blue-500 w-full resize-none overflow-hidden leading-tight pt-1" 
-                                  rows="1"
-                                  oninput="window.saveMemo(${i}, 'title', this.value); window.autoResizeMemoTextArea(this);" 
+                                  rows="1" oninput="window.saveMemo(${i}, 'title', this.value); window.autoResizeMemoTextArea(this);" 
                                   onclick="event.stopPropagation()">${m.title}</textarea>
                         <button onclick="event.stopPropagation(); window.deleteMemo(${i})" class="text-red-900 font-black ml-3 shrink-0 pt-1">×</button>
                     </div>
-                    
                     <div class="p-5 ${m.folded ? 'hidden' : ''}">
                         <textarea class="w-full bg-transparent text-[14px] text-gray-400 outline-none resize-none leading-relaxed overflow-y-auto" 
                                   style="min-height: 50px; max-height: 288px; height: auto;"
@@ -911,17 +948,9 @@
                 tas.forEach(ta => window.autoResizeMemoTextArea(ta));
             });
         };
-
-        window.autoResizeMemoTextArea = function(obj) {
-            obj.style.height = 'auto'; 
-            obj.style.height = obj.scrollHeight + 'px'; 
-        };
-
-        window.executeAutoHeight = function(el) {
-            el.style.height = 'auto';
-            el.style.height = el.scrollHeight + 'px';
-        };
-
+        
+        window.autoResizeMemoTextArea = function(obj) { obj.style.height = 'auto'; obj.style.height = obj.scrollHeight + 'px'; };
+        window.executeAutoHeight = function(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
         window.toggleMemoFold = function(i) { const p = window.getSafeActiveProject(); p.memos[i].folded = !p.memos[i].folded; window.executeInternalDiskSave(); window.renderProjectMemoStack(); };
         window.saveMemo = function(i, k, v) { const p = window.getSafeActiveProject(); p.memos[i][k] = v; window.executeInternalDiskSave(); };
         window.deleteMemo = function(i) { if(confirm("삭제?")) { window.getSafeActiveProject().memos.splice(i, 1); window.executeInternalDiskSave(); window.renderProjectMemoStack(); } };
@@ -929,8 +958,7 @@
         window.recalculateStatsDisplay = function() {
             const all = document.querySelectorAll('.card-unit');
             all.forEach((n, i) => { const b = n.querySelector('.c-cut-badge'); if (b) b.innerText = "Cut " + String(i + 1).padStart(2, '0'); });
-            const statText = document.getElementById('displayCutCount');
-            if(statText) statText.innerText = all.length + " Cuts Secured";
+            document.getElementById('displayCutCount').innerText = all.length + " Cuts Secured";
         };
 
         window.globalFocusCardStep = function(node) {
@@ -953,65 +981,6 @@
             return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
         };
 
-        // 메모 추가 및 이미지 
-        window.executeAddCardMemoStep = function(card) {
-            const area = card.querySelector('.card-memo-stack');
-            const i = document.createElement('input');
-            i.className = 'memo-input-item bg-transparent border-b border-white/10 text-[11px] text-yellow-600 outline-none w-full py-1 fade-in';
-            i.placeholder = "참고 지문/메모 입력..."; 
-            i.oninput = window.executeInternalDiskSave;
-            area.appendChild(i); 
-            i.focus();
-        };
-
-        window.showFullImage = function(src) {
-            let modal = document.getElementById('imgModal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'imgModal';
-                modal.className = 'image-modal';
-                modal.onclick = () => modal.style.display = 'none';
-                document.body.appendChild(modal);
-            }
-            modal.innerHTML = `<img src="${src}" class="fade-in">`;
-            modal.style.display = 'flex';
-        };
-
-        window.executeCopyToNotion = function() {
-            window.executeCurrentViewCapture();
-            const slot = window.getSafeActiveSlot();
-            if (!slot || !slot.cards || slot.cards.length === 0) { alert("복사할 원고가 없습니다."); return; }
-            let tableText = "| 컷 번호 | 지문 | 원고 내용 |\n| --- | --- | --- |\n";
-            slot.cards.forEach((card, index) => {
-                const cutNum = (index + 1).toString().padStart(2, '0');
-                const cleanText = card.text.replace(/\n/g, " ").trim();
-                const cleanMemos = (card.tags && card.tags.length > 0) ? card.tags.filter(m => m.trim() !== "").join(" / ") : "";
-                tableText += `| ${cutNum} | ${cleanMemos}| ${cleanText} |\n`;
-            });
-            navigator.clipboard.writeText(tableText.trim()).then(() => {
-                alert("노션 표 형식이 복사되었습니다!\n노션에서 붙여넣기(Ctrl+V) 하세요.");
-            }).catch(err => { alert("복사 실패: " + err); });
-        };
-
-        window.copyTextToClip = function(text) {
-            if (!text) return;
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text).catch(err => { window.executeFallbackCopy(text); });
-            } else {
-                window.executeFallbackCopy(text);
-            }
-        };
-
-        window.executeFallbackCopy = function(text) {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "fixed"; textArea.style.left = "-9999px"; textArea.style.top = "0";
-            document.body.appendChild(textArea);
-            textArea.focus(); textArea.select();
-            try { document.execCommand('copy'); } catch (err) { console.error(err); }
-            document.body.removeChild(textArea);
-        };
-        
         window.bootSovereign();
 
     </script>
