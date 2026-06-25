@@ -596,77 +596,79 @@ window.createCardNodePhysical = function(id, text, memos, images) {
             }
         };
 
-// [파일 및 공통 도구 - 로컬/웹 공용 지능형 전체 백업 엔진]
-        window.executeSaveAsProcess = async function() {
-            // 1. 저장 직전 현재 화면 상태를 완벽히 캡처
-            window.executeCurrentViewCapture();
-            
-            // 2. 파일 추출 전, 현재 활성화된 프로젝트와 슬롯의 ID를 강제로 심어줍니다.
-            // 이 처리가 되어야 집/노트북 간 복구 시 마지막 위치가 그대로 기억됩니다.
-            const p = window.getSafeActiveProject();
-            if (p) {
-                window.sovereignDb.activeProjectId = window.sovereignDb.activeProjectId || p.id;
-                const s = window.getSafeActiveSlot();
-                if (s) {
-                    window.sovereignDb.activeSlotId = window.sovereignDb.activeSlotId || s.id;
-                }
-            }
-            
-            const dataStr = JSON.stringify(window.sovereignDb, null, 2);
-            const dateStr = new Date().toLocaleDateString().replace(/\. /g, '-').replace('.', '');
-            const defaultName = `[${p ? p.name : '전체백업'}] Sovereign_${dateStr}.json`;
+// [개선] 웹/로컬 공용 전체 백업 (취소 시 자동 저장 방지)
+window.executeSaveAsProcess = async function() {
+    window.executeCurrentViewCapture();
+    
+    // 포인터 저장
+    const p = window.getSafeActiveProject();
+    if (p) {
+        window.sovereignDb.activeProjectId = window.sovereignDb.activeProjectId || p.id;
+        const s = window.getSafeActiveSlot();
+        if (s) window.sovereignDb.activeSlotId = window.sovereignDb.activeSlotId || s.id;
+    }
+    
+    const dataStr = JSON.stringify(window.sovereignDb, null, 2);
+    const dateStr = new Date().toLocaleDateString().replace(/\. /g, '-').replace('.', '');
+    const defaultName = `[${p ? p.name : '전체백업'}] Sovereign_${dateStr}.json`;
 
-            // 3. 깃허브 등 웹 보안 환경(NotAllowedError)에 대응하는 안전망 작동
-            try {
-                if ('showSaveFilePicker' in window) {
-                    const handle = await window.showSaveFilePicker({
-                        suggestedName: defaultName,
-                        types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }]
-                    });
-                    const writable = await handle.createWritable();
-                    await writable.write(dataStr);
-                    await writable.close();
-                    return; // 최신 창 띄우기 성공 시 여기서 종료
-                }
-            } catch (err) {
-                console.warn("웹 환경 보안 정책으로 인해 저장창 API가 제한되었습니다. 예비 다운로드 방식으로 우회합니다.", err);
-            }
+    try {
+        if ('showSaveFilePicker' in window) {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: defaultName,
+                types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(dataStr);
+            await writable.close();
+            return; 
+        }
+    } catch (err) {
+        // [핵심 패치] 사용자가 취소(X)를 누른 경우 즉시 함수를 종료하여 강제 다운로드를 막습니다.
+        if (err.name === 'AbortError' || err.message.includes('abort')) return;
+        console.warn("최신 API 차단됨, 예비 방식으로 우회합니다.", err);
+    }
 
-            // 4. [웹용 예비 장치] 외부 서버 환경에서 막혔을 때 에러 없이 강제 파일 다운로드로 전환
-            const blob = new Blob([dataStr], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.download = defaultName;
-            a.href = URL.createObjectURL(blob);
-            a.click();
-        };
+    // 예비 다운로드 (권한 에러일 때만 작동)
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.download = defaultName;
+    a.href = URL.createObjectURL(blob);
+    a.click();
+};
 
-        window.bindSovereignListeners = function() {
-            document.getElementById('btnNewProject').onclick = function() {
-                const id = Date.now(); window.executeDeepSnapshot();
-                window.sovereignDb.projects.push({ id: id, name: "새 작품", order: window.sovereignDb.projects.length, memos: [], slots: [{ id: id+1, title: '1화', original: '', cards: [], order: 0 }] });
-                window.sovereignDb.activeProjectId = id; window.sovereignDb.activeSlotId = id+1;
-                window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
-            };
-            document.getElementById('btnNewSlot').onclick = function() {
-                const p = window.getSafeActiveProject(); const sid = Date.now(); window.executeDeepSnapshot();
-                p.slots.push({ id: sid, title: (p.slots.length+1)+'화', original: '', cards: [], order: p.slots.length });
-                window.sovereignDb.activeSlotId = sid; window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
-            };
-            document.getElementById('btnSaveAs').onclick = window.executeSaveAsProcess;
-            document.getElementById('btnRestore').onclick = window.executeRestoreProcess;
-            document.getElementById('btnUndo').onclick = window.executeUndoAction;
-            document.getElementById('btnRedo').onclick = window.executeRedoAction;
-            document.getElementById('btnResetBoard').onclick = function() {
-                if(confirm("모두 비울까요?")) { window.executeDeepSnapshot(); document.getElementById('manuscriptPanelContainer').innerHTML = ""; window.executeInternalDiskSave(); window.recalculateStatsDisplay(); }
-            };
-            document.getElementById('btnAppendManuscript').onclick = () => window.processManuscriptInput('append');
-            document.getElementById('btnInsertManuscript').onclick = () => window.processManuscriptInput('insert');
-            document.getElementById('btnCopyRawLog').onclick = () => { navigator.clipboard.writeText(document.getElementById('originalLogView').value); alert("로그 복사됨."); };
-            document.getElementById('btnNewProjectMemo').onclick = function() {
-                const p = window.getSafeActiveProject(); if(!p.memos) p.memos = []; p.memos.unshift({title:'새 메모', content:'', folded:false});
-                window.executeInternalDiskSave(); window.renderProjectMemoStack();
-            };
-            
+// [개선] 웹/로컬 공용 슬롯 백업 (취소 시 자동 저장 방지)
+window.executeSaveSlotOnly = async function() {
+    window.executeCurrentViewCapture();
+    const s = window.getSafeActiveSlot();
+    if (!s) return;
+
+    const slotData = { type: "DRAGON_SLOT_ONLY", title: s.title, original: s.original, cards: s.cards };
+    const fileName = `[슬롯백업] ${s.title || '원고'}_${new Date().toLocaleDateString()}.json`;
+
+    try {
+        if ('showSaveFilePicker' in window) {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: fileName,
+                types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(JSON.stringify(slotData, null, 2));
+            await writable.close();
+            return;
+        }
+    } catch (err) {
+        if (err.name === 'AbortError' || err.message.includes('abort')) return; // 취소 방어선
+        console.warn("최신 API 차단됨, 예비 방식으로 우회합니다.");
+    }
+
+    const blob = new Blob([JSON.stringify(slotData)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.download = fileName;
+    a.href = URL.createObjectURL(blob);
+    a.click();
+};
+        
 // [단축키 엔진] 기존 1150라인 부근의 window.addEventListener('keydown', ...) 부분을 아래로 교체하세요.
 window.addEventListener('keydown', function(e) {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -783,178 +785,119 @@ window.executeAutoHeight = function(el) {
             if (!t) return "";
             return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
         };
-// --- [최종 완결판] 웹/로컬 공용 지능형 데이터 복구 엔진 ---
-window.executeRestoreProcess = function() {
+// [최종] 아이클라우드 완벽 지원 + 지능형 데이터 복구 엔진
+window.executeRestoreProcess = async function() {
+    // 공통 복구 로직 (분리)
+    const processData = function(data) {
+        if (!data.projects || data.projects.length === 0) {
+            alert("올바른 전체 백업 파일이 아닙니다."); return;
+        }
+        if (confirm("기존 작업실의 모든 데이터가 사라지고 백업 파일로 교체됩니다. 진행할까요?")) {
+            try { window.executeDeepSnapshot(); } catch(e) {}
+            window.sovereignDb = data;
+            
+            // 포인터 지능형 복원
+            let targetProj = null;
+            if (data.activeProjectId) targetProj = window.sovereignDb.projects.find(p => p.id === data.activeProjectId);
+            if (targetProj) {
+                window.sovereignDb.activeProjectId = targetProj.id;
+                let targetSlot = targetProj.slots.find(s => s.id === data.activeSlotId);
+                if (targetSlot) window.sovereignDb.activeSlotId = targetSlot.id;
+                else if (targetProj.slots && targetProj.slots.length > 0) window.sovereignDb.activeSlotId = targetProj.slots[0].id;
+            } else if (window.sovereignDb.projects && window.sovereignDb.projects.length > 0) {
+                window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
+                if (window.sovereignDb.projects[0].slots && window.sovereignDb.projects[0].slots.length > 0) window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
+            }
+            
+            try { localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb)); } catch(e) {}
+            try { window.executeFullUIRenderCycle(); } catch(e) {
+                if (typeof window.renderProjectTabList === 'function') window.renderProjectTabList();
+                if (typeof window.renderSlotTabList === 'function') window.renderSlotTabList();
+                if (typeof window.loadBoardFromMemory === 'function') window.loadBoardFromMemory();
+            }
+            if (typeof window.renderProjectMemoStack === 'function') {
+                try { window.renderProjectMemoStack(); } catch(e) {}
+            }
+            alert("동기화 완료! 원고가 정상적으로 복원되었습니다.");
+        }
+    };
+
+    // 1. [핵심 패치] 아이클라우드를 읽을 수 있는 최신 탐색기(showOpenFilePicker) 우선 호출
+    if ('showOpenFilePicker' in window) {
+        try {
+            const [fileHandle] = await window.showOpenFilePicker({
+                types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }],
+                multiple: false
+            });
+            const file = await fileHandle.getFile();
+            const text = await file.text();
+            processData(JSON.parse(text));
+            return;
+        } catch (err) {
+            if (err.name === 'AbortError' || err.message.includes('abort')) return; // 취소 누름
+            // 권한 제어 시 아래 예비 방식으로 이동
+        }
+    }
+
+    // 2. 권한이 막혔을 때만 작동하는 구형 예비 탐색기
     const fileIn = document.createElement('input');
     fileIn.type = 'file';
     fileIn.accept = '.json';
-    
     fileIn.onchange = function(e) {
         const file = e.target.files[0];
         if (!file) return;
-        
         const reader = new FileReader();
         reader.onload = function(evt) {
-            try {
-                const data = JSON.parse(evt.target.result);
-                
-                if (!data.projects || data.projects.length === 0) {
-                    alert("올바른 전체 백업 파일이 아닙니다. (슬롯 전용 파일인지 확인하세요)");
-                    return;
-                }
-                
-                if (confirm("기존 작업실의 모든 데이터가 사라지고 백업 파일로 교체됩니다. 진행할까요?")) {
-                    
-                    // 1. 보안 에러 방지용 언두 스택 안전장치
-                    try {
-                        window.executeDeepSnapshot(); 
-                    } catch(snapErr) {
-                        console.warn("스냅샷 생성 제한됨 (무시하고 진행)");
-                    }
-                    
-                    // 2. 데이터 전체 이식
-                    window.sovereignDb = data;
-                    
-                    // 3. 마지막 작업 위치(포인터) 지능형 복원
-                    let targetProj = window.sovereignDb.projects.find(p => p.id === data.activeProjectId);
-                    if (targetProj) {
-                        window.sovereignDb.activeProjectId = targetProj.id;
-                        let targetSlot = targetProj.slots.find(s => s.id === data.activeSlotId);
-                        if (targetSlot) {
-                            window.sovereignDb.activeSlotId = targetSlot.id;
-                        } else if (targetProj.slots.length > 0) {
-                            window.sovereignDb.activeSlotId = targetProj.slots[0].id;
-                        }
-                    } else {
-                        if (window.sovereignDb.projects.length > 0) {
-                            window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
-                            if (window.sovereignDb.projects[0].slots.length > 0) {
-                                window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
-                            }
-                        }
-                    }
-                    
-                    // 4. [웹 환경 핵심 해결책] 디스크 저장 및 렌더링을 안전하게 수동 가동
-                    // 브라우저가 보안으로 차단하려고 해도 강제로 밀어 넣습니다.
-                    try {
-                        localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb));
-                    } catch(storageErr) {
-                        console.error("로컬스토리지 직접 저장 실패:", storageErr);
-                    }
-                    
-                    // 5. 화면 전체 리사이클 가동
-                    try {
-                        window.executeFullUIRenderCycle();
-                    } catch(renderErr) {
-                        console.warn("기본 렌더러 제한됨, 수동 렌더링 시도");
-                        if (typeof window.renderProjectTabList === 'function') window.renderProjectTabList();
-                        if (typeof window.renderSlotTabList === 'function') window.renderSlotTabList();
-                        if (typeof window.loadBoardFromMemory === 'function') window.loadBoardFromMemory();
-                    }
-                    
-                    // 6. 우측 메모장 재생성
-                    if (typeof window.renderProjectMemoStack === 'function') {
-                        try {
-                            window.renderProjectMemoStack();
-                        } catch(mErr) { console.log(mErr); }
-                    }
-                    
-                    alert("동기화 완료! 마지막으로 작업하시던 위치로 복구되었습니다.");
-                }
-            } catch (err) {
-                alert("불러오기 실패: 데이터 구조가 손상되었거나 올바른 JSON이 아닙니다.\n" + err.message);
-            }
+            try { processData(JSON.parse(evt.target.result)); }
+            catch (err) { alert("파싱 에러: " + err.message); }
         };
         reader.readAsText(file);
     };
     fileIn.click();
 };
-// --- [슬롯 전용 저장/불러오기 엔진] ---
 
-// 1. 현재 슬롯만 파일로 저장 (Export Current Slot)
-window.executeSaveSlotOnly = async function() {
-    window.executeCurrentViewCapture(); // 현재 화면 내용 메모리에 박제
-    const p = window.getSafeActiveProject();
-    const s = window.getSafeActiveSlot();
-    
-    if (!s) return;
-
-    // 슬롯 데이터만 따로 추출
-    const slotData = {
-        type: "DRAGON_SLOT_ONLY", // 슬롯 전용 파일임을 표시
-        title: s.title,
-        original: s.original,
-        cards: s.cards
+// [최종] 아이클라우드 완벽 지원 + 슬롯 불러오기 엔진
+window.executeImportToCurrentSlot = async function() {
+    const processSlotData = function(data) {
+        const activeS = window.getSafeActiveSlot();
+        if (!activeS) { alert("원고를 불러올 대상 슬롯이 없습니다."); return; }
+        if (confirm("이 파일을 현재 열려 있는 슬롯에 덮어씌울까요?")) {
+            try { window.executeDeepSnapshot(); } catch(e) {}
+            if (data.type === "DRAGON_SLOT_ONLY") {
+                activeS.title = data.title; activeS.original = data.original; activeS.cards = data.cards;
+            } else if (data.activeSlotId || data.projects) {
+                alert("전체 백업 파일입니다. 첫 번째 원고 내용만 추출합니다.");
+                const firstSlot = data.projects[0].slots[0];
+                activeS.title = firstSlot.title; activeS.original = firstSlot.original; activeS.cards = firstSlot.cards;
+            }
+            try { localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb)); window.executeFullUIRenderCycle(); } catch(e) {}
+            alert("슬롯 원고 불러오기 성공!");
+        }
     };
 
-    const fileName = `[슬롯백업] ${s.title || '원고'}_${new Date().toLocaleDateString()}.json`;
-
-    if ('showSaveFilePicker' in window) {
+    if ('showOpenFilePicker' in window) {
         try {
-            const handle = await window.showSaveFilePicker({
-                suggestedName: fileName,
-                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            const [fileHandle] = await window.showOpenFilePicker({
+                types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }],
+                multiple: false
             });
-            const writable = await handle.createWritable();
-            await writable.write(JSON.stringify(slotData, null, 2));
-            await writable.close();
-        } catch (e) { console.log("저장 취소"); }
-    } else {
-        const blob = new Blob([JSON.stringify(slotData)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = fileName;
-        a.click();
+            const file = await fileHandle.getFile();
+            const text = await file.text();
+            processSlotData(JSON.parse(text));
+            return;
+        } catch (err) {
+            if (err.name === 'AbortError' || err.message.includes('abort')) return;
+        }
     }
-};
 
-// 2. 파일에서 현재 슬롯으로 내용만 불러오기 (Import to Active Slot)
-window.executeImportToCurrentSlot = function() {
     const filePicker = document.createElement('input');
-    filePicker.type = 'file';
-    filePicker.accept = '.json';
-
+    filePicker.type = 'file'; filePicker.accept = '.json';
     filePicker.onchange = function(e) {
         const file = e.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = function(event) {
-            try {
-                const data = JSON.parse(event.target.result);
-                const activeS = window.getSafeActiveSlot();
-
-                if (!activeS) {
-                    alert("원고를 불러올 대상 슬롯이 없습니다.");
-                    return;
-                }
-
-                if (confirm("이 파일을 현재 열려 있는 슬롯에 덮어씌울까요? (다른 작품이나 슬롯은 유지됩니다)")) {
-                    window.executeDeepSnapshot(); // 불러오기 전 언두 스택 저장
-
-                    // 데이터 이식
-                    if (data.type === "DRAGON_SLOT_ONLY") {
-                        // 슬롯 전용 파일인 경우
-                        activeS.title = data.title;
-                        activeS.original = data.original;
-                        activeS.cards = data.cards;
-                    } else if (data.activeSlotId || data.projects) {
-                        // 전체 백업 파일에서 현재 활성화된 슬롯 내용만 추출하는 경우
-                        alert("전체 백업 파일입니다. 시스템 규격에 맞춰 원고 내용만 추출합니다.");
-                        // 전체 백업 파일일 경우 첫 번째 작품의 첫 번째 슬롯 내용을 가져옵니다.
-                        const firstSlot = data.projects[0].slots[0];
-                        activeS.title = firstSlot.title;
-                        activeS.original = firstSlot.original;
-                        activeS.cards = firstSlot.cards;
-                    }
-
-                    window.executeInternalDiskSave();
-                    window.executeFullUIRenderCycle(); // 화면 즉시 갱신
-                    alert("현재 슬롯에 원고를 성공적으로 불러왔습니다.");
-                }
-            } catch (err) {
-                alert("불러오기 실패: " + err.message);
-            }
+            try { processSlotData(JSON.parse(event.target.result)); } catch(err) { alert(err.message); }
         };
         reader.readAsText(file);
     };
