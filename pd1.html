@@ -53,7 +53,7 @@
             cursor: pointer;
         }
         
-        /* [중요] 드래그 시각화 수정: 변색 방지를 위해 배경색과 투명도 명시적 관리 */
+        /* 드래그 시각화 */
         .dragging { 
             opacity: 0.3 !important; 
             transform: scale(0.95); 
@@ -72,25 +72,23 @@
             background: rgba(0,0,0,0.4);
         }
 
-/* 이미지 크게 보기 모달 스타일 */
-.image-modal {
-    display: none; 
-    position: fixed; 
-    z-index: 1000; 
-    inset: 0; 
-    background: rgba(0,0,0,0.9); 
-    align-items: center; 
-    justify-content: center; 
-    cursor: zoom-out;
-}
-.image-modal img { 
-    max-width: 90%; 
-    max-height: 90%; 
-    box-shadow: 0 0 50px rgba(0,0,0,0.5); 
-    border-radius: 10px;
-}
-
-        
+        /* 이미지 크게 보기 모달 */
+        .image-modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            inset: 0; 
+            background: rgba(0,0,0,0.9); 
+            align-items: center; 
+            justify-content: center; 
+            cursor: zoom-out;
+        }
+        .image-modal img { 
+            max-width: 90%; 
+            max-height: 90%; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.5); 
+            border-radius: 10px;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col" onclick="window.globalClearFocus()">
@@ -119,16 +117,16 @@
         <button id="btnNewSlot" class="ml-4 px-4 h-full text-gray-700 hover:text-white font-bold text-xl">+</button>
         
      <div class="ml-auto flex gap-6 items-center pr-2">
-    <div class="flex gap-5 border-r border-white/10 pr-6">
-        <button id="btnUndo" ...>Undo (Ctrl+Z)</button>
-        <button id="btnRedo" ...>Redo (Ctrl+Y)</button>
+        <div class="flex gap-5 border-r border-white/10 pr-6">
+            <button id="btnUndo" class="text-[10px] font-black text-gray-500 hover:text-gray-300 uppercase tracking-widest">Undo (Ctrl+Z)</button>
+            <button id="btnRedo" class="text-[10px] font-black text-gray-500 hover:text-gray-300 uppercase tracking-widest">Redo (Ctrl+Y)</button>
+        </div>
+        
+        <button onclick="window.executeSaveSlotOnly()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Save</button>
+        <button onclick="window.executeImportToCurrentSlot()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Load</button>
+        <button onclick="window.executeCopyToNotion()" class="text-[10px] font-black text-blue-400 hover:text-white uppercase tracking-widest border border-blue-900/30 px-3 py-1.5 rounded-lg ml-1 transition-colors">Notion Copy</button>
+        <button id="btnResetBoard" class="text-[10px] font-black text-red-900 hover:text-red-500 uppercase tracking-widest">Reset Board</button>
     </div>
-    
-    <button onclick="window.executeSaveSlotOnly()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Save</button>
-    <button onclick="window.executeImportToCurrentSlot()" class="text-[10px] font-black text-yellow-600 hover:text-yellow-400 uppercase tracking-widest border border-yellow-900/30 px-3 py-1.5 rounded-lg transition-colors">Slot Load</button>
-<button onclick="window.executeCopyToNotion()" class="text-[10px] font-black text-blue-400 hover:text-white uppercase tracking-widest border border-blue-900/30 px-3 py-1.5 rounded-lg ml-1 transition-colors">Notion Copy</button>
-    <button id="btnResetBoard" class="text-[10px] font-black text-red-900 hover:text-red-500 uppercase tracking-widest">Reset Board</button>
-</div>
     </nav>
 
     <main class="flex flex-1 overflow-hidden">
@@ -175,10 +173,24 @@
 
     <script>
         // -----------------------------------------------------------------------------------------
-        // [SOVEREIGN CORE] v1.1 - 언두 및 변색 수정 패치
+        // [SOVEREIGN CORE] v1.1 - 자가 치유 및 무적 방어 엔진 탑재
         // -----------------------------------------------------------------------------------------
         
-        window.sovereignDb = JSON.parse(localStorage.getItem('dragon_v1_sovereign_db')) || {
+        // [패치] localStorage 파싱 에러(백지화) 원천 차단
+        let loadedData = null;
+        try {
+            const rawData = localStorage.getItem('dragon_v1_sovereign_db');
+            if (rawData) {
+                loadedData = JSON.parse(rawData);
+                // 데이터 구조가 완전히 파괴되었으면 무시
+                if (!loadedData || !Array.isArray(loadedData.projects)) loadedData = null;
+            }
+        } catch (e) {
+            console.error("Local storage corrupted. Resetting memory.");
+            loadedData = null;
+        }
+
+        window.sovereignDb = loadedData || {
             projects: [],
             activeProjectId: null,
             activeSlotId: null
@@ -190,15 +202,18 @@
         window.dragSourceType = null;
         window.focusedCardNode = null;
 
+        // 웹/로컬 환경 감지 (깃허브 등에서는 호환성 높은 구형 탐색기를 강제 사용하도록 설계)
+        window.isWebEnvironment = window.location.hostname.includes('github.io') || window.location.hostname.includes('vercel') || window.location.protocol.startsWith('http');
+
         // [부팅]
         window.bootSovereign = function() {
-            if (window.sovereignDb.projects.length === 0) {
+            if (!window.sovereignDb.projects || window.sovereignDb.projects.length === 0) {
                 const pId = Date.now();
                 const sId = pId + 100;
-                window.sovereignDb.projects.push({
+                window.sovereignDb.projects = [{
                     id: pId, name: "새 작품", order: 0, memos: [],
                     slots: [{ id: sId, title: '1화', original: '', cards: [], order: 0 }]
-                });
+                }];
                 window.sovereignDb.activeProjectId = pId;
                 window.sovereignDb.activeSlotId = sId;
                 window.executeInternalDiskSave();
@@ -221,53 +236,55 @@
             window.recalculateStatsDisplay();
         };
 
-        window.getSafeActiveProject = function() { return window.sovereignDb.projects.find(function(x) { return x.id === window.sovereignDb.activeProjectId; }); };
+        window.getSafeActiveProject = function() { 
+            if (!window.sovereignDb || !window.sovereignDb.projects) return null;
+            return window.sovereignDb.projects.find(function(x) { return x.id === window.sovereignDb.activeProjectId; }); 
+        };
+        
         window.getSafeActiveSlot = function() { 
             const proj = window.getSafeActiveProject();
-            return proj ? proj.slots.find(function(x) { return x.id === window.sovereignDb.activeSlotId; }) : null; 
+            if (!proj || !proj.slots) return null;
+            return proj.slots.find(function(x) { return x.id === window.sovereignDb.activeSlotId; }); 
         };
 
         // [저장 및 캡처]
-window.executeCurrentViewCapture = function() {
-    const slot = window.getSafeActiveSlot();
-    if (!slot) return;
-    const collected = [];
-    const nodes = document.querySelectorAll('.card-unit');
-    for (let i = 0; i < nodes.length; i++) {
-        const el = nodes[i];
-        collected.push({
-            id: parseFloat(el.dataset.dragId),
-            text: el.querySelector('.c-editor').innerText,
-            // [수정] 메모 입력창의 값 수집
-            tags: Array.from(el.querySelectorAll('.memo-input-item')).map(function(inNode) { return inNode.value; }),
-            images: Array.from(el.querySelectorAll('.asset-img-item img')).map(function(imgNode) { return imgNode.src; })
-        });
-    }
-    slot.title = document.getElementById('activeBoardTitle').value;
-    slot.original = document.getElementById('originalLogView').value;
-    slot.cards = collected;
-};
-
-        window.executeInternalDiskSave = function() {
-            localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb));
+        window.executeCurrentViewCapture = function() {
+            const slot = window.getSafeActiveSlot();
+            if (!slot) return;
+            const collected = [];
+            const nodes = document.querySelectorAll('.card-unit');
+            for (let i = 0; i < nodes.length; i++) {
+                const el = nodes[i];
+                collected.push({
+                    id: parseFloat(el.dataset.dragId),
+                    text: el.querySelector('.c-editor').innerText,
+                    tags: Array.from(el.querySelectorAll('.memo-input-item')).map(function(inNode) { return inNode.value; }),
+                    images: Array.from(el.querySelectorAll('.asset-img-item img')).map(function(imgNode) { return imgNode.src; })
+                });
+            }
+            slot.title = document.getElementById('activeBoardTitle').value;
+            slot.original = document.getElementById('originalLogView').value;
+            slot.cards = collected;
         };
 
-        // [언두/리두 엔진: 수정됨]
+        window.executeInternalDiskSave = function() {
+            try {
+                localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb));
+            } catch(e) { console.warn("Storage Full or Blocked"); }
+        };
+
+        // [언두/리두 엔진]
         window.executeDeepSnapshot = function() {
-            // 변화가 일어나기 전의 현재 뷰를 캡처하여 스택에 쌓습니다.
             window.executeCurrentViewCapture();
             window.undoStack.push(JSON.stringify(window.sovereignDb));
             if (window.undoStack.length > 80) window.undoStack.shift();
             window.redoStack = []; 
-            console.log("Snapshot taken. Stack size:", window.undoStack.length);
         };
 
         window.executeUndoAction = function() {
             if (window.undoStack.length === 0) return;
-            // 리두를 위해 현재 상태 보관
             window.executeCurrentViewCapture();
             window.redoStack.push(JSON.stringify(window.sovereignDb));
-            // 복구
             window.sovereignDb = JSON.parse(window.undoStack.pop());
             window.executeInternalDiskSave();
             window.executeFullUIRenderCycle();
@@ -282,7 +299,7 @@ window.executeCurrentViewCapture = function() {
             window.executeFullUIRenderCycle();
         };
 
-        // [드래그 앤 드롭: 변색 수정됨]
+        // [드래그 앤 드롭]
         window.handleDragStartStep = function(e) {
             window.dragSourceId = parseFloat(this.dataset.dragId);
             window.dragSourceType = this.dataset.dragType;
@@ -290,78 +307,69 @@ window.executeCurrentViewCapture = function() {
             e.dataTransfer.effectAllowed = 'move';
         };
 
-window.handleDragEndStep = function() {
-            // [패치] 모든 컷과 메모에서 드래깅 상태를 강제 제거하여 검게 변하는 현상 방지
-            // .card-unit(컷)과 [data-drag-type="memo"](메모)를 모두 선택합니다.
+        window.handleDragEndStep = function() {
             const allItems = document.querySelectorAll('.card-unit, [data-drag-type="memo"]');
-            
             for (let i = 0; i < allItems.length; i++) {
                 allItems[i].classList.remove('dragging');
-                allItems[i].style.opacity = "1"; // 투명도를 다시 100%로 (선명하게)
+                allItems[i].style.opacity = "1";
             }
-            
-            // 드래그 상태 정보 초기화
             window.dragSourceId = null;
             window.dragSourceType = null;
         };
-      window.handleDropStep = function(e) {
-    e.preventDefault();
-    this.classList.remove('dragging');
-    const targetIdVal = parseFloat(this.dataset.dragId);
-    const targetTypeVal = this.dataset.dragType;
-
-    // 타입이 다르거나 자기 자신일 경우 무시
-    if (window.dragSourceType !== targetTypeVal || window.dragSourceId === targetIdVal) return;
-
-    // 물리적 변화 전 스냅샷 (Undo용)
-    window.executeDeepSnapshot();
-
-    if (window.dragSourceType === 'project') {
-        const sIdx = window.sovereignDb.projects.findIndex(x => x.id === window.dragSourceId);
-        const tIdx = window.sovereignDb.projects.findIndex(x => x.id === targetIdVal);
-        const [moved] = window.sovereignDb.projects.splice(sIdx, 1);
-        window.sovereignDb.projects.splice(tIdx, 0, moved);
-        window.sovereignDb.projects.forEach((p, i) => { p.order = i; });
-        window.renderProjectTabList();
-    } else if (window.dragSourceType === 'slot') {
-        const activeP = window.getSafeActiveProject();
-        const sIdx = activeP.slots.findIndex(x => x.id === window.dragSourceId);
-        const tIdx = activeP.slots.findIndex(x => x.id === targetIdVal);
-        const [moved] = activeP.slots.splice(sIdx, 1);
-        activeP.slots.splice(tIdx, 0, moved);
-        activeP.slots.forEach((s, i) => { s.order = i; });
-        window.renderSlotTabList();
-    } else if (window.dragSourceType === 'card') {
-        const board = document.getElementById('manuscriptPanelContainer');
-        const srcNode = board.querySelector(`[data-drag-id="${window.dragSourceId}"]`);
-        const allNodes = Array.from(board.querySelectorAll('.card-unit'));
-        const sIdx = allNodes.indexOf(srcNode);
-        const tIdx = allNodes.indexOf(this);
-        if (sIdx < tIdx) this.after(srcNode);
-        else board.insertBefore(srcNode, this);
         
-        window.executeCurrentViewCapture();
-    } else if (window.dragSourceType === 'memo') { // <-- 여기서 꼬였던 괄호를 정리했습니다.
-        const p = window.getSafeActiveProject();
-        const sIdx = parseInt(window.dragSourceId);
-        const tIdx = parseInt(this.dataset.dragId);
+        window.handleDropStep = function(e) {
+            e.preventDefault();
+            this.classList.remove('dragging');
+            const targetIdVal = parseFloat(this.dataset.dragId);
+            const targetTypeVal = this.dataset.dragType;
 
-        if (sIdx !== tIdx) {
+            if (window.dragSourceType !== targetTypeVal || window.dragSourceId === targetIdVal) return;
             window.executeDeepSnapshot();
-            const [movedMemo] = p.memos.splice(sIdx, 1);
-            p.memos.splice(tIdx, 0, movedMemo);
-            window.renderProjectMemoStack();
-        }
-    }
 
-    // 데이터 저장 및 통계 갱신
-    window.executeInternalDiskSave();
-    window.recalculateStatsDisplay();
-};
+            if (window.dragSourceType === 'project') {
+                const sIdx = window.sovereignDb.projects.findIndex(x => x.id === window.dragSourceId);
+                const tIdx = window.sovereignDb.projects.findIndex(x => x.id === targetIdVal);
+                const [moved] = window.sovereignDb.projects.splice(sIdx, 1);
+                window.sovereignDb.projects.splice(tIdx, 0, moved);
+                window.sovereignDb.projects.forEach((p, i) => { p.order = i; });
+                window.renderProjectTabList();
+            } else if (window.dragSourceType === 'slot') {
+                const activeP = window.getSafeActiveProject();
+                const sIdx = activeP.slots.findIndex(x => x.id === window.dragSourceId);
+                const tIdx = activeP.slots.findIndex(x => x.id === targetIdVal);
+                const [moved] = activeP.slots.splice(sIdx, 1);
+                activeP.slots.splice(tIdx, 0, moved);
+                activeP.slots.forEach((s, i) => { s.order = i; });
+                window.renderSlotTabList();
+            } else if (window.dragSourceType === 'card') {
+                const board = document.getElementById('manuscriptPanelContainer');
+                const srcNode = board.querySelector(`[data-drag-id="${window.dragSourceId}"]`);
+                const allNodes = Array.from(board.querySelectorAll('.card-unit'));
+                const sIdx = allNodes.indexOf(srcNode);
+                const tIdx = allNodes.indexOf(this);
+                if (sIdx < tIdx) this.after(srcNode);
+                else board.insertBefore(srcNode, this);
+                window.executeCurrentViewCapture();
+            } else if (window.dragSourceType === 'memo') {
+                const p = window.getSafeActiveProject();
+                const sIdx = parseInt(window.dragSourceId);
+                const tIdx = parseInt(this.dataset.dragId);
+                if (sIdx !== tIdx) {
+                    window.executeDeepSnapshot();
+                    const [movedMemo] = p.memos.splice(sIdx, 1);
+                    p.memos.splice(tIdx, 0, movedMemo);
+                    window.renderProjectMemoStack();
+                }
+            }
+            window.executeInternalDiskSave();
+            window.recalculateStatsDisplay();
+        };
+
         // [탭 엔진]
         window.renderProjectTabList = function() {
             const container = document.getElementById('projectTabContainer');
             container.innerHTML = "";
+            if (!window.sovereignDb || !window.sovereignDb.projects) return;
             window.sovereignDb.projects.sort(function(a, b) { return a.order - b.order; });
 
             for (let i = 0; i < window.sovereignDb.projects.length; i++) {
@@ -401,7 +409,8 @@ window.handleDragEndStep = function() {
             if (window.sovereignDb.activeProjectId === id) return;
             window.executeCurrentViewCapture();
             window.sovereignDb.activeProjectId = id;
-            window.sovereignDb.activeSlotId = window.getSafeActiveProject().slots[0].id;
+            const p = window.getSafeActiveProject();
+            if (p && p.slots && p.slots.length > 0) window.sovereignDb.activeSlotId = p.slots[0].id;
             window.executeInternalDiskSave();
             window.executeFullUIRenderCycle();
         };
@@ -410,7 +419,8 @@ window.handleDragEndStep = function() {
             const container = document.getElementById('slotTabContainer');
             container.innerHTML = "";
             const p = window.getSafeActiveProject();
-            if (!p) return;
+            if (!p || !p.slots) return;
+            
             p.slots.sort((a, b) => a.order - b.order);
             for (let i = 0; i < p.slots.length; i++) {
                 const s = p.slots[i];
@@ -448,98 +458,98 @@ window.handleDragEndStep = function() {
         // [에디터 및 컷 로직]
         window.loadBoardFromMemory = function() {
             const s = window.getSafeActiveSlot();
-            if (!s) return;
+            const board = document.getElementById('manuscriptPanelContainer');
+            if (!s) {
+                board.innerHTML = "";
+                return;
+            }
             document.getElementById('activeBoardTitle').value = s.title || "";
             document.getElementById('originalLogView').value = s.original || "";
-            const board = document.getElementById('manuscriptPanelContainer');
             board.innerHTML = "";
-            for (let i = 0; i < s.cards.length; i++) {
-                const c = s.cards[i];
-                board.appendChild(window.createCardNodePhysical(c.id, c.text, c.tags, c.images));
+            if(s.cards) {
+                for (let i = 0; i < s.cards.length; i++) {
+                    const c = s.cards[i];
+                    board.appendChild(window.createCardNodePhysical(c.id, c.text, c.tags, c.images));
+                }
             }
             window.recalculateStatsDisplay();
         };
 
-window.createCardNodePhysical = function(id, text, memos, images) {
-    const card = document.createElement('div');
-    card.className = 'card-unit bg-[#0d0d0d] border border-white/5 rounded-[2.5rem] p-10 transition-all group relative cursor-move';
-    card.dataset.dragId = id;
-    card.dataset.dragType = "card";
-    card.draggable = true;
+        window.createCardNodePhysical = function(id, text, memos, images) {
+            const card = document.createElement('div');
+            card.className = 'card-unit bg-[#0d0d0d] border border-white/5 rounded-[2.5rem] p-10 transition-all group relative cursor-move';
+            card.dataset.dragId = id;
+            card.dataset.dragType = "card";
+            card.draggable = true;
 
-    card.ondragstart = window.handleDragStartStep;
-    card.ondragend = window.handleDragEndStep;
-    card.ondragover = (e) => e.preventDefault();
-    card.ondrop = window.handleDropStep;
-    card.onclick = (e) => { e.stopPropagation(); window.globalFocusCardStep(card); };
+            card.ondragstart = window.handleDragStartStep;
+            card.ondragend = window.handleDragEndStep;
+            card.ondragover = (e) => e.preventDefault();
+            card.ondrop = window.handleDropStep;
+            card.onclick = (e) => { e.stopPropagation(); window.globalFocusCardStep(card); };
 
-    const top = document.createElement('div');
-    top.className = "flex justify-between items-center mb-8 pointer-events-none";
-    top.innerHTML = `<div class="flex items-center gap-4"><span class="text-blue-900 font-black text-sm opacity-30 select-none">☰</span><span class="text-[11px] font-black text-gray-700 uppercase tracking-[0.3em] c-cut-badge">Cut 00</span></div>`;
-    
-    const tools = document.createElement('div');
-    tools.className = "flex gap-4 pointer-events-auto";
-    
-    // [수정] TAG -> MEMO로 변경
-    const btnM = document.createElement('button');
-    btnM.className = "text-[10px] font-black text-gray-600 hover:text-white uppercase";
-    btnM.innerText = "+ MEMO"; btnM.onclick = () => window.executeAddCardMemoStep(card);
-    
-    
-    tools.appendChild(btnM); 
-    top.appendChild(tools); card.appendChild(top);
+            const top = document.createElement('div');
+            top.className = "flex justify-between items-center mb-8 pointer-events-none";
+            top.innerHTML = `<div class="flex items-center gap-4"><span class="text-blue-900 font-black text-sm opacity-30 select-none">☰</span><span class="text-[11px] font-black text-gray-700 uppercase tracking-[0.3em] c-cut-badge">Cut 00</span></div>`;
+            
+            const tools = document.createElement('div');
+            tools.className = "flex gap-4 pointer-events-auto";
+            const btnM = document.createElement('button');
+            btnM.className = "text-[10px] font-black text-gray-600 hover:text-white uppercase";
+            btnM.innerText = "+ MEMO"; btnM.onclick = () => window.executeAddCardMemoStep(card);
+            
+            tools.appendChild(btnM); 
+            top.appendChild(tools); card.appendChild(top);
 
-    const body = document.createElement('div');
-    body.className = "flex gap-10";
-    
-    // [수정] 이미지 클릭 시 크게 보기(showFullImage) 연결
-    const vault = document.createElement('div');
-    vault.className = "card-img-vault-area w-36 grid grid-cols-2 gap-3 empty:hidden";
-    if (images) {
-        images.forEach(src => {
-            const div = document.createElement('div');
-            div.className = "asset-img-item relative w-full aspect-square bg-black rounded-2xl overflow-hidden border border-white/5 cursor-zoom-in";
-            div.innerHTML = `<img src="${src}" class="w-full h-full object-cover" onclick="window.showFullImage('${src}')">
-                             <button onclick="window.executeDeepSnapshot(); this.parentElement.remove(); window.executeInternalDiskSave()" class="absolute top-1 right-1 bg-red-600 text-[9px] p-1.5 font-black rounded-lg">×</button>`;
-            vault.appendChild(div);
-        });
-    }
-    
-    const right = document.createElement('div');
-    right.className = "flex-1 space-y-6";
-    
-    // [수정] 메모 레이아웃
-    const memoWrap = document.createElement('div');
-    memoWrap.className = "card-memo-stack flex flex-col gap-2";
-    if (memos) {
-        memos.forEach(m => {
-            const min = document.createElement('input');
-            min.className = "memo-input-item bg-transparent border-b border-white/10 text-[11px] text-yellow-600 outline-none w-full py-1";
-            min.value = m; min.placeholder = "참고 지문/메모..."; min.oninput = window.executeInternalDiskSave;
-            memoWrap.appendChild(min);
-        });
-    }
-    
-    const ed = document.createElement('div');
-    ed.className = "c-editor text-[18px] leading-[1.8] text-gray-300 outline-none min-h-[1.5em] tracking-tight";
-    ed.contentEditable = true; ed.innerHTML = window.applySyntaxHighlightEngine(text);
-    ed.onblur = () => window.executeInternalDiskSave();
+            const body = document.createElement('div');
+            body.className = "flex gap-10";
+            
+            const vault = document.createElement('div');
+            vault.className = "card-img-vault-area w-36 grid grid-cols-2 gap-3 empty:hidden";
+            if (images) {
+                images.forEach(src => {
+                    const div = document.createElement('div');
+                    div.className = "asset-img-item relative w-full aspect-square bg-black rounded-2xl overflow-hidden border border-white/5 cursor-zoom-in";
+                    div.innerHTML = `<img src="${src}" class="w-full h-full object-cover" onclick="window.showFullImage('${src}')">
+                                     <button onclick="window.executeDeepSnapshot(); this.parentElement.remove(); window.executeInternalDiskSave()" class="absolute top-1 right-1 bg-red-600 text-[9px] p-1.5 font-black rounded-lg">×</button>`;
+                    vault.appendChild(div);
+                });
+            }
+            
+            const right = document.createElement('div');
+            right.className = "flex-1 space-y-6";
+            
+            const memoWrap = document.createElement('div');
+            memoWrap.className = "card-memo-stack flex flex-col gap-2";
+            if (memos) {
+                memos.forEach(m => {
+                    const min = document.createElement('input');
+                    min.className = "memo-input-item bg-transparent border-b border-white/10 text-[11px] text-yellow-600 outline-none w-full py-1";
+                    min.value = m; min.placeholder = "참고 지문/메모..."; min.oninput = window.executeInternalDiskSave;
+                    memoWrap.appendChild(min);
+                });
+            }
+            
+            const ed = document.createElement('div');
+            ed.className = "c-editor text-[18px] leading-[1.8] text-gray-300 outline-none min-h-[1.5em] tracking-tight";
+            ed.contentEditable = true; ed.innerHTML = window.applySyntaxHighlightEngine(text);
+            ed.onblur = () => window.executeInternalDiskSave();
 
-    const footer = document.createElement('div');
-    footer.className = "flex gap-8 pt-8 border-t border-white/5 opacity-30 group-hover:opacity-100 transition-opacity";
-    footer.innerHTML = `
-        <button onclick="window.copyTextToClip(this.parentElement.previousElementSibling.innerText)" class="text-[11px] font-black text-blue-600 uppercase tracking-widest">📋 Copy</button>
-        <button onclick="window.processMergeUp(this.closest('.card-unit'))" class="text-[11px] font-black text-gray-600 hover:text-white uppercase tracking-widest">Merge Up</button>
-        <button onclick="window.processSplit(this.closest('.card-unit'))" class="text-[11px] font-black text-gray-600 hover:text-white uppercase tracking-widest">Split</button>
-        <button onclick="window.processKillCut(this.closest('.card-unit'))" class="text-[11px] font-black text-red-900 hover:text-red-600 uppercase tracking-widest ml-auto">Delete</button>
-    `;
-    
-    right.appendChild(memoWrap); right.appendChild(ed); right.appendChild(footer);
-    body.appendChild(vault); body.appendChild(right); card.appendChild(body);
-    return card;
-};
+            const footer = document.createElement('div');
+            footer.className = "flex gap-8 pt-8 border-t border-white/5 opacity-30 group-hover:opacity-100 transition-opacity";
+            footer.innerHTML = `
+                <button onclick="window.copyTextToClip(this.parentElement.previousElementSibling.innerText)" class="text-[11px] font-black text-blue-600 uppercase tracking-widest">📋 Copy</button>
+                <button onclick="window.processMergeUp(this.closest('.card-unit'))" class="text-[11px] font-black text-gray-600 hover:text-white uppercase tracking-widest">Merge Up</button>
+                <button onclick="window.processSplit(this.closest('.card-unit'))" class="text-[11px] font-black text-gray-600 hover:text-white uppercase tracking-widest">Split</button>
+                <button onclick="window.processKillCut(this.closest('.card-unit'))" class="text-[11px] font-black text-red-900 hover:text-red-600 uppercase tracking-widest ml-auto">Delete</button>
+            `;
+            
+            right.appendChild(memoWrap); right.appendChild(ed); right.appendChild(footer);
+            body.appendChild(vault); body.appendChild(right); card.appendChild(body);
+            return card;
+        };
 
-        // [원고 물리 명령들: 언두 연동]
+        // [원고 물리 명령들]
         window.processManuscriptInput = function(mode) {
             const input = document.getElementById('mainSourceInput');
             const text = input.value.trim();
@@ -596,165 +606,321 @@ window.createCardNodePhysical = function(id, text, memos, images) {
             }
         };
 
-// [개선] 웹/로컬 공용 전체 백업 (취소 시 자동 저장 방지)
-window.executeSaveAsProcess = async function() {
-    window.executeCurrentViewCapture();
-    
-    // 포인터 저장
-    const p = window.getSafeActiveProject();
-    if (p) {
-        window.sovereignDb.activeProjectId = window.sovereignDb.activeProjectId || p.id;
-        const s = window.getSafeActiveSlot();
-        if (s) window.sovereignDb.activeSlotId = window.sovereignDb.activeSlotId || s.id;
-    }
-    
-    const dataStr = JSON.stringify(window.sovereignDb, null, 2);
-    const dateStr = new Date().toLocaleDateString().replace(/\. /g, '-').replace('.', '');
-    const defaultName = `[${p ? p.name : '전체백업'}] Sovereign_${dateStr}.json`;
-
-    try {
-        if ('showSaveFilePicker' in window) {
-            const handle = await window.showSaveFilePicker({
-                suggestedName: defaultName,
-                types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }]
-            });
-            const writable = await handle.createWritable();
-            await writable.write(dataStr);
-            await writable.close();
-            return; 
-        }
-    } catch (err) {
-        // [핵심 패치] 사용자가 취소(X)를 누른 경우 즉시 함수를 종료하여 강제 다운로드를 막습니다.
-        if (err.name === 'AbortError' || err.message.includes('abort')) return;
-        console.warn("최신 API 차단됨, 예비 방식으로 우회합니다.", err);
-    }
-
-    // 예비 다운로드 (권한 에러일 때만 작동)
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.download = defaultName;
-    a.href = URL.createObjectURL(blob);
-    a.click();
-};
-
-// [개선] 웹/로컬 공용 슬롯 백업 (취소 시 자동 저장 방지)
-window.executeSaveSlotOnly = async function() {
-    window.executeCurrentViewCapture();
-    const s = window.getSafeActiveSlot();
-    if (!s) return;
-
-    const slotData = { type: "DRAGON_SLOT_ONLY", title: s.title, original: s.original, cards: s.cards };
-    const fileName = `[슬롯백업] ${s.title || '원고'}_${new Date().toLocaleDateString()}.json`;
-
-    try {
-        if ('showSaveFilePicker' in window) {
-            const handle = await window.showSaveFilePicker({
-                suggestedName: fileName,
-                types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }]
-            });
-            const writable = await handle.createWritable();
-            await writable.write(JSON.stringify(slotData, null, 2));
-            await writable.close();
-            return;
-        }
-    } catch (err) {
-        if (err.name === 'AbortError' || err.message.includes('abort')) return; // 취소 방어선
-        console.warn("최신 API 차단됨, 예비 방식으로 우회합니다.");
-    }
-
-    const blob = new Blob([JSON.stringify(slotData)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.download = fileName;
-    a.href = URL.createObjectURL(blob);
-    a.click();
-};
+        // -------------------------------------------------------------------------
+        // 🚀 [패치 완료] 웹/로컬 무결점 데이터 입출력 (Save/Restore) 엔진
+        // -------------------------------------------------------------------------
         
-// [단축키 엔진] 기존 1150라인 부근의 window.addEventListener('keydown', ...) 부분을 아래로 교체하세요.
-window.addEventListener('keydown', function(e) {
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    const ctrl = isMac ? e.metaKey : e.ctrlKey; // Mac은 Cmd, PC는 Ctrl 감지
+        window.executeSaveAsProcess = async function() {
+            window.executeCurrentViewCapture();
+            
+            const p = window.getSafeActiveProject();
+            if (p) {
+                window.sovereignDb.activeProjectId = window.sovereignDb.activeProjectId || p.id;
+                const s = window.getSafeActiveSlot();
+                if (s) window.sovereignDb.activeSlotId = window.sovereignDb.activeSlotId || s.id;
+            }
+            
+            const dataStr = JSON.stringify(window.sovereignDb, null, 2);
+            const dateStr = new Date().toLocaleDateString().replace(/\. /g, '-').replace('.', '');
+            const defaultName = `[${p ? p.name : '전체백업'}] Sovereign_${dateStr}.json`;
 
-    // 1. [Undo] Ctrl + Z
-    if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'z') {
-        e.preventDefault(); // 브라우저 기본 텍스트 언두 방지 (우리 시스템 언두 실행을 위해)
-        window.executeUndoAction();
-    }
+            // 웹/깃허브 환경에서는 에러를 피하기 위해 즉시 일반 다운로드 방식으로 전환합니다.
+            const useModern = ('showSaveFilePicker' in window) && !window.isWebEnvironment;
 
-    // 2. [Redo] Ctrl + Y 또는 Ctrl + Shift + Z
-    if ((ctrl && e.key.toLowerCase() === 'y') || (ctrl && e.shiftKey && e.key.toLowerCase() === 'z')) {
-        e.preventDefault(); // 브라우저 기본 리두 방지
-        window.executeRedoAction();
-    }
+            if (useModern) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: defaultName,
+                        types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }]
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(dataStr);
+                    await writable.close();
+                    return; 
+                } catch (err) {
+                    // 고스트 세이브 방지 (취소 누르면 즉시 종료)
+                    if (err.name === 'AbortError' || err.message.includes('abort')) return;
+                }
+            }
 
-    // 3. [원고 추가] Ctrl + Enter (작성 중인 원고를 즉시 컷으로 분할)
-    if (ctrl && e.key === 'Enter') {
-        e.preventDefault();
-        window.processManuscriptInput('append');
-    }
-
-// 4. [저장] Ctrl + S (파일 저장 창 호출)
-    if (ctrl && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        window.executeSaveAsProcess();
-    }
-});
+            // 구형(웹 호환) 강제 다운로드 방식
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.download = defaultName;
+            a.href = URL.createObjectURL(blob);
+            a.click();
         };
 
-// --- [공유 메모 UI 강화 엔진] ---
-window.renderProjectMemoStack = function() {
-    const container = document.getElementById('memoStackContainer');
-    container.innerHTML = "";
-    const p = window.getSafeActiveProject();
-    if (!p || !p.memos) return;
+        window.executeSaveSlotOnly = async function() {
+            window.executeCurrentViewCapture();
+            const s = window.getSafeActiveSlot();
+            if (!s) return;
 
-    p.memos.forEach((m, i) => {
-        const div = document.createElement('div');
-        
-        // [수정 포인트] 드래그를 위한 속성들과 클래스를 추가했습니다.
-        div.className = "bg-white/5 border border-white/10 rounded-3xl overflow-hidden mb-4 fade-in cursor-move relative transition-all";
-        div.draggable = true;
-        div.dataset.dragId = i; // 현재 메모의 순서(인덱스)를 기록
-        div.dataset.dragType = "memo";
+            const slotData = { type: "DRAGON_SLOT_ONLY", title: s.title, original: s.original, cards: s.cards };
+            const fileName = `[슬롯백업] ${s.title || '원고'}_${new Date().toLocaleDateString()}.json`;
 
-        // [수정 포인트] 드래그 동작 시 실행될 함수들을 연결했습니다.
-        div.ondragstart = window.handleDragStartStep;
-        div.ondragend = window.handleDragEndStep;
-        div.ondragover = (e) => e.preventDefault();
-        div.ondrop = window.handleDropStep;
+            const useModern = ('showSaveFilePicker' in window) && !window.isWebEnvironment;
 
-        div.innerHTML = `
-            <div class="flex items-start justify-between p-5 cursor-pointer bg-white/5" onclick="window.toggleMemoFold(${i})">
-                <textarea class="bg-transparent border-none outline-none font-black text-[14px] text-blue-500 w-full resize-none overflow-hidden leading-tight pt-1" 
-                          rows="1"
-                          oninput="window.saveMemo(${i}, 'title', this.value); window.autoResizeMemoTextArea(this);" 
-                          onclick="event.stopPropagation()">${m.title}</textarea>
-                <button onclick="event.stopPropagation(); window.deleteMemo(${i})" class="text-red-900 font-black ml-3 shrink-0 pt-1">×</button>
-            </div>
+            if (useModern) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: fileName,
+                        types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }]
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(JSON.stringify(slotData, null, 2));
+                    await writable.close();
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError' || err.message.includes('abort')) return;
+                }
+            }
+
+            const blob = new Blob([JSON.stringify(slotData)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.download = fileName;
+            a.href = URL.createObjectURL(blob);
+            a.click();
+        };
+
+        // 데이터 파싱 및 안전 주입 코어
+        window.processRestoreData = function(text, isSlotOnly) {
+            try {
+                const data = JSON.parse(text);
+                
+                // 슬롯 전용 불러오기 처리
+                if (isSlotOnly) {
+                    const activeS = window.getSafeActiveSlot();
+                    if (!activeS) { alert("원고를 불러올 대상 슬롯이 없습니다."); return; }
+                    if (confirm("이 파일을 현재 열려 있는 슬롯에 덮어씌울까요?")) {
+                        window.executeDeepSnapshot();
+                        if (data.type === "DRAGON_SLOT_ONLY") {
+                            activeS.title = data.title; activeS.original = data.original; activeS.cards = data.cards;
+                        } else if (data.projects) {
+                            const firstSlot = data.projects[0].slots[0];
+                            activeS.title = firstSlot.title; activeS.original = firstSlot.original; activeS.cards = firstSlot.cards;
+                        }
+                        window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
+                        alert("슬롯 원고 불러오기 성공!");
+                    }
+                    return;
+                }
+
+                // 전체 데이터 복구 처리
+                if (!data || !Array.isArray(data.projects) || data.projects.length === 0) {
+                    alert("올바른 전체 백업 파일 구조가 아닙니다."); return;
+                }
+                
+                if (confirm("기존 작업실의 모든 데이터가 백업 파일로 교체됩니다. 진행할까요?")) {
+                    window.executeDeepSnapshot(); 
+                    window.sovereignDb = data;
+                    
+                    // 포인터(위치) 보호막 - 데이터 꼬임 방지
+                    let targetProj = window.sovereignDb.projects.find(p => p.id === data.activeProjectId);
+                    if (!targetProj && window.sovereignDb.projects.length > 0) targetProj = window.sovereignDb.projects[0];
+
+                    if (targetProj) {
+                        window.sovereignDb.activeProjectId = targetProj.id;
+                        if (!targetProj.slots) targetProj.slots = [];
+                        let targetSlot = targetProj.slots.find(s => s.id === data.activeSlotId);
+                        if (!targetSlot && targetProj.slots.length > 0) targetSlot = targetProj.slots[0];
+                        if (targetSlot) window.sovereignDb.activeSlotId = targetSlot.id;
+                    }
+                    
+                    window.executeInternalDiskSave();
+                    window.executeFullUIRenderCycle();
+                    alert("동기화 완료! 마지막 위치로 정상 복원되었습니다.");
+                }
+            } catch(e) {
+                alert("파일을 읽는 중 에러가 발생했습니다.\n" + e.message);
+            }
+        };
+
+        window.executeRestoreProcess = async function() {
+            const useModern = ('showOpenFilePicker' in window) && !window.isWebEnvironment;
+
+            if (useModern) {
+                try {
+                    const [fileHandle] = await window.showOpenFilePicker({
+                        types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }],
+                        multiple: false
+                    });
+                    const file = await fileHandle.getFile();
+                    const text = await file.text();
+                    window.processRestoreData(text, false);
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError' || err.message.includes('abort')) return;
+                }
+            }
+
+            // 웹/에러 방지용 호환성 탐색기 (가장 확실하게 작동)
+            const fileIn = document.createElement('input');
+            fileIn.type = 'file';
+            fileIn.accept = '.json';
+            fileIn.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(evt) { window.processRestoreData(evt.target.result, false); };
+                reader.readAsText(file);
+            };
+            fileIn.click();
+        };
+
+        window.executeImportToCurrentSlot = async function() {
+            const useModern = ('showOpenFilePicker' in window) && !window.isWebEnvironment;
+
+            if (useModern) {
+                try {
+                    const [fileHandle] = await window.showOpenFilePicker({
+                        types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }],
+                        multiple: false
+                    });
+                    const file = await fileHandle.getFile();
+                    const text = await file.text();
+                    window.processRestoreData(text, true);
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError' || err.message.includes('abort')) return;
+                }
+            }
+
+            const fileIn = document.createElement('input');
+            fileIn.type = 'file';
+            fileIn.accept = '.json';
+            fileIn.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(evt) { window.processRestoreData(evt.target.result, true); };
+                reader.readAsText(file);
+            };
+            fileIn.click();
+        };
+
+        // -------------------------------------------------------------------------
+        // 리스너 바인딩 및 삭제, 메모 등 기타 기능
+        // -------------------------------------------------------------------------
+
+        window.bindSovereignListeners = function() {
+            document.getElementById('btnNewProject').onclick = function() {
+                const id = Date.now(); window.executeDeepSnapshot();
+                window.sovereignDb.projects.push({ id: id, name: "새 작품", order: window.sovereignDb.projects.length, memos: [], slots: [{ id: id+1, title: '1화', original: '', cards: [], order: 0 }] });
+                window.sovereignDb.activeProjectId = id; window.sovereignDb.activeSlotId = id+1;
+                window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
+            };
+            document.getElementById('btnNewSlot').onclick = function() {
+                const p = window.getSafeActiveProject(); const sid = Date.now(); window.executeDeepSnapshot();
+                if(!p.slots) p.slots = [];
+                p.slots.push({ id: sid, title: (p.slots.length+1)+'화', original: '', cards: [], order: p.slots.length });
+                window.sovereignDb.activeSlotId = sid; window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
+            };
+            document.getElementById('btnSaveAs').onclick = window.executeSaveAsProcess;
+            document.getElementById('btnRestore').onclick = window.executeRestoreProcess;
+            document.getElementById('btnUndo').onclick = window.executeUndoAction;
+            document.getElementById('btnRedo').onclick = window.executeRedoAction;
+            document.getElementById('btnResetBoard').onclick = function() {
+                if(confirm("모두 비울까요?")) { window.executeDeepSnapshot(); document.getElementById('manuscriptPanelContainer').innerHTML = ""; window.executeInternalDiskSave(); window.recalculateStatsDisplay(); }
+            };
+            document.getElementById('btnAppendManuscript').onclick = () => window.processManuscriptInput('append');
+            document.getElementById('btnInsertManuscript').onclick = () => window.processManuscriptInput('insert');
+            document.getElementById('btnCopyRawLog').onclick = () => { navigator.clipboard.writeText(document.getElementById('originalLogView').value); alert("로그 복사됨."); };
+            document.getElementById('btnNewProjectMemo').onclick = function() {
+                const p = window.getSafeActiveProject(); if(!p.memos) p.memos = []; p.memos.unshift({title:'새 메모', content:'', folded:false});
+                window.executeInternalDiskSave(); window.renderProjectMemoStack();
+            };
             
-            <div class="p-5 ${m.folded ? 'hidden' : ''}">
-                <textarea class="w-full bg-transparent text-[14px] text-gray-400 outline-none resize-none leading-relaxed overflow-y-auto" 
-                          style="min-height: 50px; max-height: 288px; height: auto;"
-                          oninput="window.saveMemo(${i}, 'content', this.value); window.autoResizeMemoTextArea(this);">${m.content}</textarea>
-            </div>`;
-            
-        container.appendChild(div);
-        
-        // 렌더링 직후 데이터 양에 맞춰 높이 초기화
-        const tas = div.querySelectorAll('textarea');
-        tas.forEach(ta => window.autoResizeMemoTextArea(ta));
-    });
-};
-        // 메모 입력창 높이 자동 조절 함수
-window.autoResizeMemoTextArea = function(obj) {
-    obj.style.height = 'auto'; // 높이 초기화
-    obj.style.height = obj.scrollHeight + 'px'; // 내용 높이만큼 확장
-};
+            window.addEventListener('keydown', function(e) {
+                const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                const ctrl = isMac ? e.metaKey : e.ctrlKey; 
+                if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'z') {
+                    e.preventDefault(); window.executeUndoAction();
+                }
+                if ((ctrl && e.key.toLowerCase() === 'y') || (ctrl && e.shiftKey && e.key.toLowerCase() === 'z')) {
+                    e.preventDefault(); window.executeRedoAction();
+                }
+                if (ctrl && e.key === 'Enter') {
+                    e.preventDefault(); window.processManuscriptInput('append');
+                }
+                if (ctrl && e.key.toLowerCase() === 's') {
+                    e.preventDefault(); window.executeSaveAsProcess();
+                }
+            });
+        };
 
-// 제목 textarea 높이 자동 조절 함수 (선택 사항: 제목이 길어지면 칸이 알아서 늘어납니다)
-window.executeAutoHeight = function(el) {
-    el.style.height = 'auto';
-    el.style.height = el.scrollHeight + 'px';
-};
+        window.executeKillProjectProcess = function(id) {
+            if (window.sovereignDb.projects.length <= 1) { alert("최소 하나의 작품은 남겨두어야 합니다."); return; }
+            if (confirm("이 작품의 모든 워크플레이스와 원고가 영구 삭제됩니다. 정말 삭제할까요?")) {
+                window.executeDeepSnapshot(); 
+                window.sovereignDb.projects = window.sovereignDb.projects.filter(function(p) { return p.id !== id; });
+                if (window.sovereignDb.activeProjectId === id) {
+                    window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
+                    window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
+                }
+                window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
+            }
+        };
+
+        window.executeKillSlotProcess = function(id) {
+            const p = window.getSafeActiveProject();
+            if (!p || p.slots.length <= 1) { alert("최소 하나의 워크플레이스는 남겨두어야 합니다."); return; }
+            if (confirm("이 슬롯의 원고가 모두 사라집니다. 정말 삭제할까요?")) {
+                window.executeDeepSnapshot();
+                p.slots = p.slots.filter(function(s) { return s.id !== id; });
+                if (window.sovereignDb.activeSlotId === id) window.sovereignDb.activeSlotId = p.slots[0].id;
+                window.executeInternalDiskSave(); window.executeFullUIRenderCycle();
+            }
+        };        
+
+        window.renderProjectMemoStack = function() {
+            const container = document.getElementById('memoStackContainer');
+            container.innerHTML = "";
+            const p = window.getSafeActiveProject();
+            if (!p || !p.memos) return;
+
+            p.memos.forEach((m, i) => {
+                const div = document.createElement('div');
+                div.className = "bg-white/5 border border-white/10 rounded-3xl overflow-hidden mb-4 fade-in cursor-move relative transition-all";
+                div.draggable = true;
+                div.dataset.dragId = i; 
+                div.dataset.dragType = "memo";
+
+                div.ondragstart = window.handleDragStartStep;
+                div.ondragend = window.handleDragEndStep;
+                div.ondragover = (e) => e.preventDefault();
+                div.ondrop = window.handleDropStep;
+
+                div.innerHTML = `
+                    <div class="flex items-start justify-between p-5 cursor-pointer bg-white/5" onclick="window.toggleMemoFold(${i})">
+                        <textarea class="bg-transparent border-none outline-none font-black text-[14px] text-blue-500 w-full resize-none overflow-hidden leading-tight pt-1" 
+                                  rows="1"
+                                  oninput="window.saveMemo(${i}, 'title', this.value); window.autoResizeMemoTextArea(this);" 
+                                  onclick="event.stopPropagation()">${m.title}</textarea>
+                        <button onclick="event.stopPropagation(); window.deleteMemo(${i})" class="text-red-900 font-black ml-3 shrink-0 pt-1">×</button>
+                    </div>
+                    
+                    <div class="p-5 ${m.folded ? 'hidden' : ''}">
+                        <textarea class="w-full bg-transparent text-[14px] text-gray-400 outline-none resize-none leading-relaxed overflow-y-auto" 
+                                  style="min-height: 50px; max-height: 288px; height: auto;"
+                                  oninput="window.saveMemo(${i}, 'content', this.value); window.autoResizeMemoTextArea(this);">${m.content}</textarea>
+                    </div>`;
+                    
+                container.appendChild(div);
+                const tas = div.querySelectorAll('textarea');
+                tas.forEach(ta => window.autoResizeMemoTextArea(ta));
+            });
+        };
+
+        window.autoResizeMemoTextArea = function(obj) {
+            obj.style.height = 'auto'; 
+            obj.style.height = obj.scrollHeight + 'px'; 
+        };
+
+        window.executeAutoHeight = function(el) {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        };
 
         window.toggleMemoFold = function(i) { const p = window.getSafeActiveProject(); p.memos[i].folded = !p.memos[i].folded; window.executeInternalDiskSave(); window.renderProjectMemoStack(); };
         window.saveMemo = function(i, k, v) { const p = window.getSafeActiveProject(); p.memos[i][k] = v; window.executeInternalDiskSave(); };
@@ -763,7 +929,8 @@ window.executeAutoHeight = function(el) {
         window.recalculateStatsDisplay = function() {
             const all = document.querySelectorAll('.card-unit');
             all.forEach((n, i) => { const b = n.querySelector('.c-cut-badge'); if (b) b.innerText = "Cut " + String(i + 1).padStart(2, '0'); });
-            document.getElementById('displayCutCount').innerText = all.length + " Cuts Secured";
+            const statText = document.getElementById('displayCutCount');
+            if(statText) statText.innerText = all.length + " Cuts Secured";
         };
 
         window.globalFocusCardStep = function(node) {
@@ -785,311 +952,66 @@ window.executeAutoHeight = function(el) {
             if (!t) return "";
             return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
         };
-// [최종] 아이클라우드 완벽 지원 + 지능형 데이터 복구 엔진
-window.executeRestoreProcess = async function() {
-    // 공통 복구 로직 (분리)
-    const processData = function(data) {
-        if (!data.projects || data.projects.length === 0) {
-            alert("올바른 전체 백업 파일이 아닙니다."); return;
-        }
-        if (confirm("기존 작업실의 모든 데이터가 사라지고 백업 파일로 교체됩니다. 진행할까요?")) {
-            try { window.executeDeepSnapshot(); } catch(e) {}
-            window.sovereignDb = data;
-            
-            // 포인터 지능형 복원
-            let targetProj = null;
-            if (data.activeProjectId) targetProj = window.sovereignDb.projects.find(p => p.id === data.activeProjectId);
-            if (targetProj) {
-                window.sovereignDb.activeProjectId = targetProj.id;
-                let targetSlot = targetProj.slots.find(s => s.id === data.activeSlotId);
-                if (targetSlot) window.sovereignDb.activeSlotId = targetSlot.id;
-                else if (targetProj.slots && targetProj.slots.length > 0) window.sovereignDb.activeSlotId = targetProj.slots[0].id;
-            } else if (window.sovereignDb.projects && window.sovereignDb.projects.length > 0) {
-                window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
-                if (window.sovereignDb.projects[0].slots && window.sovereignDb.projects[0].slots.length > 0) window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
-            }
-            
-            try { localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb)); } catch(e) {}
-            try { window.executeFullUIRenderCycle(); } catch(e) {
-                if (typeof window.renderProjectTabList === 'function') window.renderProjectTabList();
-                if (typeof window.renderSlotTabList === 'function') window.renderSlotTabList();
-                if (typeof window.loadBoardFromMemory === 'function') window.loadBoardFromMemory();
-            }
-            if (typeof window.renderProjectMemoStack === 'function') {
-                try { window.renderProjectMemoStack(); } catch(e) {}
-            }
-            alert("동기화 완료! 원고가 정상적으로 복원되었습니다.");
-        }
-    };
 
-    // 1. [핵심 패치] 아이클라우드를 읽을 수 있는 최신 탐색기(showOpenFilePicker) 우선 호출
-    if ('showOpenFilePicker' in window) {
-        try {
-            const [fileHandle] = await window.showOpenFilePicker({
-                types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }],
-                multiple: false
+        // 메모 추가 및 이미지 
+        window.executeAddCardMemoStep = function(card) {
+            const area = card.querySelector('.card-memo-stack');
+            const i = document.createElement('input');
+            i.className = 'memo-input-item bg-transparent border-b border-white/10 text-[11px] text-yellow-600 outline-none w-full py-1 fade-in';
+            i.placeholder = "참고 지문/메모 입력..."; 
+            i.oninput = window.executeInternalDiskSave;
+            area.appendChild(i); 
+            i.focus();
+        };
+
+        window.showFullImage = function(src) {
+            let modal = document.getElementById('imgModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'imgModal';
+                modal.className = 'image-modal';
+                modal.onclick = () => modal.style.display = 'none';
+                document.body.appendChild(modal);
+            }
+            modal.innerHTML = `<img src="${src}" class="fade-in">`;
+            modal.style.display = 'flex';
+        };
+
+        window.executeCopyToNotion = function() {
+            window.executeCurrentViewCapture();
+            const slot = window.getSafeActiveSlot();
+            if (!slot || !slot.cards || slot.cards.length === 0) { alert("복사할 원고가 없습니다."); return; }
+            let tableText = "| 컷 번호 | 지문 | 원고 내용 |\n| --- | --- | --- |\n";
+            slot.cards.forEach((card, index) => {
+                const cutNum = (index + 1).toString().padStart(2, '0');
+                const cleanText = card.text.replace(/\n/g, " ").trim();
+                const cleanMemos = (card.tags && card.tags.length > 0) ? card.tags.filter(m => m.trim() !== "").join(" / ") : "";
+                tableText += `| ${cutNum} | ${cleanMemos}| ${cleanText} |\n`;
             });
-            const file = await fileHandle.getFile();
-            const text = await file.text();
-            processData(JSON.parse(text));
-            return;
-        } catch (err) {
-            if (err.name === 'AbortError' || err.message.includes('abort')) return; // 취소 누름
-            // 권한 제어 시 아래 예비 방식으로 이동
-        }
-    }
-
-    // 2. 권한이 막혔을 때만 작동하는 구형 예비 탐색기
-    const fileIn = document.createElement('input');
-    fileIn.type = 'file';
-    fileIn.accept = '.json';
-    fileIn.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            try { processData(JSON.parse(evt.target.result)); }
-            catch (err) { alert("파싱 에러: " + err.message); }
+            navigator.clipboard.writeText(tableText.trim()).then(() => {
+                alert("노션 표 형식이 복사되었습니다!\n노션에서 붙여넣기(Ctrl+V) 하세요.");
+            }).catch(err => { alert("복사 실패: " + err); });
         };
-        reader.readAsText(file);
-    };
-    fileIn.click();
-};
 
-// [최종] 아이클라우드 완벽 지원 + 슬롯 불러오기 엔진
-window.executeImportToCurrentSlot = async function() {
-    const processSlotData = function(data) {
-        const activeS = window.getSafeActiveSlot();
-        if (!activeS) { alert("원고를 불러올 대상 슬롯이 없습니다."); return; }
-        if (confirm("이 파일을 현재 열려 있는 슬롯에 덮어씌울까요?")) {
-            try { window.executeDeepSnapshot(); } catch(e) {}
-            if (data.type === "DRAGON_SLOT_ONLY") {
-                activeS.title = data.title; activeS.original = data.original; activeS.cards = data.cards;
-            } else if (data.activeSlotId || data.projects) {
-                alert("전체 백업 파일입니다. 첫 번째 원고 내용만 추출합니다.");
-                const firstSlot = data.projects[0].slots[0];
-                activeS.title = firstSlot.title; activeS.original = firstSlot.original; activeS.cards = firstSlot.cards;
+        window.copyTextToClip = function(text) {
+            if (!text) return;
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).catch(err => { window.executeFallbackCopy(text); });
+            } else {
+                window.executeFallbackCopy(text);
             }
-            try { localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb)); window.executeFullUIRenderCycle(); } catch(e) {}
-            alert("슬롯 원고 불러오기 성공!");
-        }
-    };
-
-    if ('showOpenFilePicker' in window) {
-        try {
-            const [fileHandle] = await window.showOpenFilePicker({
-                types: [{ description: 'JSON 백업 파일', accept: { 'application/json': ['.json'] } }],
-                multiple: false
-            });
-            const file = await fileHandle.getFile();
-            const text = await file.text();
-            processSlotData(JSON.parse(text));
-            return;
-        } catch (err) {
-            if (err.name === 'AbortError' || err.message.includes('abort')) return;
-        }
-    }
-
-    const filePicker = document.createElement('input');
-    filePicker.type = 'file'; filePicker.accept = '.json';
-    filePicker.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            try { processSlotData(JSON.parse(event.target.result)); } catch(err) { alert(err.message); }
         };
-        reader.readAsText(file);
-    };
-    filePicker.click();
-};
-        
-        
-        
-        // --- [탭 삭제 실행 엔진: 이 내용을 코드 하단 함수 구역에 넣으세요] ---
 
-// 1. 작품(Project) 삭제 실제 기능
-window.executeKillProjectProcess = function(id) {
-    if (window.sovereignDb.projects.length <= 1) {
-        alert("최소 하나의 작품은 남겨두어야 합니다.");
-        return;
-    }
-    
-    if (confirm("이 작품의 모든 워크플레이스와 원고가 영구 삭제됩니다. 정말 삭제할까요?")) {
-        window.executeDeepSnapshot(); // 삭제 전 상태 저장 (언두 가능)
-        
-        // 데이터에서 해당 ID 삭제
-        window.sovereignDb.projects = window.sovereignDb.projects.filter(function(p) { return p.id !== id; });
-        
-        // 현재 보고 있던 작품을 지웠다면 다른 작품으로 강제 이동
-        if (window.sovereignDb.activeProjectId === id) {
-            window.sovereignDb.activeProjectId = window.sovereignDb.projects[0].id;
-            window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
-        }
-        
-        window.executeInternalDiskSave(); // 로컬 저장소 저장
-        window.executeFullUIRenderCycle(); // 화면 새로고침
-    }
-};
-
-// 2. 워크플레이스(Slot) 삭제 실제 기능
-window.executeKillSlotProcess = function(id) {
-    const p = window.getSafeActiveProject();
-    if (!p) return;
-    
-    if (p.slots.length <= 1) {
-        alert("최소 하나의 워크플레이스는 남겨두어야 합니다.");
-        return;
-    }
-    
-    if (confirm("이 슬롯의 원고가 모두 사라집니다. 정말 삭제할까요?")) {
-        window.executeDeepSnapshot();
-        
-        p.slots = p.slots.filter(function(s) { return s.id !== id; });
-        
-        if (window.sovereignDb.activeSlotId === id) {
-            window.sovereignDb.activeSlotId = p.slots[0].id;
-        }
-        
-        window.executeInternalDiskSave();
-        window.executeFullUIRenderCycle();
-    }
-};        
-        // --- [IMAGE & MEMO 가동 엔진] ---
-
-// 1. 메모 입력창 추가
-window.executeAddCardMemoStep = function(card) {
-    const area = card.querySelector('.card-memo-stack');
-    const i = document.createElement('input');
-    i.className = 'memo-input-item bg-transparent border-b border-white/10 text-[11px] text-yellow-600 outline-none w-full py-1 fade-in';
-    i.placeholder = "참고 지문/메모 입력..."; 
-    i.oninput = window.executeInternalDiskSave;
-    area.appendChild(i); 
-    i.focus();
-};
-
-// 2. 이미지 에셋 추가
-window.executeAddCardImageStep = function(card) {
-    const fileIn = document.createElement('input'); 
-    fileIn.type = 'file'; 
-    fileIn.accept = 'image/*';
-    fileIn.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = function(re) {
-            window.executeDeepSnapshot(); // 변경 전 스냅샷
-            const vault = card.querySelector('.card-img-vault-area');
-            const div = document.createElement('div');
-            div.className = "asset-img-item relative w-full aspect-square bg-black rounded-2xl overflow-hidden border border-white/5 cursor-zoom-in fade-in";
-            div.innerHTML = `<img src="${re.target.result}" class="w-full h-full object-cover" onclick="window.showFullImage('${re.target.result}')">
-                             <button onclick="window.executeDeepSnapshot(); this.parentElement.remove(); window.executeInternalDiskSave()" class="absolute top-1 right-1 bg-red-600 text-[9px] p-1.5 font-black rounded-lg">×</button>`;
-            vault.appendChild(div); 
-            window.executeInternalDiskSave();
+        window.executeFallbackCopy = function(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed"; textArea.style.left = "-9999px"; textArea.style.top = "0";
+            document.body.appendChild(textArea);
+            textArea.focus(); textArea.select();
+            try { document.execCommand('copy'); } catch (err) { console.error(err); }
+            document.body.removeChild(textArea);
         };
-        reader.readAsDataURL(file);
-    };
-    fileIn.click();
-};
-
-// 3. 이미지 크게 보기 모달 엔진
-window.showFullImage = function(src) {
-    let modal = document.getElementById('imgModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'imgModal';
-        modal.className = 'image-modal';
-        modal.onclick = () => modal.style.display = 'none';
-        document.body.appendChild(modal);
-    }
-    modal.innerHTML = `<img src="${src}" class="fade-in">`;
-    modal.style.display = 'flex';
-};
-
-// --- [노션 전용 '표' 데이터 복사 엔진] ---
-window.executeCopyToNotion = function() {
-    // 1. 현재 화면의 수정사항을 데이터로 동기화
-    window.executeCurrentViewCapture();
-    
-    const slot = window.getSafeActiveSlot();
-    if (!slot || !slot.cards || slot.cards.length === 0) {
-        alert("복사할 원고가 없습니다.");
-        return;
-    }
-
-    // 2. 표 헤더 생성 (번호 | 메모 | 원고 내용)
-    let tableText = "| 컷 번호 | 지문 | 원고 내용 |\n";
-    tableText += "| --- | --- | --- |\n";
-    
-    // 3. 각 컷을 표의 행(Row)으로 변환
-    slot.cards.forEach((card, index) => {
-        const cutNum = (index + 1).toString().padStart(2, '0');
         
-        // 표 안에서 줄바꿈이 일어나면 행이 깨지므로, 엔터를 공백으로 치환합니다.
-        const cleanText = card.text.replace(/\n/g, " ").trim();
-        
-        // 여러 개의 메모가 있을 경우 ' / ' 로 구분하여 한 칸에 넣습니다.
-        const cleanMemos = (card.tags && card.tags.length > 0) 
-            ? card.tags.filter(m => m.trim() !== "").join(" / ") 
-            : "";
-            
-        tableText += `| ${cutNum} | ${cleanMemos}| ${cleanText} |\n`;
-    });
-
-    // 4. 클립보드 복사
-    navigator.clipboard.writeText(tableText.trim()).then(() => {
-        alert("노션 표 형식이 복사되었습니다!\n노션에서 붙여넣기(Ctrl+V) 하세요.");
-    }).catch(err => {
-        alert("복사 실패: " + err);
-    });
-};
-// --- [클립보드 복사 엔진] ---
-window.copyTextToClip = function(text) {
-    if (!text) {
-        alert("복사할 내용이 없습니다.");
-        return;
-    }
-
-    // 1. 최신 브라우저 방식 (Clipboard API)
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(() => {
-            console.log("복사 성공");
-            // 성공 알림을 조용히 띄우고 싶다면 아래 주석을 해제하세요.
-            // alert("복사되었습니다."); 
-        }).catch(err => {
-            console.error("복사 실패, 폴백 시도:", err);
-            window.executeFallbackCopy(text);
-        });
-    } else {
-        // 2. 구식 방식 (로컬 파일이나 보안 연결이 아닐 때)
-        window.executeFallbackCopy(text);
-    }
-};
-
-// 구식 복사 방식 (임시 텍스트 영역 생성)
-window.executeFallbackCopy = function(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    
-    // 화면 밖으로 숨기기
-    textArea.style.position = "fixed";
-    textArea.style.left = "-9999px";
-    textArea.style.top = "0";
-    
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-
-    try {
-        const successful = document.execCommand('copy');
-        if (successful) console.log("폴백 복사 성공");
-    } catch (err) {
-        console.error("복사 최종 실패:", err);
-    }
-
-    document.body.removeChild(textArea);
-};        
         window.bootSovereign();
 
     </script>
