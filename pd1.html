@@ -58,6 +58,26 @@
 
         [contenteditable]:focus { outline: none; background: rgba(30, 41, 59, 0.1); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        /* [신규] 가운데 컷 패널 전용 스크롤바 - 마우스로 끌 수 있게 눈에 띄게 표시 */
+        #manuscriptPanelContainer {
+            scrollbar-width: thin;
+            scrollbar-color: #1e3a8a rgba(255,255,255,0.02);
+        }
+        #manuscriptPanelContainer::-webkit-scrollbar {
+            width: 10px;
+        }
+        #manuscriptPanelContainer::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.02);
+        }
+        #manuscriptPanelContainer::-webkit-scrollbar-thumb {
+            background: #1e3a8a;
+            border-radius: 10px;
+            border: 2px solid #050505;
+        }
+        #manuscriptPanelContainer::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6;
+        }
         
         .memo-sidebar { 
             width: 360px; 
@@ -151,7 +171,7 @@
                 </div>
                 <div id="displayCutCount" class="text-[10px] font-mono text-blue-500 mb-2 px-5 py-2 border border-blue-900/20 rounded-full bg-blue-900/5 select-none">0 Cuts Secured</div>
             </div>
-            <div id="manuscriptPanelContainer" class="flex-1 overflow-y-auto p-12 pt-6 space-y-16 no-scrollbar"></div>
+            <div id="manuscriptPanelContainer" class="flex-1 overflow-y-auto p-12 pt-6 space-y-16"></div>
         </section>
 
         <aside class="memo-sidebar p-6 shrink-0 flex flex-col gap-6">
@@ -165,14 +185,81 @@
 
     <script>
         // -----------------------------------------------------------------------------------------
-        // [SOVEREIGN CORE] v1.2 - 클린 통합본 (탐색기 동기화 및 고스트 세이브 완벽 차단)
+        // [SOVEREIGN CORE] v1.3 - IndexedDB 전환 + 스크롤바 개선
         // -----------------------------------------------------------------------------------------
-        
-        window.sovereignDb = JSON.parse(localStorage.getItem('dragon_v1_sovereign_db')) || {
-            projects: [],
-            activeProjectId: null,
-            activeSlotId: null
-        };
+
+        // -----------------------------------------------------------------------------------------
+        // [신규] IndexedDB 저장소 엔진 - localStorage 용량 한계(QuotaExceededError) 문제 해결
+        // -----------------------------------------------------------------------------------------
+        const IDB_NAME = 'sovereign_storage_v1';
+        const IDB_STORE = 'kv';
+        const IDB_KEY = 'dragon_v1_sovereign_db';
+        const LEGACY_LS_KEY = 'dragon_v1_sovereign_db';
+
+        function idbOpen() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(IDB_NAME, 1);
+                req.onupgradeneeded = function(e) {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(IDB_STORE)) {
+                        db.createObjectStore(IDB_STORE);
+                    }
+                };
+                req.onsuccess = function(e) { resolve(e.target.result); };
+                req.onerror = function(e) { reject(e.target.error || new Error('IndexedDB 열기 실패')); };
+            });
+        }
+
+        function idbLoad() {
+            return idbOpen().then(function(db) {
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(IDB_STORE, 'readonly');
+                    const store = tx.objectStore(IDB_STORE);
+                    const req = store.get(IDB_KEY);
+                    req.onsuccess = function() { resolve(req.result || null); };
+                    req.onerror = function() { reject(req.error || new Error('불러오기 실패')); };
+                });
+            });
+        }
+
+        function idbSave(data) {
+            return idbOpen().then(function(db) {
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(IDB_STORE, 'readwrite');
+                    const store = tx.objectStore(IDB_STORE);
+                    const req = store.put(data, IDB_KEY);
+                    req.onsuccess = function() { resolve(true); };
+                    req.onerror = function() { reject(req.error || new Error('저장 실패')); };
+                });
+            });
+        }
+
+        // 앱 초기화: IndexedDB 우선 로드, 없으면 기존 localStorage 데이터를 1회 자동 이전
+        // (기존 localStorage 데이터는 삭제하지 않고 그대로 남겨둡니다 - 안전장치)
+        async function initSovereignStorage() {
+            let loaded = null;
+            try {
+                loaded = await idbLoad();
+            } catch (e) {
+                console.error('IndexedDB 로드 실패:', e);
+            }
+
+            if (!loaded) {
+                try {
+                    const legacy = localStorage.getItem(LEGACY_LS_KEY);
+                    if (legacy) {
+                        loaded = JSON.parse(legacy);
+                        await idbSave(loaded);
+                        console.log('[Sovereign] 기존 localStorage 데이터를 IndexedDB로 이전했습니다.');
+                    }
+                } catch (e) {
+                    console.error('[Sovereign] 마이그레이션 실패:', e);
+                }
+            }
+
+            window.sovereignDb = loaded || { projects: [], activeProjectId: null, activeSlotId: null };
+            window.bootSovereign();
+        }
 
         window.undoStack = [];
         window.redoStack = [];
@@ -237,8 +324,12 @@
             slot.cards = collected;
         };
 
+        // [수정] localStorage -> IndexedDB. 실패 시 조용히 삼키지 않고 실제로 알림.
         window.executeInternalDiskSave = function() {
-            localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb));
+            idbSave(window.sovereignDb).catch(function(err) {
+                console.error('[Sovereign] 저장 실패:', err);
+                alert('저장에 실패했습니다: ' + (err && err.message ? err.message : err) + '\n작업 내용을 "Save As"로 백업해 두는 걸 권장합니다.');
+            });
         };
 
         // [언두/리두 엔진]
@@ -614,7 +705,8 @@
 
         // 2. 전체 복구 (Restore) - 아이클라우드 열람 지원
         window.executeRestoreProcess = async function() {
-            const processData = function(data) {
+            // [수정] async화 + IndexedDB 저장 실패를 실제로 표시하도록 변경
+            const processData = async function(data) {
                 if (!data.projects || data.projects.length === 0) {
                     alert("올바른 전체 백업 파일이 아닙니다."); return;
                 }
@@ -634,16 +726,15 @@
                         if (window.sovereignDb.projects[0].slots && window.sovereignDb.projects[0].slots.length > 0) window.sovereignDb.activeSlotId = window.sovereignDb.projects[0].slots[0].id;
                     }
                     
-                    try { localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb)); } catch(e) {}
-                    try { window.executeFullUIRenderCycle(); } catch(e) {
-                        if (typeof window.renderProjectTabList === 'function') window.renderProjectTabList();
-                        if (typeof window.renderSlotTabList === 'function') window.renderSlotTabList();
-                        if (typeof window.loadBoardFromMemory === 'function') window.loadBoardFromMemory();
+                    try {
+                        await idbSave(window.sovereignDb);
+                        window.executeFullUIRenderCycle();
+                        alert("동기화 완료! 원고가 정상적으로 복원되었습니다.");
+                    } catch (err) {
+                        console.error('[Sovereign] 복원 저장 실패:', err);
+                        alert('복원 데이터는 화면에 반영됐지만, 디스크 저장에 실패했습니다: ' + (err && err.message ? err.message : err) + '\n"Save As"로 즉시 백업해 두세요.');
+                        try { window.executeFullUIRenderCycle(); } catch(e2) {}
                     }
-                    if (typeof window.renderProjectMemoStack === 'function') {
-                        try { window.renderProjectMemoStack(); } catch(e) {}
-                    }
-                    alert("동기화 완료! 원고가 정상적으로 복원되었습니다.");
                 }
             };
 
@@ -656,7 +747,7 @@
                     });
                     const file = await fileHandle.getFile();
                     const text = await file.text();
-                    processData(JSON.parse(text));
+                    await processData(JSON.parse(text));
                     return;
                 } catch (err) {
                     if (err.name === 'AbortError' || err.message.includes('abort')) return; // 취소 방어
@@ -712,7 +803,8 @@
 
         // 4. 슬롯 불러오기 (Slot Load)
         window.executeImportToCurrentSlot = async function() {
-            const processSlotData = function(data) {
+            // [수정] async화 + IndexedDB 저장 실패를 실제로 표시하도록 변경 (기존 버그 수정 지점)
+            const processSlotData = async function(data) {
                 const activeS = window.getSafeActiveSlot();
                 if (!activeS) { alert("원고를 불러올 대상 슬롯이 없습니다."); return; }
                 if (confirm("이 파일을 현재 열려 있는 슬롯에 덮어씌울까요?")) {
@@ -724,8 +816,14 @@
                         const firstSlot = data.projects[0].slots[0];
                         activeS.title = firstSlot.title; activeS.original = firstSlot.original; activeS.cards = firstSlot.cards;
                     }
-                    try { localStorage.setItem('dragon_v1_sovereign_db', JSON.stringify(window.sovereignDb)); window.executeFullUIRenderCycle(); } catch(e) {}
-                    alert("슬롯 원고 불러오기 성공!");
+                    try {
+                        await idbSave(window.sovereignDb);
+                        window.executeFullUIRenderCycle();
+                        alert("슬롯 원고 불러오기 성공!");
+                    } catch (err) {
+                        console.error('[Sovereign] 슬롯 불러오기 저장 실패:', err);
+                        alert('불러오기에 실패했습니다 (저장 오류): ' + (err && err.message ? err.message : err));
+                    }
                 }
             };
 
@@ -737,7 +835,7 @@
                     });
                     const file = await fileHandle.getFile();
                     const text = await file.text();
-                    processSlotData(JSON.parse(text));
+                    await processSlotData(JSON.parse(text));
                     return;
                 } catch (err) {
                     if (err.name === 'AbortError' || err.message.includes('abort')) return;
@@ -981,7 +1079,8 @@
             return t.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-dialog">$&</span>').replace(/[\(\[][가-힣a-zA-Z\s]+[\)\]]/g, '<span class="hl-sfx">$&</span>');
         };
 
-        window.bootSovereign();
+        // [수정] 동기 부팅 -> 비동기 IndexedDB 초기화로 교체
+        initSovereignStorage();
 
     </script>
 </body>
